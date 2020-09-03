@@ -5,8 +5,8 @@ import { AppService } from './app.service';
 export class AppController {
   constructor(private readonly appService: AppService) {}
 
-  @Get('m2InventoryOpening')
-  async processM2InventoryOpening() {
-    return await this.appService.processM2InventoryOpening();
+  @Get('patch-inventory-book')
+  async patchM2InventoryBookFromM2InventoryOpening() {
+    return await this.appService.patchM2InventoryBookFromM2InventoryOpening();
   }
 }
