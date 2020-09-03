@@ -8,6 +8,7 @@ import { M2InventoryOpening } from './model/interfaces/m2-inventory-opening.inte
 import { User } from './model/interfaces/user.interface';
 import { Branch } from './model/interfaces/branch.interface';
 import { M2Inventory } from './model/interfaces/m2-inventory.interface';
+import { TemporaryInventoryBook } from './model/interfaces/temp-inventory-book.interface';
 
 @Injectable()
 export class AppService {
@@ -22,9 +23,11 @@ export class AppService {
     private readonly branchModel: Model<Branch>,
     @InjectModel('M2Inventory')
     private readonly m2InventoryModel: Model<M2Inventory>,
+    @InjectModel('TemporaryInventoryBook')
+    private readonly temporaryInventoryBookModel: Model<TemporaryInventoryBook>,
   ) {}
 
-  async patchM2InventoryBookFromM2InventoryOpening() {
+  async setTempM2InventoryBookFromM2InventoryOpening() {
     const queryPipeline = (
       outputCollectionName: string,
       openingDate: Date,
@@ -32,7 +35,21 @@ export class AppService {
       createdUpdatedDate: Date,
     ) => {
       return [
-        { $addFields: { rowAssetValue: { $multiply: ['$pRate', '$qty'] } } },
+        {
+          $addFields: {
+            rowAssetValue: {
+              $round: [
+                {
+                  $multiply: [
+                    { $subtract: ['$pRate', { $multiply: ['$pRate', 0.1] }] },
+                    '$qty',
+                  ],
+                },
+                2,
+              ],
+            },
+          },
+        },
         {
           $group: {
             _id: { inventoryId: '$inventory', branchId: '$branch' },
@@ -111,9 +128,12 @@ export class AppService {
 
     const user = await this.userModel.findOne({ username: 'admin' });
     const userId = (user._id as any).toString();
-    const tempCollectionName = 'InventoryBook2';
+    const tempCollectionName = this.temporaryInventoryBookModel.collection.name;
     const openingDate = new Date(Date.UTC(2020, 7, 23, 0, 0, 0, 0)); // jan = 0
     const createdUpdatedDate = new Date(Date.UTC(2020, 8, 3, 0, 0, 0, 0));
+    await this.m2InventoryOpeningModel.deleteMany({
+      inventory: '5f416bc26daef1963b317c63',
+    });
     await this.m2InventoryOpeningModel.aggregate(
       queryPipeline(
         tempCollectionName,
@@ -122,5 +142,129 @@ export class AppService {
         createdUpdatedDate,
       ),
     );
+
+    const count = await this.temporaryInventoryBookModel.collection.countDocuments();
+    return {
+      message: `${count} documents created in ${this.temporaryInventoryBookModel.collection.name}`,
+    };
+  }
+
+  async patchM2InventoryBookFromM2InventoryOpening() {
+    const tempInvBooks = await this.temporaryInventoryBookModel.find({});
+    const invBooks = await this.inventoryBookModel.find(
+      { voucherType: 'INVENTORY_OPENING' },
+      { _id: 1, inventoryId: 1, branchId: 1 },
+    );
+    const updateEntries = [];
+    const insertEntries = [];
+    const errorEntries = [];
+    for (const tempInvBook of tempInvBooks) {
+      const entry = invBooks.find(
+        i =>
+          i.inventoryId === tempInvBook.inventoryId &&
+          i.branchId === tempInvBook.branchId,
+      );
+      if (entry) {
+        const updateObj = {
+          updateOne: {
+            filter: {
+              inventoryId: tempInvBook.inventoryId,
+              branchId: tempInvBook.branchId,
+            },
+            update: {
+              $set: {
+                inventoryId: tempInvBook.inventoryId,
+                inventoryName: tempInvBook.inventoryName,
+                branchId: tempInvBook.branchId,
+                branchName: tempInvBook.branchName,
+                assetValue: tempInvBook.assetValue,
+                inward: tempInvBook.inward,
+                saleValue: 0,
+                outward: 0,
+                date: tempInvBook.date,
+                refNo: '',
+                voucherNo: '',
+                createdAt: tempInvBook.createdAt,
+                updatedAt: tempInvBook.updatedAt,
+                createdBy: tempInvBook.createdBy,
+                updatedBy: tempInvBook.updatedBy,
+                voucherId: null,
+                voucherType: 'INVENTORY_OPENING',
+                voucherName: 'Inventory Opening',
+                warehouseId: null,
+                warehouseName: null,
+                collectionName: this.m2InventoryOpeningModel.collection.name,
+              },
+            },
+          },
+        };
+        updateEntries.push(updateObj);
+      } else {
+        if (tempInvBook.inventoryName) {
+          const insertObj = {
+            inventoryId: tempInvBook.inventoryId,
+            inventoryName: tempInvBook.inventoryName,
+            branchId: tempInvBook.branchId,
+            branchName: tempInvBook.branchName,
+            assetValue: tempInvBook.assetValue,
+            inward: tempInvBook.inward,
+            saleValue: 0,
+            outward: 0,
+            date: tempInvBook.date,
+            refNo: '',
+            voucherNo: '',
+            createdAt: tempInvBook.createdAt,
+            updatedAt: tempInvBook.updatedAt,
+            createdBy: tempInvBook.createdBy,
+            updatedBy: tempInvBook.updatedBy,
+            voucherId: null,
+            voucherType: 'INVENTORY_OPENING',
+            voucherName: 'Inventory Opening',
+            warehouseId: null,
+            warehouseName: null,
+            collectionName: this.m2InventoryOpeningModel.collection.name,
+          };
+          insertEntries.push(insertObj);
+        } else {
+          errorEntries.push({
+            inventoryId: tempInvBook.inventoryId,
+            inventoryName: tempInvBook.inventoryName,
+            branchId: tempInvBook.branchId,
+            branchName: tempInvBook.branchName,
+          });
+        }
+      }
+    }
+    console.log('bulkWrite starts...');
+    await this.inventoryBookModel.bulkWrite(updateEntries);
+    console.log('insertMany starts...');
+    await this.inventoryBookModel.insertMany(insertEntries);
+
+    return {
+      UpdatedEntries: updateEntries.length,
+      NewEntries: insertEntries.length,
+      ErrorEntries: JSON.stringify(errorEntries),
+    };
+  }
+
+  async copyM2InventoryBook() {
+    const queryPipeline = (outputCollectionName: string) => {
+      return [
+        { $match: { voucherType: 'INVENTORY_OPENING' } },
+        {
+          $merge: {
+            into: outputCollectionName,
+          },
+        },
+      ];
+    };
+
+    await this.inventoryBookModel.aggregate(
+      queryPipeline('inventorybooksexisting'),
+    );
+    return {
+      message:
+        'existing inventory opening records copied from inventorybooks to inventorybooks_existing',
+    };
   }
 }
