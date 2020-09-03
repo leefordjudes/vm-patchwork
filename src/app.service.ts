@@ -9,6 +9,7 @@ import { User } from './model/interfaces/user.interface';
 import { Branch } from './model/interfaces/branch.interface';
 import { M2Inventory } from './model/interfaces/m2-inventory.interface';
 import { TemporaryInventoryBook } from './model/interfaces/temp-inventory-book.interface';
+import { VendorPending } from './model/interfaces/vendor-pending.interface';
 
 @Injectable()
 export class AppService {
@@ -25,6 +26,8 @@ export class AppService {
     private readonly m2InventoryModel: Model<M2Inventory>,
     @InjectModel('TemporaryInventoryBook')
     private readonly temporaryInventoryBookModel: Model<TemporaryInventoryBook>,
+    @InjectModel('VendorPending')
+    private readonly vendorPendingModel: Model<VendorPending>,
   ) {}
 
   async setTempM2InventoryBookFromM2InventoryOpening() {
@@ -266,5 +269,53 @@ export class AppService {
       message:
         'existing inventory opening records copied from inventorybooks to inventorybooks_existing',
     };
+  }
+
+  async adjustVendorPending() {
+    const queryPipeline = () => {
+      return [
+        {
+          $addFields: { opening_adjusted: { $sum: ['$opening', '$adjusted'] } },
+        },
+        {
+          $addFields: {
+            opening_adjusted_closing: {
+              $subtract: ['$opening_adjusted', '$closing'],
+            },
+          },
+        },
+        {
+          $match: { opening_adjusted_closing: { $ne: 0 } },
+        },
+        {
+          $project: {
+            _id: 1,
+            opening: 1,
+            adjusted: 1,
+            closing: 1,
+            vendor: 1,
+            opening_adjusted: 1,
+          },
+        },
+      ];
+    };
+
+    const vendorPendings = await this.vendorPendingModel.aggregate(
+      queryPipeline(),
+    );
+    const vendorPendingUpdateObj = [];
+    for (const vp of vendorPendings) {
+      const updateObj = {
+        updateOne: {
+          filter: { _id: vp._id },
+          update: {
+            $set: { closing: vp.opening_adjusted },
+          },
+        },
+      };
+      vendorPendingUpdateObj.push(updateObj);
+    }
+    await this.vendorPendingModel.bulkWrite(vendorPendingUpdateObj);
+    return { message: `${vendorPendingUpdateObj.length} records updated` };
   }
 }

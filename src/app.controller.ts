@@ -19,4 +19,9 @@ export class AppController {
   async copyM2InventoryBook() {
     return await this.appService.copyM2InventoryBook();
   }
+
+  @Put('adjust-vendor-pending')
+  async adjustVendorPending() {
+    return await this.appService.adjustVendorPending();
+  }
 }

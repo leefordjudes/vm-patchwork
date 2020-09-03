@@ -9,6 +9,7 @@ import { userSchema } from './model/schemas/user.schema';
 import { branchSchema } from './model/schemas/branch.schema';
 import { m2InventorySchema } from './model/schemas/m2-inventory.schema';
 import { tempInventoryBookSchema } from './model/schemas/temp-inventory-book.schema';
+import { vendorPendingSchema } from './model/schemas/vendor-pending.schema';
 
 // const URI = 'mongodb+srv://username:password@host/database?retryWrites=true&w=majority';
 const URI = 'mongodb://localhost/velavanmedical';
@@ -29,6 +30,7 @@ const URI = 'mongodb://localhost/velavanmedical';
       { name: 'Branch', schema: branchSchema },
       { name: 'M2Inventory', schema: m2InventorySchema },
       { name: 'TemporaryInventoryBook', schema: tempInventoryBookSchema },
+      { name: 'VendorPending', schema: vendorPendingSchema },
     ]),
   ],
   controllers: [AppController],
