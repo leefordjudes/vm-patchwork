@@ -318,4 +318,12 @@ export class AppService {
     await this.vendorPendingModel.bulkWrite(vendorPendingUpdateObj);
     return { message: `${vendorPendingUpdateObj.length} records updated` };
   }
+
+  async updateInventoryBookDate() {
+    const openingDate = new Date(Date.UTC(2020, 2, 31, 0, 0, 0, 0)); // jan = 0, 31-Mar-2020 00:00:00
+    await this.inventoryBookModel.updateMany(
+      { voucherType: 'INVENTORY_OPENING' },
+      { $set: { date: openingDate } },
+    );
+  }
 }

@@ -24,4 +24,9 @@ export class AppController {
   async adjustVendorPending() {
     return await this.appService.adjustVendorPending();
   }
+
+  @Put('update-inventory-book-date')
+  async updateInventoryBookDate() {
+    return await this.appService.updateInventoryBookDate();
+  }
 }
