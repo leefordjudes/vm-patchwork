@@ -345,7 +345,20 @@ export class AppService {
       updateCustomerObj,
     );
     console.log('customers bulkwrite end...');
-    return customerUpdateResult;
+
+    const createdUpdatedByResult = await this.customerModel.update(
+      { createdBy: { $type: 7 } },
+      [
+        {
+          $set: {
+            createdBy: { $toString: '$createdBy' },
+            updatedBy: { $toString: '$updatedBy' },
+          },
+        },
+      ],
+    );
+
+    return { customerUpdateResult, createdUpdatedByResult };
   }
 
   private async updateVendors() {
@@ -2214,6 +2227,17 @@ export class AppService {
   }
 
   async updateDatabaseRecords(orgType: string) {
+    return await this.customerModel.update({ createdBy: { $type: 7 } }, [
+      {
+        $set: {
+          createdBy: { $toString: '$createdBy' },
+          updatedBy: { $toString: '$updatedBy' },
+        },
+      },
+    ]);
+  }
+
+  async updateDatabaseRecords1(orgType: string) {
     const taxes = await this.updateTaxes();
     const accounts = await this.updateAccounts();
     const vouchernumberings = await this.updateVoucherNumberings();
