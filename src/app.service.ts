@@ -324,22 +324,6 @@ export class AppService {
       updateCustomerObj.push(updateObj);
     }
     console.log('customers addressInfo country update object created');
-
-    const createdByUpdatedBy = {
-      updateMany: {
-        filter: {
-          createdBy: '5f1aedb59ea5c9186b75ab77',
-        },
-        update: {
-          $set: {
-            createdBy: '5f1aedb59ea5c9186b75ab77',
-            updatedBy: '5f1aedb59ea5c9186b75ab77',
-          },
-        },
-      },
-    };
-    updateCustomerObj.push(createdByUpdatedBy);
-
     console.log('customers bulkwrite start...');
     const customerUpdateResult = await this.customerModel.bulkWrite(
       updateCustomerObj,
@@ -2214,17 +2198,6 @@ export class AppService {
   }
 
   async updateDatabaseRecords(orgType: string) {
-    return await this.customerModel.update({ createdBy: { $type: 7 } }, [
-      {
-        $set: {
-          createdBy: { $toString: '$createdBy' },
-          updatedBy: { $toString: '$updatedBy' },
-        },
-      },
-    ]);
-  }
-
-  async updateDatabaseRecords1(orgType: string) {
     const taxes = await this.updateTaxes();
     const accounts = await this.updateAccounts();
     const vouchernumberings = await this.updateVoucherNumberings();
