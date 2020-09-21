@@ -42,8 +42,8 @@ export const m2CashSaleReturnSchema = new Schema(
         type: {
           regType: {
             type: {
-              defaultName: String,
               name: String,
+              defaultName: String,
             },
           },
           gstNo: {
@@ -63,8 +63,8 @@ export const m2CashSaleReturnSchema = new Schema(
         type: {
           regType: {
             type: {
-              defaultName: String,
               name: String,
+              defaultName: String,
             },
           },
           gstNo: {

@@ -48,25 +48,25 @@ export class AppService {
     private readonly m2CreditPurchaseModel: Model<iface.M2CreditPurchase>,
     @InjectModel('M1CashSaleReturn')
     private readonly m1CashSaleReturnModel: Model<iface.M1CashSaleReturn>,
-    @InjectModel('M2CashSale')
+    @InjectModel('M2CashSaleReturn')
     private readonly m2CashSaleReturnModel: Model<iface.M2CashSaleReturn>,
-    @InjectModel('M1CreditSale')
+    @InjectModel('M1CreditSaleReturn')
     private readonly m1CreditSaleReturnModel: Model<iface.M1CreditSaleReturn>,
-    @InjectModel('M2CreditSale')
+    @InjectModel('M2CreditSaleReturn')
     private readonly m2CreditSaleReturnModel: Model<iface.M2CreditSaleReturn>,
-    @InjectModel('M1CashPurchase')
+    @InjectModel('M1CashPurchaseReturn')
     private readonly m1CashPurchaseReturnModel: Model<
       iface.M1CashPurchaseReturn
     >,
-    @InjectModel('M2CashPurchase')
+    @InjectModel('M2CashPurchaseReturn')
     private readonly m2CashPurchaseReturnModel: Model<
       iface.M2CashPurchaseReturn
     >,
-    @InjectModel('M1CreditPurchase')
+    @InjectModel('M1CreditPurchaseReturn')
     private readonly m1CreditPurchaseReturnModel: Model<
       iface.M1CreditPurchaseReturn
     >,
-    @InjectModel('M2CreditPurchase')
+    @InjectModel('M2CreditPurchaseReturn')
     private readonly m2CreditPurchaseReturnModel: Model<
       iface.M2CreditPurchaseReturn
     >,
@@ -94,8 +94,20 @@ export class AppService {
     console.log('taxes update object created.');
     console.log('taxes bulkwrite start...');
     const taxUpdateResult = await this.taxModel.bulkWrite(updateTaxObj);
-    console.log('taxes bulkwrite end...');
-    return taxUpdateResult;
+    console.log('taxes bulkwrite end');
+    console.log('taxes created by, updated by update many start...');
+    const taxCreatedByUpdateResult = await this.taxModel.updateMany(
+      { createdBy: 'bala79adv' },
+      {
+        $set: {
+          createdBy: '5f1aedb59ea5c9186b75ab77',
+          updatedBy: '5f1aedb59ea5c9186b75ab77',
+        },
+      },
+    );
+    console.log('taxes created by, updated by update many end');
+
+    return { taxUpdateResult, taxCreatedByUpdateResult };
   }
 
   private async updateAccounts() {
@@ -105,7 +117,18 @@ export class AppService {
       { $unset: { 'type.id': 1 } },
     );
     console.log('accounts update many ends...');
-    return accountUpdateResult;
+    console.log('accounts created by, updated by update many start...');
+    const accountCreatedByUpdateResult = await this.accountModel.updateMany(
+      { createdBy: 'bala79adv' },
+      {
+        $set: {
+          createdBy: '5f1aedb59ea5c9186b75ab77',
+          updatedBy: '5f1aedb59ea5c9186b75ab77',
+        },
+      },
+    );
+    console.log('accounts created by, updated by update many end');
+    return { accountUpdateResult, accountCreatedByUpdateResult };
   }
 
   private async updateVoucherNumberings() {
@@ -410,6 +433,7 @@ export class AppService {
   }
 
   private async updateGSTTransactions() {
+    /*
     console.log('GST Transaction update object create starts');
     const dbStates = await this.stateModel.find({});
     const states = _.map(dbStates, elm =>
@@ -436,6 +460,7 @@ export class AppService {
     );
     console.log('GST Transaction bulkwrite end');
     return GSTtransactionUpdateResult;
+    */
   }
 
   private async updateCustomerBook() {
@@ -451,7 +476,7 @@ export class AppService {
     );
     return customerBookUpdateResult;
   }
-
+  // ntckd
   private async updateM1CashSale() {
     console.log(
       'M1 cash sale gstInfo source regType update object create start...',
@@ -729,7 +754,7 @@ export class AppService {
     console.log('M2 cash sale bulkwrite end...');
     return m2cashSaleUpdateResult;
   }
-
+  // ntckd
   private async updateM1CreditSale() {
     console.log(
       'M1 credit sale gstInfo source regType update object create start...',
@@ -1406,7 +1431,7 @@ export class AppService {
 
   private async updateM1CashSaleReturn() {
     console.log(
-      'M1 cash sale gstInfo source regType update object create start...',
+      'M1 cash sale return gstInfo source regType update object create start...',
     );
     const updateM1CashSaleReturnObj = [];
     for (const regType of GST_REGISTRATION) {
@@ -1425,9 +1450,11 @@ export class AppService {
       };
       updateM1CashSaleReturnObj.push(updateObj);
     }
-    console.log('M1 cash sale gstInfo source regType update object created');
     console.log(
-      'M1 cash sale gstInfo destination regType update object create start...',
+      'M1 cash sale return gstInfo source regType update object created',
+    );
+    console.log(
+      'M1 cash sale return gstInfo destination regType update object create start...',
     );
     for (const regType of GST_REGISTRATION) {
       const updateObj = {
@@ -1446,10 +1473,10 @@ export class AppService {
       updateM1CashSaleReturnObj.push(updateObj);
     }
     console.log(
-      'M1 cash sale gstInfo destination regType update object created',
+      'M1 cash sale return gstInfo destination regType update object created',
     );
     console.log(
-      'M1 cash sale gstInfo source location update object create start...',
+      'M1 cash sale return gstInfo source location update object create start...',
     );
     for (const state of STATE) {
       const updateObj = {
@@ -1467,9 +1494,11 @@ export class AppService {
       };
       updateM1CashSaleReturnObj.push(updateObj);
     }
-    console.log('M1 cash sale gstInfo source location update object created');
     console.log(
-      'M1 cash sale gstInfo destination location update object create start...',
+      'M1 cash sale return gstInfo source location update object created',
+    );
+    console.log(
+      'M1 cash sale return gstInfo destination location update object create start...',
     );
     for (const state of STATE) {
       const updateObj = {
@@ -1488,19 +1517,19 @@ export class AppService {
       updateM1CashSaleReturnObj.push(updateObj);
     }
     console.log(
-      'M1 cash sale gstInfo destination location update object created',
+      'M1 cash sale return gstInfo destination location update object created',
     );
     console.log('M1 cash sale return bulkwrite start...');
     const m1cashSaleReturnUpdateResult = await this.m1CashSaleReturnModel.bulkWrite(
       updateM1CashSaleReturnObj,
     );
-    console.log('M1 cash sale bulkwrite end...');
+    console.log('M1 cash sale return bulkwrite end...');
     return m1cashSaleReturnUpdateResult;
   }
 
   private async updateM2CashSaleReturn() {
     console.log(
-      'M2 cash sale gstInfo source regType update object create start...',
+      'M2 cash sale return gstInfo source regType update object create start...',
     );
     const updateM2CashSaleReturnObj = [];
     for (const regType of GST_REGISTRATION) {
@@ -1519,9 +1548,11 @@ export class AppService {
       };
       updateM2CashSaleReturnObj.push(updateObj);
     }
-    console.log('M2 cash sale gstInfo source regType update object created');
     console.log(
-      'M2 cash sale gstInfo destination regType update object create start...',
+      'M2 cash sale return gstInfo source regType update object created',
+    );
+    console.log(
+      'M2 cash sale return gstInfo destination regType update object create start...',
     );
     for (const regType of GST_REGISTRATION) {
       const updateObj = {
@@ -1540,10 +1571,10 @@ export class AppService {
       updateM2CashSaleReturnObj.push(updateObj);
     }
     console.log(
-      'M2 cash sale gstInfo destination regType update object created',
+      'M2 cash sale return gstInfo destination regType update object created',
     );
     console.log(
-      'M2 cash sale gstInfo source location update object create start...',
+      'M2 cash sale return gstInfo source location update object create start...',
     );
     for (const state of STATE) {
       const updateObj = {
@@ -1561,9 +1592,11 @@ export class AppService {
       };
       updateM2CashSaleReturnObj.push(updateObj);
     }
-    console.log('M2 cash sale gstInfo source location update object created');
     console.log(
-      'M2 cash sale gstInfo destination location update object create start...',
+      'M2 cash sale return gstInfo source location update object created',
+    );
+    console.log(
+      'M2 cash sale return gstInfo destination location update object create start...',
     );
     for (const state of STATE) {
       const updateObj = {
@@ -1582,19 +1615,19 @@ export class AppService {
       updateM2CashSaleReturnObj.push(updateObj);
     }
     console.log(
-      'M2 cash sale gstInfo destination location update object created',
+      'M2 cash sale return gstInfo destination location update object created',
     );
-    console.log('M2 cash sale return bulkwrite start...');
+    console.log('M2 cash sale return return bulkwrite start...');
     const m2cashSaleReturnUpdateResult = await this.m2CashSaleReturnModel.bulkWrite(
       updateM2CashSaleReturnObj,
     );
-    console.log('M2 cash sale bulkwrite end...');
+    console.log('M2 cash sale return bulkwrite end...');
     return m2cashSaleReturnUpdateResult;
   }
 
   private async updateM1CreditSaleReturn() {
     console.log(
-      'M1 credit sale gstInfo source regType update object create start...',
+      'M1 credit sale return gstInfo source regType update object create start...',
     );
     const updateM1CreditSaleReturnObj = [];
     for (const regType of GST_REGISTRATION) {
@@ -1613,9 +1646,11 @@ export class AppService {
       };
       updateM1CreditSaleReturnObj.push(updateObj);
     }
-    console.log('M1 credit sale gstInfo source regType update object created');
     console.log(
-      'M1 credit sale gstInfo destination regType update object create start...',
+      'M1 credit sale return gstInfo source regType update object created',
+    );
+    console.log(
+      'M1 credit sale return gstInfo destination regType update object create start...',
     );
     for (const regType of GST_REGISTRATION) {
       const updateObj = {
@@ -1634,10 +1669,10 @@ export class AppService {
       updateM1CreditSaleReturnObj.push(updateObj);
     }
     console.log(
-      'M1 credit sale gstInfo destination regType update object created',
+      'M1 credit sale return gstInfo destination regType update object created',
     );
     console.log(
-      'M1 credit sale gstInfo source location update object create start...',
+      'M1 credit sale return gstInfo source location update object create start...',
     );
     for (const state of STATE) {
       const updateObj = {
@@ -1655,9 +1690,11 @@ export class AppService {
       };
       updateM1CreditSaleReturnObj.push(updateObj);
     }
-    console.log('M1 credit sale gstInfo source location update object created');
     console.log(
-      'M1 credit sale gstInfo destination location update object create start...',
+      'M1 credit sale return gstInfo source location update object created',
+    );
+    console.log(
+      'M1 credit sale return gstInfo destination location update object create start...',
     );
     for (const state of STATE) {
       const updateObj = {
@@ -1676,19 +1713,19 @@ export class AppService {
       updateM1CreditSaleReturnObj.push(updateObj);
     }
     console.log(
-      'M1 credit sale gstInfo destination location update object created',
+      'M1 credit sale return gstInfo destination location update object created',
     );
     console.log('M1 credit sale return bulkwrite start...');
     const m1creditSaleReturnUpdateResult = await this.m1CreditSaleReturnModel.bulkWrite(
       updateM1CreditSaleReturnObj,
     );
-    console.log('M1 credit sale bulkwrite end...');
+    console.log('M1 credit sale return bulkwrite end...');
     return m1creditSaleReturnUpdateResult;
   }
 
   private async updateM2CreditSaleReturn() {
     console.log(
-      'M2 credit sale gstInfo source regType update object create start...',
+      'M2 credit sale return gstInfo source regType update object create start...',
     );
     const updateM2CreditSaleReturnObj = [];
     for (const regType of GST_REGISTRATION) {
@@ -1707,9 +1744,11 @@ export class AppService {
       };
       updateM2CreditSaleReturnObj.push(updateObj);
     }
-    console.log('M2 credit sale gstInfo source regType update object created');
     console.log(
-      'M2 credit sale gstInfo destination regType update object create start...',
+      'M2 credit sale return gstInfo source regType update object created',
+    );
+    console.log(
+      'M2 credit sale return gstInfo destination regType update object create start...',
     );
     for (const regType of GST_REGISTRATION) {
       const updateObj = {
@@ -1728,10 +1767,10 @@ export class AppService {
       updateM2CreditSaleReturnObj.push(updateObj);
     }
     console.log(
-      'M2 credit sale gstInfo destination regType update object created',
+      'M2 credit sale return gstInfo destination regType update object created',
     );
     console.log(
-      'M2 credit sale gstInfo source location update object create start...',
+      'M2 credit sale return gstInfo source location update object create start...',
     );
     for (const state of STATE) {
       const updateObj = {
@@ -1749,9 +1788,11 @@ export class AppService {
       };
       updateM2CreditSaleReturnObj.push(updateObj);
     }
-    console.log('M2 credit sale gstInfo source location update object created');
     console.log(
-      'M2 credit sale gstInfo destination location update object create start...',
+      'M2 credit sale return gstInfo source location update object created',
+    );
+    console.log(
+      'M2 credit sale return gstInfo destination location update object create start...',
     );
     for (const state of STATE) {
       const updateObj = {
@@ -1770,19 +1811,19 @@ export class AppService {
       updateM2CreditSaleReturnObj.push(updateObj);
     }
     console.log(
-      'M2 credit sale gstInfo destination location update object created',
+      'M2 credit sale return gstInfo destination location update object created',
     );
     console.log('M2 credit sale return bulkwrite start...');
     const m2creditSaleReturnUpdateResult = await this.m2CreditSaleReturnModel.bulkWrite(
       updateM2CreditSaleReturnObj,
     );
-    console.log('M2 credit sale bulkwrite end...');
+    console.log('M2 credit sale return bulkwrite end...');
     return m2creditSaleReturnUpdateResult;
   }
 
   private async updateM1CashPurchaseReturn() {
     console.log(
-      'M1 cash Purchase gstInfo source regType update object create start...',
+      'M1 cash Purchase return gstInfo source regType update object create start...',
     );
     const updateM1CashPurchaseReturnObj = [];
     for (const regType of GST_REGISTRATION) {
@@ -1802,10 +1843,10 @@ export class AppService {
       updateM1CashPurchaseReturnObj.push(updateObj);
     }
     console.log(
-      'M1 cash Purchase gstInfo source regType update object created',
+      'M1 cash Purchase return gstInfo source regType update object created',
     );
     console.log(
-      'M1 cash Purchase gstInfo destination regType update object create start...',
+      'M1 cash Purchase return gstInfo destination regType update object create start...',
     );
     for (const regType of GST_REGISTRATION) {
       const updateObj = {
@@ -1824,10 +1865,10 @@ export class AppService {
       updateM1CashPurchaseReturnObj.push(updateObj);
     }
     console.log(
-      'M1 cash Purchase gstInfo destination regType update object created',
+      'M1 cash Purchase return gstInfo destination regType update object created',
     );
     console.log(
-      'M1 cash Purchase gstInfo source location update object create start...',
+      'M1 cash Purchase return gstInfo source location update object create start...',
     );
     for (const state of STATE) {
       const updateObj = {
@@ -1846,10 +1887,10 @@ export class AppService {
       updateM1CashPurchaseReturnObj.push(updateObj);
     }
     console.log(
-      'M1 cash Purchase gstInfo source location update object created',
+      'M1 cash Purchase return gstInfo source location update object created',
     );
     console.log(
-      'M1 cash Purchase gstInfo destination location update object create start...',
+      'M1 cash Purchase return gstInfo destination location update object create start...',
     );
     for (const state of STATE) {
       const updateObj = {
@@ -1868,19 +1909,19 @@ export class AppService {
       updateM1CashPurchaseReturnObj.push(updateObj);
     }
     console.log(
-      'M1 cash Purchase gstInfo destination location update object created',
+      'M1 cash Purchase return gstInfo destination location update object created',
     );
     console.log('M1 cash Purchase return bulkwrite start...');
     const m1cashPurchaseReturnUpdateResult = await this.m1CashPurchaseReturnModel.bulkWrite(
       updateM1CashPurchaseReturnObj,
     );
-    console.log('M1 cash Purchase bulkwrite end...');
+    console.log('M1 cash Purchase return bulkwrite end...');
     return m1cashPurchaseReturnUpdateResult;
   }
 
   private async updateM2CashPurchaseReturn() {
     console.log(
-      'M2 cash Purchase gstInfo source regType update object create start...',
+      'M2 cash Purchase return gstInfo source regType update object create start...',
     );
     const updateM2CashPurchaseReturnObj = [];
     for (const regType of GST_REGISTRATION) {
@@ -1900,10 +1941,10 @@ export class AppService {
       updateM2CashPurchaseReturnObj.push(updateObj);
     }
     console.log(
-      'M2 cash Purchase gstInfo source regType update object created',
+      'M2 cash Purchase return gstInfo source regType update object created',
     );
     console.log(
-      'M2 cash Purchase gstInfo destination regType update object create start...',
+      'M2 cash Purchase return gstInfo destination regType update object create start...',
     );
     for (const regType of GST_REGISTRATION) {
       const updateObj = {
@@ -1922,10 +1963,10 @@ export class AppService {
       updateM2CashPurchaseReturnObj.push(updateObj);
     }
     console.log(
-      'M2 cash Purchase gstInfo destination regType update object created',
+      'M2 cash Purchase return gstInfo destination regType update object created',
     );
     console.log(
-      'M2 cash Purchase gstInfo source location update object create start...',
+      'M2 cash Purchase return gstInfo source location update object create start...',
     );
     for (const state of STATE) {
       const updateObj = {
@@ -1944,10 +1985,10 @@ export class AppService {
       updateM2CashPurchaseReturnObj.push(updateObj);
     }
     console.log(
-      'M2 cash Purchase gstInfo source location update object created',
+      'M2 cash Purchase return gstInfo source location update object created',
     );
     console.log(
-      'M2 cash Purchase gstInfo destination location update object create start...',
+      'M2 cash Purchase return gstInfo destination location update object create start...',
     );
     for (const state of STATE) {
       const updateObj = {
@@ -1966,19 +2007,19 @@ export class AppService {
       updateM2CashPurchaseReturnObj.push(updateObj);
     }
     console.log(
-      'M2 cash Purchase gstInfo destination location update object created',
+      'M2 cash Purchase return gstInfo destination location update object created',
     );
     console.log('M2 cash Purchase return bulkwrite start...');
     const m2cashPurchaseReturnUpdateResult = await this.m2CashPurchaseReturnModel.bulkWrite(
       updateM2CashPurchaseReturnObj,
     );
-    console.log('M2 cash Purchase bulkwrite end...');
+    console.log('M2 cash Purchase return bulkwrite end');
     return m2cashPurchaseReturnUpdateResult;
   }
 
   private async updateM1CreditPurchaseReturn() {
     console.log(
-      'M1 Credit Purchase gstInfo source regType update object create start...',
+      'M1 Credit Purchase return gstInfo source regType update object create start...',
     );
     const updateM1CreditPurchaseReturnObj = [];
     for (const regType of GST_REGISTRATION) {
@@ -1998,10 +2039,10 @@ export class AppService {
       updateM1CreditPurchaseReturnObj.push(updateObj);
     }
     console.log(
-      'M1 Credit Purchase gstInfo source regType update object created',
+      'M1 Credit Purchase return gstInfo source regType update object created',
     );
     console.log(
-      'M1 Credit Purchase gstInfo destination regType update object create start...',
+      'M1 Credit Purchase return gstInfo destination regType update object create start...',
     );
     for (const regType of GST_REGISTRATION) {
       const updateObj = {
@@ -2020,10 +2061,10 @@ export class AppService {
       updateM1CreditPurchaseReturnObj.push(updateObj);
     }
     console.log(
-      'M1 Credit Purchase gstInfo destination regType update object created',
+      'M1 Credit Purchase return gstInfo destination regType update object created',
     );
     console.log(
-      'M1 Credit Purchase gstInfo source location update object create start...',
+      'M1 Credit Purchase return gstInfo source location update object create start...',
     );
     for (const state of STATE) {
       const updateObj = {
@@ -2042,10 +2083,10 @@ export class AppService {
       updateM1CreditPurchaseReturnObj.push(updateObj);
     }
     console.log(
-      'M1 Credit Purchase gstInfo source location update object created',
+      'M1 Credit Purchase return gstInfo source location update object created',
     );
     console.log(
-      'M1 Credit Purchase gstInfo destination location update object create start...',
+      'M1 Credit Purchase return gstInfo destination location update object create start...',
     );
     for (const state of STATE) {
       const updateObj = {
@@ -2064,19 +2105,19 @@ export class AppService {
       updateM1CreditPurchaseReturnObj.push(updateObj);
     }
     console.log(
-      'M1 Credit Purchase gstInfo destination location update object created',
+      'M1 Credit Purchase return gstInfo destination location update object created',
     );
     console.log('M1 Credit Purchase return bulkwrite start...');
     const m1CreditPurchaseReturnUpdateResult = await this.m1CreditPurchaseReturnModel.bulkWrite(
       updateM1CreditPurchaseReturnObj,
     );
-    console.log('M1 Credit Purchase bulkwrite end...');
+    console.log('M1 Credit Purchase return bulkwrite end');
     return m1CreditPurchaseReturnUpdateResult;
   }
 
   private async updateM2CreditPurchaseReturn() {
     console.log(
-      'M2 Credit Purchase gstInfo source regType update object create start...',
+      'M2 Credit Purchase return gstInfo source regType update object create start...',
     );
     const updateM2CreditPurchaseReturnObj = [];
     for (const regType of GST_REGISTRATION) {
@@ -2096,10 +2137,10 @@ export class AppService {
       updateM2CreditPurchaseReturnObj.push(updateObj);
     }
     console.log(
-      'M2 Credit Purchase gstInfo source regType update object created',
+      'M2 Credit Purchase return gstInfo source regType update object created',
     );
     console.log(
-      'M2 Credit Purchase gstInfo destination regType update object create start...',
+      'M2 Credit Purchase return gstInfo destination regType update object create start...',
     );
     for (const regType of GST_REGISTRATION) {
       const updateObj = {
@@ -2118,10 +2159,10 @@ export class AppService {
       updateM2CreditPurchaseReturnObj.push(updateObj);
     }
     console.log(
-      'M2 Credit Purchase gstInfo destination regType update object created',
+      'M2 Credit Purchase return gstInfo destination regType update object created',
     );
     console.log(
-      'M2 Credit Purchase gstInfo source location update object create start...',
+      'M2 Credit Purchase return gstInfo source location update object create start...',
     );
     for (const state of STATE) {
       const updateObj = {
@@ -2140,10 +2181,10 @@ export class AppService {
       updateM2CreditPurchaseReturnObj.push(updateObj);
     }
     console.log(
-      'M2 Credit Purchase gstInfo source location update object created',
+      'M2 Credit Purchase return gstInfo source location update object created',
     );
     console.log(
-      'M2 Credit Purchase gstInfo destination location update object create start...',
+      'M2 Credit Purchase return gstInfo destination location update object create start...',
     );
     for (const state of STATE) {
       const updateObj = {
@@ -2162,13 +2203,13 @@ export class AppService {
       updateM2CreditPurchaseReturnObj.push(updateObj);
     }
     console.log(
-      'M2 Credit Purchase gstInfo destination location update object created',
+      'M2 Credit Purchase return gstInfo destination location update object created',
     );
     console.log('M2 Credit Purchase return bulkwrite start...');
     const m2CreditPurchaseReturnUpdateResult = await this.m2CreditPurchaseReturnModel.bulkWrite(
       updateM2CreditPurchaseReturnObj,
     );
-    console.log('M2 Credit Purchase bulkwrite end...');
+    console.log('M2 Credit Purchase return bulkwrite end');
     return m2CreditPurchaseReturnUpdateResult;
   }
 
@@ -2180,7 +2221,7 @@ export class AppService {
     const warehouses = await this.updateWarehouses();
     const customers = await this.updateCustomers();
     const vendors = await this.updateVendors();
-    const gstTransaction = await this.updateGSTTransactions();
+    //const gstTransaction = await this.updateGSTTransactions(); // no need to update
     const customerBook = await this.updateCustomerBook();
     let cashSale,
       creditSale,
@@ -2209,6 +2250,7 @@ export class AppService {
       cashPurchaseReturn = await this.updateM2CashPurchaseReturn();
       creditPurchaseReturn = await this.updateM2CreditPurchaseReturn();
     }
+
     return {
       taxes,
       accounts,
@@ -2217,7 +2259,7 @@ export class AppService {
       warehouses,
       customers,
       vendors,
-      gstTransaction,
+      // gstTransaction,
       customerBook,
       cashSale,
       creditSale,
