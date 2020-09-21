@@ -345,20 +345,7 @@ export class AppService {
       updateCustomerObj,
     );
     console.log('customers bulkwrite end...');
-
-    const createdUpdatedByResult = await this.customerModel.update(
-      { createdBy: { $type: 7 } },
-      [
-        {
-          $set: {
-            createdBy: { $toString: '$createdBy' },
-            updatedBy: { $toString: '$updatedBy' },
-          },
-        },
-      ],
-    );
-
-    return { customerUpdateResult, createdUpdatedByResult };
+    return customerUpdateResult;
   }
 
   private async updateVendors() {
