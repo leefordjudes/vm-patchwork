@@ -110,12 +110,25 @@ export class AppService {
 
   private async updateVoucherNumberings() {
     console.log('vouchernumberings update many start...');
-    const voucherNumberingUpdateResult = await this.voucherNumberingModel.updateMany(
+    console.log('removing voucherType.id from vouchernumberings start...');
+    const voucherNumberingUpdateResult1 = await this.voucherNumberingModel.updateMany(
       {},
       { $unset: { 'voucherType.id': 1 } },
     );
-    console.log('vouchernumberings update many ends...');
-    return voucherNumberingUpdateResult;
+    console.log('removing voucherType.id from vouchernumberings end');
+    console.log('vouchernumberings update many ends');
+
+    console.log(
+      "vouchernumberings update vourcherType from 'SALES' to 'SALE' starts",
+    );
+    const voucherNumberingUpdateResult2 = await this.voucherNumberingModel.updateMany(
+      { 'voucherType.defaultName': 'SALES' },
+      { $set: { voucherType: { name: 'Sale', defaultName: 'SALE' } } },
+    );
+    console.log(
+      "vouchernumberings update vourcherType from 'SALES' to 'SALE' ends",
+    );
+    return { voucherNumberingUpdateResult1, voucherNumberingUpdateResult2 };
   }
 
   private async updateBranches() {
