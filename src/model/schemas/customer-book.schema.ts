@@ -1,21 +1,27 @@
 import * as mongoose from 'mongoose';
 
-export const tempInventoryBookSchema = new mongoose.Schema(
+export const customerBookSchema = new mongoose.Schema(
   {
     date: {
       type: Date,
       required: true,
     },
-    inventoryId: {
+    accountId: {
       type: String,
       required: true,
     },
-    inventoryName: {
+    accountName: {
       type: String,
       required: true,
     },
-    contactId: String,
-    contactName: String,
+    altAccountId: {
+      type: String,
+      required: true,
+    },
+    altAccountName: {
+      type: String,
+      required: true,
+    },
     branchId: {
       type: String,
       required: true,
@@ -24,26 +30,18 @@ export const tempInventoryBookSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    warehouseId: String,
-    warehouseName: String,
-    inward: {
+    credit: {
       type: Number,
+      // set: (x) => roundValue(x, 2),
       required: true,
     },
-    outward: {
+    debit: {
       type: Number,
+      // set: (x) => roundValue(x, 2),
       required: true,
     },
     narration: {
       type: String,
-    },
-    saleValue: {
-      type: Number,
-      default: 0,
-    },
-    assetValue: {
-      type: Number,
-      default: 0,
     },
     voucherNo: String,
     refNo: {

@@ -1,0 +1,45 @@
+import { Document } from 'mongoose';
+
+export interface GSTtransaction extends Document {
+  id: string;
+  branchRegType: string;
+  branchName: string;
+  branchId: string;
+  branchCountry: string;
+  branchState: string;
+  branchPcode: string;
+  branchScode: string;
+  branchGstNo: string;
+  voucherId: string;
+  voucherNo: string;
+  date: Date;
+  refNo: string;
+  voucherType: string;
+  assessableValue: number;
+  assessableMmYyyy: number;
+  inventoryId: string;
+  inventoryName: string;
+  inventoryQty: number;
+  hsnCode: string;
+  gstTreatment: string;
+  gstId: string;
+  gstName: string;
+  contactType: string;
+  contactId: string;
+  contactName: string;
+  contactCountry: string;
+  contactState: string;
+  contactPcode: string;
+  contactScode: string;
+  contactGstNo: string;
+  ewaybillNo: string;
+  ewaybillDate: Date;
+  natureOfTrn: string;
+  cgstAmount: number;
+  sgstAmount: number;
+  igstAmount: number;
+  cessAmount: number;
+  rcmAmount: number;
+  lut: boolean;
+  billEntryNo: string;
+}

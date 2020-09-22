@@ -1,21 +1,17 @@
 import { Document } from 'mongoose';
 
-export interface InventoryBook extends Document {
+export interface CustomerBook extends Document {
   id: string;
   date: Date;
-  inventoryId: string;
-  inventoryName: string;
-  contactId: string;
-  contactName: string;
+  accountId: string;
+  accountName: string;
+  altAccountId: string;
+  altAccountName: string;
   branchId: string;
   branchName: string;
-  warehouseId: string;
-  warehouseName: string;
-  inward: number;
-  outward: number;
+  credit: number;
+  debit: number;
   narration: string;
-  saleValue: number;
-  assetValue: number;
   voucherNo: string;
   refNo: string;
   voucherType: string;
