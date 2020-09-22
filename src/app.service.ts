@@ -71,6 +71,14 @@ export class AppService {
     private readonly m2CreditPurchaseReturnModel: Model<
       iface.M2CreditPurchaseReturn
     >,
+    @InjectModel('M1InventoryOpening')
+    private readonly m1InventoryOpening: Model<
+      iface.M1InventoryOpening
+    >,
+    @InjectModel('M2InventoryOpening')
+    private readonly m2InventoryOpening: Model<
+      iface.M2InventoryOpening
+    >,
   ) {}
 
   private async updateTaxes() {
@@ -2200,6 +2208,20 @@ export class AppService {
     return m2CreditPurchaseReturnUpdateResult;
   }
 
+  private async updateM1InventoryOpening() {
+    console.log('M1 inventory opening update start...');
+    const updateResult = await this.m1InventoryOpening.updateMany({ pRateTaxInc: true }, { $set: { pRateTaxInc: false } });
+    console.log('M1 inventory opening update end...');
+    return updateResult;
+  }
+  
+  private async updateM2InventoryOpening() {
+    console.log('M2 inventory opening update start...');
+    const updateResult = await this.m2InventoryOpening.updateMany({ pRateTaxInc: true }, { $set: { pRateTaxInc: false } });
+    console.log('M2 inventory opening update end...');
+    return updateResult;
+  }
+
   async updateDatabaseRecords(orgType: string) {
     const taxes = await this.updateTaxes();
     const accounts = await this.updateAccounts();
@@ -2217,7 +2239,8 @@ export class AppService {
       cashPurchase,
       creditPurchase,
       cashPurchaseReturn,
-      creditPurchaseReturn;
+      creditPurchaseReturn,
+      inventoryOpening;
     if (orgType === 'm1') {
       cashSale = await this.updateM1CashSale();
       creditSale = await this.updateM1CreditSale();
@@ -2227,6 +2250,7 @@ export class AppService {
       creditSaleReturn = await this.updateM1CreditSaleReturn();
       cashPurchaseReturn = await this.updateM1CashPurchaseReturn();
       creditPurchaseReturn = await this.updateM1CreditPurchaseReturn();
+      inventoryOpening = await this.updateM1InventoryOpening();
     } else if (orgType === 'm2') {
       cashSale = await this.updateM2CashSale();
       creditSale = await this.updateM2CreditSale();
@@ -2236,6 +2260,7 @@ export class AppService {
       creditSaleReturn = await this.updateM2CreditSaleReturn();
       cashPurchaseReturn = await this.updateM2CashPurchaseReturn();
       creditPurchaseReturn = await this.updateM2CreditPurchaseReturn();
+      inventoryOpening = await this.updateM2InventoryOpening();
     }
 
     return {
@@ -2256,6 +2281,7 @@ export class AppService {
       creditSaleReturn,
       cashPurchaseReturn,
       creditPurchaseReturn,
+      inventoryOpening,
     };
   }
 }
