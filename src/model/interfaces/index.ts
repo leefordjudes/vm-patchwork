@@ -25,3 +25,4 @@ export { M2CashPurchase } from './m2-cash-purchase.interface';
 export { M2CreditPurchase } from './m2-credit-purchase.interface';
 export { M2CreditPurchaseReturn } from './m2-credit-purchase-return.interface';
 export { M2CashPurchaseReturn } from './m2-cash-purchase-return.interface';
+export { User } from './user.interface';

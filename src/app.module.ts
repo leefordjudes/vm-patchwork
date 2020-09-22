@@ -6,7 +6,7 @@ import { AppService } from './app.service';
 import * as schema from './model/schemas';
 
 // const URI = 'mongodb+srv://username:password@host/database?retryWrites=true&w=majority';
-const URI = 'mongodb://localhost/velavanmedical1';
+const URI = 'mongodb://localhost/velavanstationery';
 // const URI = 'mongodb://localhost/medical';
 
 @Module({
@@ -18,6 +18,7 @@ const URI = 'mongodb://localhost/velavanmedical1';
       useFindAndModify: false,
     }),
     MongooseModule.forFeature([
+      { name: 'User', schema: schema.userSchema },
       { name: 'Tax', schema: schema.taxSchema },
       { name: 'Branch', schema: schema.branchSchema },
       { name: 'Account', schema: schema.accountSchema },

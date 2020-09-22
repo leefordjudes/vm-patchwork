@@ -13,6 +13,7 @@ import { COUNTRY } from './fixtures/country/country';
 @Injectable()
 export class AppService {
   constructor(
+    @InjectModel('User') private readonly userModel: Model<iface.User>,
     @InjectModel('Tax') private readonly taxModel: Model<iface.Tax>,
     @InjectModel('Branch') private readonly branchModel: Model<iface.Branch>,
     @InjectModel('Account') private readonly accountModel: Model<iface.Account>,
@@ -96,12 +97,13 @@ export class AppService {
     const taxUpdateResult = await this.taxModel.bulkWrite(updateTaxObj);
     console.log('taxes bulkwrite end');
     console.log('taxes created by, updated by update many start...');
+    const user = await this.userModel.findOne({isAdmin: true});
     const taxCreatedByUpdateResult = await this.taxModel.updateMany(
-      { createdBy: 'bala79adv' },
+      { createdBy: user.username },
       {
         $set: {
-          createdBy: '5f1aedb59ea5c9186b75ab77',
-          updatedBy: '5f1aedb59ea5c9186b75ab77',
+          createdBy: (user._id as any).toString(),
+          updatedBy: (user._id as any).toString(),
         },
       },
     );
@@ -118,12 +120,13 @@ export class AppService {
     );
     console.log('accounts update many ends...');
     console.log('accounts created by, updated by update many start...');
+    const user = await this.userModel.findOne({isAdmin: true});
     const accountCreatedByUpdateResult = await this.accountModel.updateMany(
-      { createdBy: 'bala79adv' },
+      { createdBy: user.username },
       {
         $set: {
-          createdBy: '5f1aedb59ea5c9186b75ab77',
-          updatedBy: '5f1aedb59ea5c9186b75ab77',
+          createdBy: (user._id as any).toString(),
+          updatedBy: (user._id as any).toString(),
         },
       },
     );
