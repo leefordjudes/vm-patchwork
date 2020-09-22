@@ -25,3 +25,4 @@ export { m2CashPurchaseSchema } from './m2-cash-purchase.schema';
 export { m2CreditPurchaseSchema } from './m2-credit-purchase.schema';
 export { m2CreditPurchaseReturnSchema } from './m2-credit-purchase-return.schema';
 export { m2CashPurchaseReturnSchema } from './m2-cash-purchase-return.schema';
+export { userSchema } from './user.schema';
