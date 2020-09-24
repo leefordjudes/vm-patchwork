@@ -2312,7 +2312,7 @@ export class AppService {
       creditSaleReturn = await this.updateM1CreditSaleReturn();
       cashPurchaseReturn = await this.updateM1CashPurchaseReturn();
       creditPurchaseReturn = await this.updateM1CreditPurchaseReturn();
-      inventoryOpening = await this.updateM1InventoryOpening();
+      // inventoryOpening = await this.updateM1InventoryOpening();  // there is no inv opening for sample org
     } else if (orgType === 'm2') {
       cashSale = await this.updateM2CashSale();
       creditSale = await this.updateM2CreditSale();
@@ -2322,7 +2322,7 @@ export class AppService {
       creditSaleReturn = await this.updateM2CreditSaleReturn();
       cashPurchaseReturn = await this.updateM2CashPurchaseReturn();
       creditPurchaseReturn = await this.updateM2CreditPurchaseReturn();
-      inventoryOpening = await this.updateM2InventoryOpening();
+      // inventoryOpening = await this.updateM2InventoryOpening();   // there is no inv opening for sample org
     }
 
     return {
