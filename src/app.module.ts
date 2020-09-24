@@ -6,7 +6,8 @@ import { AppService } from './app.service';
 import * as schema from './model/schemas';
 
 // const URI = 'mongodb+srv://username:password@host/database?retryWrites=true&w=majority';
-const URI = 'mongodb://localhost/velavanmedical';
+// const URI = 'mongodb://localhost/velavanmedical';
+const URI = 'mongodb://localhost/velavanstationery';
 // const URI = 'mongodb://localhost/medical';
 
 @Module({

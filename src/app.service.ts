@@ -72,16 +72,60 @@ export class AppService {
       iface.M2CreditPurchaseReturn
     >,
     @InjectModel('M1InventoryOpening')
-    private readonly m1InventoryOpening: Model<
-      iface.M1InventoryOpening
-    >,
+    private readonly m1InventoryOpening: Model<iface.M1InventoryOpening>,
     @InjectModel('M2InventoryOpening')
-    private readonly m2InventoryOpening: Model<
-      iface.M2InventoryOpening
-    >,
+    private readonly m2InventoryOpening: Model<iface.M2InventoryOpening>,
   ) {}
 
-  private async updateTaxes() {
+  async updateM2CreatedByUpdatedByCustomer() {
+    const user = await this.userModel.findOne({ isAdmin: true });
+    console.log(user);
+    const createdByUpdatedByResult = await this.customerModel.updateMany(
+      {},
+      {
+        $set: {
+          createdBy: (user._id as any).toString(),
+          updatedBy: (user._id as any).toString(),
+        },
+      },
+    );
+    return createdByUpdatedByResult;
+  }
+
+  async updateCreatedByUpdatedBy(orgType: string) {
+    console.log('taxes created by, updated by update many start...');
+    const user = await this.userModel.findOne({ isAdmin: true });
+    let username;
+    if (orgType === 'm1') {
+      username = 'adminashok';
+    } else if (orgType === 'm2') {
+      username = 'bala79adv';
+    }
+    const taxCreatedByUpdateResult = await this.taxModel.updateMany(
+      { createdBy: username },
+      {
+        $set: {
+          createdBy: (user._id as any).toString(),
+          updatedBy: (user._id as any).toString(),
+        },
+      },
+    );
+    console.log('taxes created by, updated by update many end');
+    console.log('accounts created by, updated by update many start...');
+    const accountCreatedByUpdateResult = await this.accountModel.updateMany(
+      { createdBy: username },
+      {
+        $set: {
+          createdBy: (user._id as any).toString(),
+          updatedBy: (user._id as any).toString(),
+        },
+      },
+    );
+    console.log('accounts created by, updated by update many end');
+    return { taxCreatedByUpdateResult, accountCreatedByUpdateResult };
+  }
+
+  private async updateTaxes(orgType: string) {
     console.log('taxes update object create start...');
     const updateTaxObj = [];
     for (const taxType of TAX_TYPE) {
@@ -105,9 +149,15 @@ export class AppService {
     const taxUpdateResult = await this.taxModel.bulkWrite(updateTaxObj);
     console.log('taxes bulkwrite end');
     console.log('taxes created by, updated by update many start...');
-    const user = await this.userModel.findOne({isAdmin: true});
+    const user = await this.userModel.findOne({ isAdmin: true });
+    let username;
+    if (orgType === 'm1') {
+      username = 'adminashok';
+    } else if (orgType === 'm2') {
+      username = 'bala79adv';
+    }
     const taxCreatedByUpdateResult = await this.taxModel.updateMany(
-      { createdBy: user.username },
+      { createdBy: username },
       {
         $set: {
           createdBy: (user._id as any).toString(),
@@ -120,7 +170,7 @@ export class AppService {
     return { taxUpdateResult, taxCreatedByUpdateResult };
   }
 
-  private async updateAccounts() {
+  private async updateAccounts(orgType: string) {
     console.log('accounts update many start...');
     const accountUpdateResult = await this.accountModel.updateMany(
       {},
@@ -128,9 +178,15 @@ export class AppService {
     );
     console.log('accounts update many ends...');
     console.log('accounts created by, updated by update many start...');
-    const user = await this.userModel.findOne({isAdmin: true});
+    const user = await this.userModel.findOne({ isAdmin: true });
+    let username;
+    if (orgType === 'm1') {
+      username = 'adminashok';
+    } else if (orgType === 'm2') {
+      username = 'bala79adv';
+    }
     const accountCreatedByUpdateResult = await this.accountModel.updateMany(
-      { createdBy: user.username },
+      { createdBy: username },
       {
         $set: {
           createdBy: (user._id as any).toString(),
@@ -2210,21 +2266,27 @@ export class AppService {
 
   private async updateM1InventoryOpening() {
     console.log('M1 inventory opening update start...');
-    const updateResult = await this.m1InventoryOpening.updateMany({ pRateTaxInc: true }, { $set: { pRateTaxInc: false } });
+    const updateResult = await this.m1InventoryOpening.updateMany(
+      { pRateTaxInc: true },
+      { $set: { pRateTaxInc: false } },
+    );
     console.log('M1 inventory opening update end...');
     return updateResult;
   }
-  
+
   private async updateM2InventoryOpening() {
     console.log('M2 inventory opening update start...');
-    const updateResult = await this.m2InventoryOpening.updateMany({ pRateTaxInc: true }, { $set: { pRateTaxInc: false } });
+    const updateResult = await this.m2InventoryOpening.updateMany(
+      { pRateTaxInc: true },
+      { $set: { pRateTaxInc: false } },
+    );
     console.log('M2 inventory opening update end...');
     return updateResult;
   }
 
   async updateDatabaseRecords(orgType: string) {
-    const taxes = await this.updateTaxes();
-    const accounts = await this.updateAccounts();
+    const taxes = await this.updateTaxes(orgType);
+    const accounts = await this.updateAccounts(orgType);
     const vouchernumberings = await this.updateVoucherNumberings();
     const branches = await this.updateBranches();
     const warehouses = await this.updateWarehouses();
