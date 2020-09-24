@@ -95,12 +95,12 @@ export class AppService {
   async updateCreatedByUpdatedBy(orgType: string) {
     console.log('taxes created by, updated by update many start...');
     const user = await this.userModel.findOne({ isAdmin: true });
-    let username;
-    if (orgType === 'm1') {
-      username = 'adminashok';
-    } else if (orgType === 'm2') {
-      username = 'bala79adv';
-    }
+    let username = user.username;
+    // if (orgType === 'm1') {
+    //   username = 'adminashok';
+    // } else if (orgType === 'm2') {
+    //   username = 'bala79adv';
+    // }
     const taxCreatedByUpdateResult = await this.taxModel.updateMany(
       { createdBy: username },
       {
@@ -150,12 +150,12 @@ export class AppService {
     console.log('taxes bulkwrite end');
     console.log('taxes created by, updated by update many start...');
     const user = await this.userModel.findOne({ isAdmin: true });
-    let username;
-    if (orgType === 'm1') {
-      username = 'adminashok';
-    } else if (orgType === 'm2') {
-      username = 'bala79adv';
-    }
+    let username = user.username;
+    // if (orgType === 'm1') {
+    //   username = 'adminashok';
+    // } else if (orgType === 'm2') {
+    //   username = 'bala79adv';
+    // }
     const taxCreatedByUpdateResult = await this.taxModel.updateMany(
       { createdBy: username },
       {
@@ -179,12 +179,12 @@ export class AppService {
     console.log('accounts update many ends...');
     console.log('accounts created by, updated by update many start...');
     const user = await this.userModel.findOne({ isAdmin: true });
-    let username;
-    if (orgType === 'm1') {
-      username = 'adminashok';
-    } else if (orgType === 'm2') {
-      username = 'bala79adv';
-    }
+    let username = user.username;
+    // if (orgType === 'm1') {
+    //   username = 'adminashok';
+    // } else if (orgType === 'm2') {
+    //   username = 'bala79adv';
+    // }
     const accountCreatedByUpdateResult = await this.accountModel.updateMany(
       { createdBy: username },
       {
