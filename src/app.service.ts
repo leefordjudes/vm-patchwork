@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import moment = require('moment');
 import * as _ from 'lodash';
+'use strict';
+const fs = require('fs');
 
 import * as iface from './model/interfaces';
 
@@ -75,7 +78,7 @@ export class AppService {
     private readonly m1InventoryOpening: Model<iface.M1InventoryOpening>,
     @InjectModel('M2InventoryOpening')
     private readonly m2InventoryOpening: Model<iface.M2InventoryOpening>,
-  ) {}
+  ) { }
 
   async updateM2CreatedByUpdatedByCustomer() {
     const user = await this.userModel.findOne({ isAdmin: true });
@@ -2282,6 +2285,45 @@ export class AppService {
     );
     console.log('M2 inventory opening update end...');
     return updateResult;
+  }
+
+  async m2CashSaleData() {
+    const arr = [];
+    console.log('M2 CashSaleData start...');
+    const hsnCode = ['30012345', '30012346', '30012347', '30123456', '5647891', '857952', '3001547', '300457', '30010', '805879', '300783', '345785']
+    const count = await this.m2CashSaleModel.countDocuments();
+    let perPage = 1000;
+    for (let page = 0; page <= count; page=page+perPage) {
+      const transactions = await this.m2CashSaleModel
+      .find({})
+      .skip(page)
+      .limit(perPage);
+      const data = transactions.map(item => {
+        return {
+          voucherNo: item.voucherNo,
+          voucherDate: moment(new Date(item.date)).format('DD-MM-YYYY'),
+          party: 'Cash',
+          amount: item.amount,
+          voucherType: 'Regular',
+          reverseCharge: 'N',
+          gstin: item.gstInfo.destination?.gstNo ? item.gstInfo.destination?.gstNo: '',
+          pos: item.gstInfo.destination?.location?.defaultName === 'TAMILNADU' ? '33' : '',
+          orderDate: moment(new Date(item.date)).format('DD-MM-YYYY'),
+          items: item.invTrns.map(inv => {
+            return {
+              itemType: 'GOODS',
+              hsnsac: hsnCode[Math.floor(Math.random()*hsnCode.length)],
+              qty: inv.qty,
+              taxableValue: inv.taxableAmount,
+            }
+          })
+        }
+      });
+      arr.push(data);
+    }
+    const writeData = JSON.stringify(arr);
+    fs.writeFileSync('sale.json', writeData);
+    return 'file location vm-pachwork/sale.json';
   }
 
   async updateDatabaseRecords(orgType: string) {

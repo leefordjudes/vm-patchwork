@@ -1,4 +1,4 @@
-import { Body, Controller, Post, Put } from '@nestjs/common';
+import { Body, Controller, Get, Put, Query } from '@nestjs/common';
 import { AppService } from './app.service';
 
 @Controller()
@@ -17,4 +17,9 @@ export class AppController {
   async updateM2CreatedByUpdatedByCustomer() {
     return await this.appService.updateM2CreatedByUpdatedByCustomer();
   }
+  @Get('m2-cash-sale')
+  async m2CashSaleData() {
+    return await this.appService.m2CashSaleData();
+  }
+  
 }
