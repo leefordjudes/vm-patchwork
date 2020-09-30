@@ -16,16 +16,29 @@ export class Patch3Service {
   async updateRolePrivileges() {
     const roles = await this.roleModel.find({ validateName: { $ne: 'admin' } });
     const updateRoleObj = [];
+    const adminRoleUpdateObj = {
+      updateOne: {
+        filter: { validateName: 'admin' },
+        update: {
+          $set: {
+            privileges: '',
+          },
+        },
+      },
+    };
+    console.log('Role count: ' + roles.length);
+    updateRoleObj.push(adminRoleUpdateObj);
+    console.log('admin role patch - added');
     for (const role of roles) {
-      console.log(role.name);
+      console.log('Role name: ' + role.name);
       const rolePrivileges: any = role.privileges.filter(p => p.value === true);
-      console.log(rolePrivileges.length);
+      console.log('Privileges count: ' + rolePrivileges.length);
       const privilegeObj = _.cloneDeep(PRIVILEGE);
       for (const rolePrivilege of rolePrivileges) {
         const code = rolePrivilege.code;
-        console.log(role.name, code);
+        // console.log(role.name, code);
         const path = existsPrivileges.find(p => p.code === code).path;
-        console.log(role.name, path);
+        // console.log(role.name, path);
         // const value = _.get(privilegeObj, `${path}.value`);
         _.set(privilegeObj, `${path}.value`, true);
       }
@@ -40,7 +53,11 @@ export class Patch3Service {
         },
       };
       updateRoleObj.push(updateObj);
+      console.log(role.name + ' role patch added');
     }
-    await this.roleModel.bulkWrite(updateRoleObj);
+    console.log('Role patch started...');
+    const rolePatchResult = await this.roleModel.bulkWrite(updateRoleObj);
+    console.log('Role patch end');
+    return rolePatchResult;
   }
 }

@@ -5,7 +5,7 @@ import { Patch3Service } from './patch3.service';
 export class Patch3Controller {
   constructor(private readonly patch3Service: Patch3Service) {}
 
-  // velavan medical patch work 3
+  // patch work 3
   @Put('update-role-privileges')
   async updateRolePrivileges() {
     return await this.patch3Service.updateRolePrivileges();
