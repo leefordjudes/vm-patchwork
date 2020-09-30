@@ -2290,10 +2290,10 @@ export class AppService {
   async m2CashSaleData() {
     const arr = [];
     console.log('M2 CashSaleData start...');
-    const hsnCode = ['30012345', '30012346', '30012347', '30123456', '5647891', '857952', '3001547', '300457', '30010', '805879', '300783', '345785']
+    const hsnCode = ['3001 20 90', '3001 20 30', '30012347', '30123456', '5647891', '857952', '3001547', '300457', '30010', '805879', '300783', '345785']
     const count = await this.m2CashSaleModel.countDocuments();
-    let perPage = 1000;
-    for (let page = 0; page <= count; page=page+perPage) {
+    let perPage = 10000;
+    for (let page = 0; page < count; page=page+perPage) {
       const transactions = await this.m2CashSaleModel
       .find({})
       .skip(page)
@@ -2319,11 +2319,11 @@ export class AppService {
           })
         }
       });
-      arr.push(data);
+     data.forEach(x => arr.push(x));
     }
     const writeData = JSON.stringify(arr);
     fs.writeFileSync('sale.json', writeData);
-    return 'file location vm-pachwork/sale.json';
+    return 'file location vm-patchwork/sale.json';
   }
 
   async updateDatabaseRecords(orgType: string) {
