@@ -785,7 +785,7 @@ export const PRIVILEGE = {
       allowUsers: {
         name: 'Allow Users',
         value: false,
-        requisites: ['report.dashboard.view'],
+        requisites: ['report.dashboard.viewUsers'],
       },
       saleSummary: {
         name: 'View Sale Summary',
