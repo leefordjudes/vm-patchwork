@@ -2,12 +2,14 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { GSTFilingController } from './gst-filing.controller';
+import { GSTFilingService } from './gst-filing.service';
 
 import * as schema from './model/schemas';
 
 // const URI = 'mongodb+srv://username:password@host/database?retryWrites=true&w=majority';
-// const URI = 'mongodb://localhost/velavanmedical';
-const URI = 'mongodb://localhost/velavanstationery';
+//const URI = 'mongodb://localhost/velavanmedical1';
+const URI = 'mongodb://localhost/velavanstationery1';
 // const URI = 'mongodb://localhost/medical';
 
 @Module({
@@ -69,7 +71,7 @@ const URI = 'mongodb://localhost/velavanstationery';
       },
     ]),
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  controllers: [AppController, GSTFilingController],
+  providers: [AppService, GSTFilingService],
 })
-export class AppModule {}
+export class AppModule { }
