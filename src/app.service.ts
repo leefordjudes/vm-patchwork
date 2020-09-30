@@ -2290,7 +2290,7 @@ export class AppService {
   async m2CashSaleData() {
     const arr = [];
     console.log('M2 CashSaleData start...');
-    const hsnCode = ['3001 20 90', '3001 20 30', '30012347', '30123456', '5647891', '857952', '3001547', '300457', '30010', '805879', '300783', '345785']
+    const hsnCode = ['30012090', '30012030', '30021210', '30021220', '30021230', '30021240', '30021290', '30021310', '30021900', '30022012', '30012347', '30123456', '5647891', '857952', '3001547', '300457', '30010', '805879', '300783', '345785']
     const count = await this.m2CashSaleModel.countDocuments();
     let perPage = 10000;
     for (let page = 0; page < count; page=page+perPage) {
