@@ -21,7 +21,7 @@ export class Patch3Service {
         filter: { validateName: 'admin' },
         update: {
           $set: {
-            privileges: '',
+            privileges: '{}',
           },
         },
       },

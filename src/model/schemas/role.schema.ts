@@ -27,7 +27,6 @@ export const roleSchema = new mongoose.Schema(
     },
     privileges: {
       type: Object,
-      required: true,
     },
     dateRestrictions: {
       type: [

@@ -776,17 +776,6 @@ export const PRIVILEGE = {
     },
     dashboard: {
       title: 'Dashboard',
-      view: { name: 'View', value: false, requisites: [] },
-      viewUsers: {
-        name: 'View Users',
-        value: false,
-        requisites: ['report.dashboard.view'],
-      },
-      allowUsers: {
-        name: 'Allow Users',
-        value: false,
-        requisites: ['report.dashboard.viewUsers'],
-      },
       saleSummary: {
         name: 'View Sale Summary',
         value: false,
