@@ -779,7 +779,7 @@ export const PRIVILEGE = {
       saleSummary: {
         name: 'View Sale Summary',
         value: false,
-        requisites: ['report.dashboard.view'],
+        requisites: [],
       },
     },
   },
