@@ -4,11 +4,13 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
 import * as schema from './model/schemas';
+import { Patch3Controller } from './patch3.controller';
+import { Patch3Service } from './patch3.service';
 
 // const URI = 'mongodb+srv://username:password@host/database?retryWrites=true&w=majority';
 // const URI = 'mongodb://localhost/velavanmedical';
 const URI = 'mongodb://localhost/velavanstationery';
-// const URI = 'mongodb://localhost/medical';
+// const URI = 'mongodb://localhost/velavanstationery';
 
 @Module({
   imports: [
@@ -19,6 +21,8 @@ const URI = 'mongodb://localhost/velavanstationery';
       useFindAndModify: false,
     }),
     MongooseModule.forFeature([
+      { name: 'PrintTemplate', schema: schema.printTemplateSchema },
+      { name: 'Role', schema: schema.roleSchema },
       { name: 'User', schema: schema.userSchema },
       { name: 'Tax', schema: schema.taxSchema },
       { name: 'Branch', schema: schema.branchSchema },
@@ -69,7 +73,7 @@ const URI = 'mongodb://localhost/velavanstationery';
       },
     ]),
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  controllers: [AppController, Patch3Controller],
+  providers: [AppService, Patch3Service],
 })
 export class AppModule {}

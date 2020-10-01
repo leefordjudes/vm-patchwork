@@ -28,3 +28,5 @@ export { M2CreditPurchaseReturn } from './m2-credit-purchase-return.interface';
 export { M2CashPurchaseReturn } from './m2-cash-purchase-return.interface';
 export { M2InventoryOpening } from './m2-inventory-opening.interface';
 export { User } from './user.interface';
+export { Role } from './role.interface';
+export { PrintTemplate } from './print-template.interface';
