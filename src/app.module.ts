@@ -21,6 +21,7 @@ const URI = 'mongodb://localhost/velavanstationery';
       useFindAndModify: false,
     }),
     MongooseModule.forFeature([
+      { name: 'PrintTemplate', schema: schema.printTemplateSchema },
       { name: 'Role', schema: schema.roleSchema },
       { name: 'User', schema: schema.userSchema },
       { name: 'Tax', schema: schema.taxSchema },

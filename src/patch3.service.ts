@@ -11,6 +11,8 @@ import { existsPrivileges } from './fixtures/privilege/privilege.exists';
 export class Patch3Service {
   constructor(
     @InjectModel('Role') private readonly roleModel: Model<iface.Role>,
+    @InjectModel('PrintTemplate')
+    private readonly printTemplateModel: Model<iface.PrintTemplate>,
   ) {}
 
   async updateRolePrivileges() {
@@ -59,5 +61,40 @@ export class Patch3Service {
     const rolePatchResult = await this.roleModel.bulkWrite(updateRoleObj);
     console.log('Role patch end');
     return rolePatchResult;
+  }
+
+  async updatePrintTemplateCategory() {
+    const printTemplates = await this.printTemplateModel.find();
+    const printTemplatesUpdateObj = [];
+    for (const pt of printTemplates) {
+      const saleUpdateObj = {
+        updateOne: {
+          filter: {
+            $or: [{ category: 'CASH-SALE' }, { category: 'CREDIT-SALE' }],
+          },
+          update: {
+            $pull: { category: { $in: ['CASH-SALE', 'CREDIT-SALE'] } },
+            $addToSet: { category: 'SALE' },
+          },
+        },
+      };
+      const saleReturnUpdateObj = {
+        updateOne: {
+          filter: {
+            $or: [
+              { category: 'CASH-SALE-RETURN' },
+              { category: 'CREDIT-SALE-RETURN' },
+            ],
+          },
+          update: {
+            $pull: {
+              category: { $in: ['CASH-SALE-RETURN', 'CREDIT-SALE-RETURN'] },
+            },
+            $addToSet: { category: 'SALE-RETURN' },
+          },
+        },
+      };
+      printTemplatesUpdateObj.push(saleUpdateObj, saleReturnUpdateObj);
+    }
   }
 }

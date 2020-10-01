@@ -29,3 +29,4 @@ export { m2CashPurchaseReturnSchema } from './m2-cash-purchase-return.schema';
 export { m2InventoryOpeningSchema } from './m2-inventory-opening.schema';
 export { userSchema } from './user.schema';
 export { roleSchema } from './role.schema';
+export { printTemplateSchema } from './print-template.schema';

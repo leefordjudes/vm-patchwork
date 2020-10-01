@@ -10,4 +10,9 @@ export class Patch3Controller {
   async updateRolePrivileges() {
     return await this.patch3Service.updateRolePrivileges();
   }
+
+  @Put('update-printtemplate-category')
+  async updatePrintTemplateCategory() {
+    return await this.patch3Service.updatePrintTemplateCategory();
+  }
 }
