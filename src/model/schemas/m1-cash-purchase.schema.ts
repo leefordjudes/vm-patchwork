@@ -5,6 +5,7 @@ export const m1CashPurchaseSchema = new Schema(
     date: {
       type: Date,
       required: true,
+      index: true,
     },
     billDate: {
       type: Date,
@@ -42,8 +43,8 @@ export const m1CashPurchaseSchema = new Schema(
         type: {
           regType: {
             type: {
-              name: String,
               defaultName: String,
+              name: String,
             },
           },
           gstNo: {
@@ -63,8 +64,8 @@ export const m1CashPurchaseSchema = new Schema(
         type: {
           regType: {
             type: {
-              name: String,
               defaultName: String,
+              name: String,
             },
           },
           gstNo: {
@@ -96,6 +97,7 @@ export const m1CashPurchaseSchema = new Schema(
       type: String,
       required: true,
       maxlength: 50,
+      index: true,
     },
     amount: {
       type: Number,
@@ -129,12 +131,7 @@ export const m1CashPurchaseSchema = new Schema(
         batchNo: String,
         hsnCode: String,
         serialNo: Number,
-        unit: {
-          id: String,
-          name: String,
-          displayName: String,
-          conversion: Number,
-        },
+        unit: { id: String, name: String, displayName: String, conversion: Number },
         qty: Number,
         freeQty: {
           type: Number,

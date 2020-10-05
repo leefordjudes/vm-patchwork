@@ -30,3 +30,7 @@ export { m2InventoryOpeningSchema } from './m2-inventory-opening.schema';
 export { userSchema } from './user.schema';
 export { roleSchema } from './role.schema';
 export { printTemplateSchema } from './print-template.schema';
+export { saleSchema } from './sale.schema';
+export { saleReturnSchema } from './sale-return.schema';
+export { purchaseSchema } from './purchase.schema';
+export { purchaseReturnSchema } from './purchase-return.schema';

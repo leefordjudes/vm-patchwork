@@ -1,6 +1,6 @@
 import { Schema } from 'mongoose';
 
-export const m1CreditPurchaseReturnSchema = new Schema(
+export const saleSchema = new Schema(
   {
     date: {
       type: Date,
@@ -11,7 +11,21 @@ export const m1CreditPurchaseReturnSchema = new Schema(
       type: String,
       maxlength: 50,
     },
-    vendor: {
+    customer: {
+      type: {
+        id: { type: String },
+        name: { type: String },
+        displayName: { type: String },
+      },
+    },
+    patient: {
+      type: {
+        id: { type: String },
+        name: { type: String },
+        displayName: { type: String },
+      },
+    },
+    doctor: {
       type: {
         id: { type: String },
         name: { type: String },
@@ -39,8 +53,8 @@ export const m1CreditPurchaseReturnSchema = new Schema(
         type: {
           regType: {
             type: {
-              defaultName: String,
               name: String,
+              defaultName: String,
             },
           },
           gstNo: {
@@ -60,8 +74,8 @@ export const m1CreditPurchaseReturnSchema = new Schema(
         type: {
           regType: {
             type: {
-              defaultName: String,
               name: String,
+              defaultName: String,
             },
           },
           gstNo: {
@@ -78,13 +92,32 @@ export const m1CreditPurchaseReturnSchema = new Schema(
         },
       },
     },
+    saleType: {
+      type: String,
+      required: true,
+    },
+    cashRegister: {
+      type: {
+        id: { type: String },
+        name: { type: String },
+        displayName: { type: String },
+      },
+    },
+    cashRegisterApproved: {
+      type: Boolean,
+      default: false,
+    },
+    cashRegisterApprovedBy: {
+      type: String,
+      ref: 'User',
+    },
+    customerPending: {
+      type: String,
+      index: true,
+    },
     description: {
       type: String,
       maxlength: 200,
-    },
-    vendorPending: {
-      type: String,
-      index: true,
     },
     voucherNo: {
       type: String,
@@ -100,9 +133,57 @@ export const m1CreditPurchaseReturnSchema = new Schema(
       type: Number,
       default: 0,
     },
-    taxInclusiveRate: {
+    lut: {
       type: Boolean,
       default: false,
+    },
+    taxInclusiveRate: {
+      type: Boolean,
+      default: true,
+    },
+    shippingInfo: {
+      type: {
+        shipThrough: String,
+        shippingDate: Date,
+        trackingNo: String,
+        shippingAddress: {
+          type: {
+            street: String,
+            city: String,
+            pincode: String,
+            mobile: String,
+            state: {
+              type: {
+                name: String,
+                defaultName: String,
+              },
+            },
+            country: {
+              type: {
+                name: String,
+                defaultName: String,
+              },
+            },
+            contactPerson: String,
+          },
+        },
+        shippingCharge: Number,
+        tax: {
+          type: {
+            id: String,
+            name: String,
+            displayName: String,
+          },
+        },
+        taxAmount: {
+          type: {
+            cgst: Number,
+            sgst: Number,
+            igst: Number,
+            cess: Number,
+          },
+        },
+      },
     },
     invTrns: [
       {
@@ -115,7 +196,8 @@ export const m1CreditPurchaseReturnSchema = new Schema(
           },
           required: true,
         },
-        branch: String,
+        expYear: Number,
+        expMonth: Number,
         batch: String,
         batchNo: String,
         hsnCode: String,
@@ -123,7 +205,7 @@ export const m1CreditPurchaseReturnSchema = new Schema(
         unit: { id: String, name: String, displayName: String, conversion: Number },
         qty: Number,
         rate: Number,
-        pRateTaxInc: Boolean,
+        sRateTaxInc: Boolean,
         mrp: Number,
         discount: {
           type: Number,
