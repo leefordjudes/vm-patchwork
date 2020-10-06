@@ -7,6 +7,7 @@ export interface Branch extends Document {
   name: string;
   aliasName: string;
   displayName: string;
+  licenseNo: string;
   users: [string];
   desktopClients: string[];
   contactInfo: {
@@ -25,6 +26,13 @@ export interface Branch extends Document {
     gstNo: string;
     regType: { name: string; defaultName: string };
     location: { name: string; defaultName: string };
+  };
+  otherInfo: {
+    licenseNo: string;
+  };
+  inventoryHead: string;
+  features: {
+    pharamacyRetail: true;
   };
   createdAt: Date;
   updatedAt: Date;
