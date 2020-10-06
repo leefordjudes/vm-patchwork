@@ -32,7 +32,7 @@ export interface Branch extends Document {
   };
   inventoryHead: string;
   features: {
-    pharamacyRetail: true;
+    pharamacyRetail: boolean;
   };
   createdAt: Date;
   updatedAt: Date;

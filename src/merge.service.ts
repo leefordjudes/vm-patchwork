@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Model } from 'mongoose';
 import { MongoClient } from 'mongodb';
 
 import * as iface from './model/interfaces';
@@ -52,8 +52,8 @@ export class MergeService {
     private readonly inventoryHeadModel: Model<iface.InventoryHead>,
     @InjectModel('Branch')
     private readonly branchModel: Model<iface.Branch>,
-    @InjectModel('Inventorie')
-    private readonly inventoryModel: Model<iface.Branch>,
+    @InjectModel('Inventory')
+    private readonly inventoryModel: Model<iface.Inventory>,
   ) { }
 
   async m2Merge() {
@@ -95,49 +95,86 @@ export class MergeService {
           useUnifiedTopology: true,
           useNewUrlParser: true,
         }).connect();
+        console.log('==================Rename Collection====================');
         await connection.db().renameCollection('m1inventories', 'inventories');
+        console.log('m1inventories', 'inventories');
         await connection.db().renameCollection('m1reorderanalyses', 'reorder_analysis');
+        console.log('m1reorderanalyses', 'reorder_analysis');
         await connection.db().renameCollection('m1stockadjustments', 'stock_adjustments');
+        console.log('m1stockadjustments', 'stock_adjustments');
         await connection.db().renameCollection('m1stocktransfers', 'stock_transfers');
+        console.log('m1stocktransfers', 'stock_transfers');
         await connection.db().renameCollection('m1inventoryopenings', 'inventory_openings');
+        console.log('m1inventoryopenings', 'inventory_openings');
         await connection.db().renameCollection('m1batches', 'batches');
+        console.log('m1batches', 'batches');
 
+        console.log('=================Drop collection============')
         await connection.db().dropCollection('m2inventories');
+        console.log('m2inventories');
         await connection.db().dropCollection('m2reorderanalyses');
+        console.log('m2reorderanalyses');
         await connection.db().dropCollection('m2stockadjustments');
+        console.log('m2stockadjustments');
         await connection.db().dropCollection('m2stocktransfers');
+        console.log('m2stocktransfers');
         await connection.db().dropCollection('m2inventoryopenings');
+        console.log('m2inventoryopenings');
         await connection.db().dropCollection('m2batches');
+        console.log('m2batches');
 
         await connection.db().dropCollection('m1cashpurchasereturns');
+        console.log('m1cashpurchasereturns');
         await connection.db().dropCollection('m1cashpurchases');
+        console.log('m1cashpurchases');
         await connection.db().dropCollection('m1cashsalereturns');
+        console.log('m1cashsalereturns');
         await connection.db().dropCollection('m1cashsales');
+        console.log('m1cashsales');
         await connection.db().dropCollection('m1creditpurchasereturns');
+        console.log('m1creditpurchasereturns');
         await connection.db().dropCollection('m1creditpurchases');
+        console.log('m1creditpurchases');
         await connection.db().dropCollection('m1creditsales');
+        console.log('m1creditsales');
         await connection.db().dropCollection('m1creditsalereturns');
+        console.log('m1creditsalereturns');
 
         await connection.db().dropCollection('m2cashpurchasereturns');
+        console.log('m2cashpurchasereturns');
         await connection.db().dropCollection('m2cashpurchases');
+        console.log('m2cashpurchases');
         await connection.db().dropCollection('m2cashsalereturns');
+        console.log('m2cashsalereturns');
         await connection.db().dropCollection('m2cashsales');
+        console.log('m2cashsales');
         await connection.db().dropCollection('m2creditpurchasereturns');
+        console.log('m2creditpurchasereturns');
         await connection.db().dropCollection('m2creditpurchases');
+        console.log('m2creditpurchases');
         await connection.db().dropCollection('m2creditsalereturns');
+        console.log('m2creditsalereturns');
         await connection.db().dropCollection('m2creditsales');
+        console.log('m2creditsales');
 
         await connection.db().dropCollection('accounttypes');
+        console.log('accounttypes');
         await connection.db().dropCollection('countries');
+        console.log('countries');
         await connection.db().dropCollection('gstregistrations');
+        console.log('gstregistrations');
         await connection.db().dropCollection('privileges');
+        console.log('privileges');
         await connection.db().dropCollection('states');
+        console.log('states');
         await connection.db().dropCollection('taxtypes');
-        await connection.db().dropCollection('templatelayouts');
+        console.log('taxtypes');
         await connection.db().dropCollection('vouchertypes');
+        console.log('vouchertypes');
         await connection.close();
         return true;
       } catch (err) {
+        console.log(err);
         return false;
       }
     } else if (orgType === 'm2') {
@@ -190,6 +227,7 @@ export class MergeService {
         await connection.close();
         return true;
       } catch (err) {
+        console.log(err);
         return false;
       }
     }
@@ -197,7 +235,21 @@ export class MergeService {
 
   async head(data: any) {
     const defaultHead = await this.inventoryHeadModel.create({name: data.name});
-    await this.branchModel.updateMany({}, {$set: {inventoryHead: defaultHead.id, "features": { "pharamacyRetail": true}}});
+    console.log(data.pharamacyRetail);
+    // const updateObj1 = {
+    //   updateMany: {
+    //     filter: {},
+    //     update: {
+    //       $set: {
+    //         inventoryHead: defaultHead.id, 
+    //         features: { pharamacyRetail: data.pharamacyRetail }
+    //       },
+    //     },
+    //   },
+    // }
+    // await this.branchModel.bulkWrite([updateObj1]);
+    await this.branchModel.updateMany({}, {$set: {inventoryHead: defaultHead.id}});
+    await this.branchModel.updateMany({}, {$set: {features: { pharamacyRetail: data.pharamacyRetail}}});
     await this.inventoryModel.updateMany({}, {$set: {head: defaultHead.id}})
   }
 }
