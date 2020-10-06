@@ -30,3 +30,7 @@ export { M2InventoryOpening } from './m2-inventory-opening.interface';
 export { User } from './user.interface';
 export { Role } from './role.interface';
 export { PrintTemplate } from './print-template.interface';
+export { Sale } from './sale.interface';
+export { SaleReturn } from './sale-return.interface';
+export { Purchase } from './purchase.interface';
+export { PurchaseReturn } from './purchase-return.interface';

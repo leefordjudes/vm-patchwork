@@ -6,6 +6,8 @@ import { AppService } from './app.service';
 import * as schema from './model/schemas';
 import { Patch3Controller } from './patch3.controller';
 import { Patch3Service } from './patch3.service';
+import { MergeController } from './merge.controller';
+import { MergeService } from './merge.service';
 
 // const URI = 'mongodb+srv://username:password@host/database?retryWrites=true&w=majority';
 // const URI = 'mongodb://localhost/velavanmedical';
@@ -71,9 +73,25 @@ const URI = 'mongodb://localhost/velavanstationery';
         name: 'M2InventoryOpening',
         schema: schema.m2InventoryOpeningSchema,
       },
+      {
+        name: 'Sale',
+        schema: schema.saleSchema,
+      },
+      {
+        name: 'Sale_Return',
+        schema: schema.saleReturnSchema,
+      },
+      {
+        name: 'Purchase',
+        schema: schema.purchaseSchema,
+      },
+      {
+        name: 'Purchase_Return',
+        schema: schema.purchaseReturnSchema,
+      }
     ]),
   ],
-  controllers: [AppController, Patch3Controller],
-  providers: [AppService, Patch3Service],
+  controllers: [AppController, Patch3Controller, MergeController],
+  providers: [AppService, Patch3Service, MergeService],
 })
 export class AppModule {}

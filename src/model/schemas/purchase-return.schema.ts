@@ -1,6 +1,6 @@
 import { Schema } from 'mongoose';
 
-export const m1CreditPurchaseReturnSchema = new Schema(
+export const purchaseReturnSchema = new Schema(
   {
     date: {
       type: Date,
@@ -78,6 +78,13 @@ export const m1CreditPurchaseReturnSchema = new Schema(
         },
       },
     },
+    cashRegister: {
+      type: {
+        id: { type: String },
+        name: { type: String },
+        displayName: { type: String },
+      },
+    },
     description: {
       type: String,
       maxlength: 200,
@@ -125,6 +132,8 @@ export const m1CreditPurchaseReturnSchema = new Schema(
         rate: Number,
         pRateTaxInc: Boolean,
         mrp: Number,
+        expMonth: Number,
+        expYear: Number,
         discount: {
           type: Number,
           default: 0,

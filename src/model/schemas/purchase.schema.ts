@@ -1,11 +1,15 @@
 import { Schema } from 'mongoose';
 
-export const m1CreditPurchaseReturnSchema = new Schema(
+export const purchaseSchema = new Schema(
   {
     date: {
       type: Date,
       required: true,
       index: true,
+    },
+    billDate: {
+      type: Date,
+      required: true,
     },
     refNo: {
       type: String,
@@ -35,6 +39,27 @@ export const m1CreditPurchaseReturnSchema = new Schema(
       required: false,
     },
     gstInfo: {
+      source: {
+        type: {
+          regType: {
+            type: {
+              defaultName: String,
+              name: String,
+            },
+          },
+          gstNo: {
+            type: String,
+            maxlength: 15,
+            minlength: 15,
+          },
+          location: {
+            type: {
+              name: String,
+              defaultName: String,
+            },
+          },
+        },
+      },
       destination: {
         type: {
           regType: {
@@ -56,26 +81,12 @@ export const m1CreditPurchaseReturnSchema = new Schema(
           },
         },
       },
-      source: {
-        type: {
-          regType: {
-            type: {
-              defaultName: String,
-              name: String,
-            },
-          },
-          gstNo: {
-            type: String,
-            maxlength: 15,
-            minlength: 15,
-          },
-          location: {
-            type: {
-              name: String,
-              defaultName: String,
-            },
-          },
-        },
+    },
+    cashRegister: {
+      type: {
+        id: { type: String },
+        name: { type: String },
+        displayName: { type: String },
       },
     },
     description: {
@@ -100,6 +111,10 @@ export const m1CreditPurchaseReturnSchema = new Schema(
       type: Number,
       default: 0,
     },
+    rcm: {
+      type: Boolean,
+      default: false,
+    },
     taxInclusiveRate: {
       type: Boolean,
       default: false,
@@ -122,9 +137,21 @@ export const m1CreditPurchaseReturnSchema = new Schema(
         serialNo: Number,
         unit: { id: String, name: String, displayName: String, conversion: Number },
         qty: Number,
-        rate: Number,
-        pRateTaxInc: Boolean,
+        freeQty: {
+          type: Number,
+          default: 0,
+        },
+        rate: {
+          type: Number,
+          default: 0,
+        },
+        sRate: {
+          type: Number,
+          default: 0,
+        },
         mrp: Number,
+        expMonth: Number,
+        expYear: Number,
         discount: {
           type: Number,
           default: 0,
@@ -176,16 +203,16 @@ export const m1CreditPurchaseReturnSchema = new Schema(
           type: {
             id: String,
             name: String,
-            displayName: String,
-            defaultName: String,
           },
           required: true,
         },
         credit: {
           type: Number,
+          default: 0,
         },
         debit: {
           type: Number,
+          default: 0,
         },
       },
     ],

@@ -5,6 +5,7 @@ export const m2CreditSaleReturnSchema = new Schema(
     date: {
       type: Date,
       required: true,
+      index: true,
     },
     refNo: {
       type: String,
@@ -83,11 +84,13 @@ export const m2CreditSaleReturnSchema = new Schema(
     },
     customerPending: {
       type: String,
+      index: true,
     },
     voucherNo: {
       type: String,
       required: true,
       maxlength: 50,
+      index: true,
     },
     amount: {
       type: Number,
@@ -118,12 +121,7 @@ export const m2CreditSaleReturnSchema = new Schema(
         batchNo: String,
         hsnCode: String,
         serialNo: Number,
-        unit: {
-          id: String,
-          name: String,
-          displayName: String,
-          conversion: Number,
-        },
+        unit: { id: String, name: String, displayName: String, conversion: Number },
         qty: Number,
         rate: Number,
         sRateTaxInc: Boolean,
