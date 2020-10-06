@@ -25,7 +25,7 @@ export class MergeService {
     private readonly m2CashSaleReturnModel: Model<iface.M2CashSaleReturn>,
     @InjectModel('M2CreditSaleReturn')
     private readonly m2CreditSaleReturnModel: Model<iface.M2CreditSaleReturn>,
-    @InjectModel('SaleReturn')
+    @InjectModel('Sale_Return')
     private readonly saleReturnModel: Model<iface.SaleReturn>,
     @InjectModel('M1CashPurchase')
     private readonly m1CashPurchaseModel: Model<iface.M1CashPurchase>,
@@ -45,37 +45,37 @@ export class MergeService {
     private readonly m2CashPurchaseReturnModel: Model<iface.M2CashPurchaseReturn>,
     @InjectModel('M2CreditPurchaseReturn')
     private readonly m2CreditPurchaseReturnModel: Model<iface.M2CreditPurchaseReturn>,
-    @InjectModel('PurchaseReturn')
+    @InjectModel('Purchase_Return')
     private readonly purchaseReturnModel: Model<iface.PurchaseReturn>
   ) { }
 
   async m2Merge() {
-    await this.m2CashSaleModel.aggregate([{ $addFields: { saleType: 'cash' } }, { $merge: this.saleModel.collection.name }]);
-    await this.m2CreditSaleModel.aggregate([{ $addFields: { saleType: 'credit' } }, { $merge: this.saleModel.collection.name }]);
+    await this.m2CashSaleModel.aggregate([{ $addFields: { saleType: 'cash' } }, { $merge: {into: this.saleModel.collection.name} }]);
+    await this.m2CreditSaleModel.aggregate([{ $addFields: { saleType: 'credit' } }, { $merge: {into: this.saleModel.collection.name} }]);
 
-    await this.m2CashSaleReturnModel.aggregate([{ $addFields: { saleType: 'cash' } }, { $merge: this.saleReturnModel.collection.name }]);
-    await this.m2CreditSaleReturnModel.aggregate([{ $addFields: { saleType: 'credit' } }, { $merge: this.saleReturnModel.collection.name }]);
+    await this.m2CashSaleReturnModel.aggregate([{ $addFields: { saleType: 'cash' } }, { $merge:  {into: this.saleReturnModel.collection.name }}]);
+    await this.m2CreditSaleReturnModel.aggregate([{ $addFields: { saleType: 'credit' } }, { $merge:  {into: this.saleReturnModel.collection.name }}]);
 
-    await this.m2CashPurchaseModel.aggregate([{ $addFields: { purchaseType: 'cash' } }, { $merge: this.purchaseModel.collection.name }]);
-    await this.m2CreditPurchaseModel.aggregate([{ $addFields: { purchaseType: 'credit' } }, { $merge: this.purchaseModel.collection.name }]);
+    await this.m2CashPurchaseModel.aggregate([{ $addFields: { purchaseType: 'cash' } }, { $merge:  {into: this.purchaseModel.collection.name }}]);
+    await this.m2CreditPurchaseModel.aggregate([{ $addFields: { purchaseType: 'credit' } }, { $merge:  {into: this.purchaseModel.collection.name }}]);
 
-    await this.m2CashPurchaseReturnModel.aggregate([{ $addFields: { purchaseType: 'cash' } }, { $merge: this.purchaseReturnModel.collection.name }]);
-    await this.m2CreditPurchaseReturnModel.aggregate([{ $addFields: { purchaseType: 'credit' } }, { $merge: this.purchaseReturnModel.collection.name }]);
-    return 'medical merge done';
+    await this.m2CashPurchaseReturnModel.aggregate([{ $addFields: { purchaseType: 'cash' } }, { $merge:  {into: this.purchaseReturnModel.collection.name }}]);
+    await this.m2CreditPurchaseReturnModel.aggregate([{ $addFields: { purchaseType: 'credit' } }, { $merge:  {into: this.purchaseReturnModel.collection.name }}]);
+   return 'medical merge done';
   }
 
   async m1Merge() {
-    await this.m1CashSaleModel.aggregate([{ $addFields: { saleType: 'cash' } }, { $merge: this.saleModel.collection.name }]);
-    await this.m1CreditSaleModel.aggregate([{ $addFields: { saleType: 'credit' } }, { $merge: this.saleModel.collection.name }]);
+    await this.m1CashSaleModel.aggregate([{ $addFields: { saleType: 'cash' } }, { $merge: {into: this.saleModel.collection.name} }]);
+    await this.m1CreditSaleModel.aggregate([{ $addFields: { saleType: 'credit' } }, { $merge: {into: this.saleModel.collection.name} }]);
 
-    await this.m1CashSaleReturnModel.aggregate([{ $addFields: { saleType: 'cash' } }, { $merge: this.saleReturnModel.collection.name }]);
-    await this.m1CreditSaleReturnModel.aggregate([{ $addFields: { saleType: 'credit' } }, { $merge: this.saleReturnModel.collection.name }]);
+    await this.m1CashSaleReturnModel.aggregate([{ $addFields: { saleType: 'cash' } }, { $merge:  {into: this.saleReturnModel.collection.name }}]);
+    await this.m1CreditSaleReturnModel.aggregate([{ $addFields: { saleType: 'credit' } }, { $merge:  {into: this.saleReturnModel.collection.name }}]);
 
-    await this.m1CashPurchaseModel.aggregate([{ $addFields: { purchaseType: 'cash' } }, { $merge: this.purchaseModel.collection.name }]);
-    await this.m1CreditPurchaseModel.aggregate([{ $addFields: { purchaseType: 'credit' } }, { $merge: this.purchaseModel.collection.name }]);
+    await this.m1CashPurchaseModel.aggregate([{ $addFields: { purchaseType: 'cash' } }, { $merge:  {into: this.purchaseModel.collection.name }}]);
+    await this.m1CreditPurchaseModel.aggregate([{ $addFields: { purchaseType: 'credit' } }, { $merge:  {into: this.purchaseModel.collection.name }}]);
 
-    await this.m1CashPurchaseReturnModel.aggregate([{ $addFields: { purchaseType: 'cash' } }, { $merge: this.purchaseReturnModel.collection.name }]);
-    await this.m1CreditPurchaseReturnModel.aggregate([{ $addFields: { purchaseType: 'credit' } }, { $merge: this.purchaseReturnModel.collection.name }]);
+    await this.m1CashPurchaseReturnModel.aggregate([{ $addFields: { purchaseType: 'cash' } }, { $merge:  {into: this.purchaseReturnModel.collection.name }}]);
+    await this.m1CreditPurchaseReturnModel.aggregate([{ $addFields: { purchaseType: 'credit' } }, { $merge:  {into: this.purchaseReturnModel.collection.name }}]);
     return 'stationery merge done';
   }
 

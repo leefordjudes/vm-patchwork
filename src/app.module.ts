@@ -78,7 +78,7 @@ const URI = 'mongodb://localhost/velavanstationery';
         schema: schema.saleSchema,
       },
       {
-        name: 'SaleReturn',
+        name: 'Sale_Return',
         schema: schema.saleReturnSchema,
       },
       {
@@ -86,7 +86,7 @@ const URI = 'mongodb://localhost/velavanstationery';
         schema: schema.purchaseSchema,
       },
       {
-        name: 'PurchaseReturn',
+        name: 'Purchase_Return',
         schema: schema.purchaseReturnSchema,
       }
     ]),
