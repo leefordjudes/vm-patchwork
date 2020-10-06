@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
+import { MongoClient } from 'mongodb';
 
 import * as iface from './model/interfaces';
 
@@ -46,60 +47,157 @@ export class MergeService {
     @InjectModel('M2CreditPurchaseReturn')
     private readonly m2CreditPurchaseReturnModel: Model<iface.M2CreditPurchaseReturn>,
     @InjectModel('Purchase_Return')
-    private readonly purchaseReturnModel: Model<iface.PurchaseReturn>
+    private readonly purchaseReturnModel: Model<iface.PurchaseReturn>,
+    @InjectModel('Inventory_Head')
+    private readonly inventoryHeadModel: Model<iface.InventoryHead>,
+    @InjectModel('Branch')
+    private readonly branchModel: Model<iface.Branch>,
+    @InjectModel('Inventorie')
+    private readonly inventoryModel: Model<iface.Branch>,
   ) { }
 
   async m2Merge() {
-    await this.m2CashSaleModel.aggregate([{ $addFields: { saleType: 'cash' } }, { $merge: {into: this.saleModel.collection.name} }]);
-    await this.m2CreditSaleModel.aggregate([{ $addFields: { saleType: 'credit' } }, { $merge: {into: this.saleModel.collection.name} }]);
+    await this.m2CashSaleModel.aggregate([{ $addFields: { saleType: 'cash' } }, { $merge: { into: this.saleModel.collection.name } }]);
+    await this.m2CreditSaleModel.aggregate([{ $addFields: { saleType: 'credit' } }, { $merge: { into: this.saleModel.collection.name } }]);
 
-    await this.m2CashSaleReturnModel.aggregate([{ $addFields: { saleType: 'cash' } }, { $merge:  {into: this.saleReturnModel.collection.name }}]);
-    await this.m2CreditSaleReturnModel.aggregate([{ $addFields: { saleType: 'credit' } }, { $merge:  {into: this.saleReturnModel.collection.name }}]);
+    await this.m2CashSaleReturnModel.aggregate([{ $addFields: { saleType: 'cash' } }, { $merge: { into: this.saleReturnModel.collection.name } }]);
+    await this.m2CreditSaleReturnModel.aggregate([{ $addFields: { saleType: 'credit' } }, { $merge: { into: this.saleReturnModel.collection.name } }]);
 
-    await this.m2CashPurchaseModel.aggregate([{ $addFields: { purchaseType: 'cash' } }, { $merge:  {into: this.purchaseModel.collection.name }}]);
-    await this.m2CreditPurchaseModel.aggregate([{ $addFields: { purchaseType: 'credit' } }, { $merge:  {into: this.purchaseModel.collection.name }}]);
+    await this.m2CashPurchaseModel.aggregate([{ $addFields: { purchaseType: 'cash' } }, { $merge: { into: this.purchaseModel.collection.name } }]);
+    await this.m2CreditPurchaseModel.aggregate([{ $addFields: { purchaseType: 'credit' } }, { $merge: { into: this.purchaseModel.collection.name } }]);
 
-    await this.m2CashPurchaseReturnModel.aggregate([{ $addFields: { purchaseType: 'cash' } }, { $merge:  {into: this.purchaseReturnModel.collection.name }}]);
-    await this.m2CreditPurchaseReturnModel.aggregate([{ $addFields: { purchaseType: 'credit' } }, { $merge:  {into: this.purchaseReturnModel.collection.name }}]);
-   return 'medical merge done';
+    await this.m2CashPurchaseReturnModel.aggregate([{ $addFields: { purchaseType: 'cash' } }, { $merge: { into: this.purchaseReturnModel.collection.name } }]);
+    await this.m2CreditPurchaseReturnModel.aggregate([{ $addFields: { purchaseType: 'credit' } }, { $merge: { into: this.purchaseReturnModel.collection.name } }]);
+    return 'medical merge done';
   }
 
   async m1Merge() {
-    await this.m1CashSaleModel.aggregate([{ $addFields: { saleType: 'cash' } }, { $merge: {into: this.saleModel.collection.name} }]);
-    await this.m1CreditSaleModel.aggregate([{ $addFields: { saleType: 'credit' } }, { $merge: {into: this.saleModel.collection.name} }]);
+    await this.m1CashSaleModel.aggregate([{ $addFields: { saleType: 'cash' } }, { $merge: { into: this.saleModel.collection.name } }]);
+    await this.m1CreditSaleModel.aggregate([{ $addFields: { saleType: 'credit' } }, { $merge: { into: this.saleModel.collection.name } }]);
 
-    await this.m1CashSaleReturnModel.aggregate([{ $addFields: { saleType: 'cash' } }, { $merge:  {into: this.saleReturnModel.collection.name }}]);
-    await this.m1CreditSaleReturnModel.aggregate([{ $addFields: { saleType: 'credit' } }, { $merge:  {into: this.saleReturnModel.collection.name }}]);
+    await this.m1CashSaleReturnModel.aggregate([{ $addFields: { saleType: 'cash' } }, { $merge: { into: this.saleReturnModel.collection.name } }]);
+    await this.m1CreditSaleReturnModel.aggregate([{ $addFields: { saleType: 'credit' } }, { $merge: { into: this.saleReturnModel.collection.name } }]);
 
-    await this.m1CashPurchaseModel.aggregate([{ $addFields: { purchaseType: 'cash' } }, { $merge:  {into: this.purchaseModel.collection.name }}]);
-    await this.m1CreditPurchaseModel.aggregate([{ $addFields: { purchaseType: 'credit' } }, { $merge:  {into: this.purchaseModel.collection.name }}]);
+    await this.m1CashPurchaseModel.aggregate([{ $addFields: { purchaseType: 'cash' } }, { $merge: { into: this.purchaseModel.collection.name } }]);
+    await this.m1CreditPurchaseModel.aggregate([{ $addFields: { purchaseType: 'credit' } }, { $merge: { into: this.purchaseModel.collection.name } }]);
 
-    await this.m1CashPurchaseReturnModel.aggregate([{ $addFields: { purchaseType: 'cash' } }, { $merge:  {into: this.purchaseReturnModel.collection.name }}]);
-    await this.m1CreditPurchaseReturnModel.aggregate([{ $addFields: { purchaseType: 'credit' } }, { $merge:  {into: this.purchaseReturnModel.collection.name }}]);
+    await this.m1CashPurchaseReturnModel.aggregate([{ $addFields: { purchaseType: 'cash' } }, { $merge: { into: this.purchaseReturnModel.collection.name } }]);
+    await this.m1CreditPurchaseReturnModel.aggregate([{ $addFields: { purchaseType: 'credit' } }, { $merge: { into: this.purchaseReturnModel.collection.name } }]);
     return 'stationery merge done';
   }
+  
+  async rename(orgType: string, dbName: string) {
+    //const uri = `mongodb+srv://username:password@host/${dbName}?retryWrites=true&w=majority`;
+    const uri = `mongodb://localhost/${dbName}`;
+    if (orgType === 'm1') {
+      try {
+        const connection = await new MongoClient(uri, {
+          useUnifiedTopology: true,
+          useNewUrlParser: true,
+        }).connect();
+        await connection.db().renameCollection('m1inventories', 'inventories');
+        await connection.db().renameCollection('m1reorderanalyses', 'reorder_analysis');
+        await connection.db().renameCollection('m1stockadjustments', 'stock_adjustments');
+        await connection.db().renameCollection('m1stocktransfers', 'stock_transfers');
+        await connection.db().renameCollection('m1inventoryopenings', 'inventory_openings');
+        await connection.db().renameCollection('m1batches', 'batches');
 
-  async m1DeleteCollections() {
-    await this.m1CashSaleModel.db.dropCollection(this.m1CashSaleModel.collection.name);
-    await this.m1CreditSaleModel.db.dropCollection(this.m1CreditSaleModel.collection.name);
-    await this.m1CashSaleReturnModel.db.dropCollection(this.m1CashSaleReturnModel.collection.name);
-    await this.m1CreditSaleReturnModel.db.dropCollection(this.m1CreditSaleReturnModel.collection.name);
-    await this.m1CashPurchaseModel.db.dropCollection(this.m1CashPurchaseModel.collection.name);
-    await this.m1CreditPurchaseModel.db.dropCollection(this.m1CreditPurchaseModel.collection.name);
-    await this.m1CashPurchaseReturnModel.db.dropCollection(this.m1CashPurchaseReturnModel.collection.name);
-    await this.m1CreditPurchaseReturnModel.db.dropCollection(this.m1CreditPurchaseReturnModel.collection.name);
-    return 'delete stationery collection';
+        await connection.db().dropCollection('m2inventories');
+        await connection.db().dropCollection('m2reorderanalyses');
+        await connection.db().dropCollection('m2stockadjustments');
+        await connection.db().dropCollection('m2stocktransfers');
+        await connection.db().dropCollection('m2inventoryopenings');
+        await connection.db().dropCollection('m2batches');
+
+        await connection.db().dropCollection('m1cashpurchasereturns');
+        await connection.db().dropCollection('m1cashpurchases');
+        await connection.db().dropCollection('m1cashsalereturns');
+        await connection.db().dropCollection('m1cashsales');
+        await connection.db().dropCollection('m1creditpurchasereturns');
+        await connection.db().dropCollection('m1creditpurchases');
+        await connection.db().dropCollection('m1creditsales');
+        await connection.db().dropCollection('m1creditsalereturns');
+
+        await connection.db().dropCollection('m2cashpurchasereturns');
+        await connection.db().dropCollection('m2cashpurchases');
+        await connection.db().dropCollection('m2cashsalereturns');
+        await connection.db().dropCollection('m2cashsales');
+        await connection.db().dropCollection('m2creditpurchasereturns');
+        await connection.db().dropCollection('m2creditpurchases');
+        await connection.db().dropCollection('m2creditsalereturns');
+        await connection.db().dropCollection('m2creditsales');
+
+        await connection.db().dropCollection('accounttypes');
+        await connection.db().dropCollection('countries');
+        await connection.db().dropCollection('gstregistrations');
+        await connection.db().dropCollection('privileges');
+        await connection.db().dropCollection('states');
+        await connection.db().dropCollection('taxtypes');
+        await connection.db().dropCollection('templatelayouts');
+        await connection.db().dropCollection('vouchertypes');
+        await connection.close();
+        return true;
+      } catch (err) {
+        return false;
+      }
+    } else if (orgType === 'm2') {
+      try {
+        const connection = await new MongoClient(uri, {
+          useUnifiedTopology: true,
+          useNewUrlParser: true,
+        }).connect();
+        await connection.db().renameCollection('m2inventories', 'inventories');
+        await connection.db().renameCollection('m2reorderanalyses', 'reorder_analysis');
+        await connection.db().renameCollection('m2stockadjustments', 'stock_adjustments');
+        await connection.db().renameCollection('m2stocktransfers', 'stock_transfers');
+        await connection.db().renameCollection('m2inventoryopenings', 'inventory_openings');
+        await connection.db().renameCollection('m2batches', 'batches');
+
+        await connection.db().dropCollection('m1inventories');
+        await connection.db().dropCollection('m1reorderanalyses');
+        await connection.db().dropCollection('m1stockadjustments');
+        await connection.db().dropCollection('m1stocktransfers');
+        await connection.db().dropCollection('m1inventoryopenings');
+        await connection.db().dropCollection('m1batches');
+
+        await connection.db().dropCollection('m1cashpurchasereturns');
+        await connection.db().dropCollection('m1cashpurchases');
+        await connection.db().dropCollection('m1cashsalereturns');
+        await connection.db().dropCollection('m1cashsales');
+        await connection.db().dropCollection('m1creditpurchasereturns');
+        await connection.db().dropCollection('m1creditpurchases');
+        await connection.db().dropCollection('m1creditsales');
+        await connection.db().dropCollection('m1creditsalereturns');
+
+        await connection.db().dropCollection('m2cashpurchasereturns');
+        await connection.db().dropCollection('m2cashpurchases');
+        await connection.db().dropCollection('m2cashsalereturns');
+        await connection.db().dropCollection('m2cashsales');
+        await connection.db().dropCollection('m2creditpurchasereturns');
+        await connection.db().dropCollection('m2creditpurchases');
+        await connection.db().dropCollection('m2creditsalereturns');
+        await connection.db().dropCollection('m2creditsales');
+
+        await connection.db().dropCollection('accounttypes');
+        await connection.db().dropCollection('countries');
+        await connection.db().dropCollection('gstregistrations');
+        await connection.db().dropCollection('privileges');
+        await connection.db().dropCollection('states');
+        await connection.db().dropCollection('taxtypes');
+        await connection.db().dropCollection('templatelayouts');
+        await connection.db().dropCollection('vouchertypes');
+
+        await connection.close();
+        return true;
+      } catch (err) {
+        return false;
+      }
+    }
   }
 
-  async m2DeleteCollections() {
-    await this.m2CashSaleModel.db.dropCollection(this.m2CashSaleModel.collection.name);
-    await this.m2CreditSaleModel.db.dropCollection(this.m2CreditSaleModel.collection.name);
-    await this.m2CashSaleReturnModel.db.dropCollection(this.m2CashSaleReturnModel.collection.name);
-    await this.m2CreditSaleReturnModel.db.dropCollection(this.m2CreditSaleReturnModel.collection.name);
-    await this.m2CashPurchaseModel.db.dropCollection(this.m2CashPurchaseModel.collection.name);
-    await this.m2CreditPurchaseModel.db.dropCollection(this.m2CreditPurchaseModel.collection.name);
-    await this.m2CashPurchaseReturnModel.db.dropCollection(this.m2CashPurchaseReturnModel.collection.name);
-    await this.m2CreditPurchaseReturnModel.db.dropCollection(this.m2CreditPurchaseReturnModel.collection.name);
-    return 'delete medical collection';
+  async head(data: any) {
+    const defaultHead = await this.inventoryHeadModel.create({name: data.name});
+    await this.branchModel.updateMany({}, {$set: {inventoryHead: defaultHead.id, "features": { "pharamacyRetail": true}}});
+    await this.inventoryModel.updateMany({}, {$set: {head: defaultHead.id}})
   }
 }

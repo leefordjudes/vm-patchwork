@@ -1,3 +1,5 @@
+import { from } from 'rxjs';
+
 export { Account } from './account.interface';
 export { Branch } from './branch.interface';
 export { CustomerBook } from './customer-book.interface';
@@ -34,3 +36,5 @@ export { Sale } from './sale.interface';
 export { SaleReturn } from './sale-return.interface';
 export { Purchase } from './purchase.interface';
 export { PurchaseReturn } from './purchase-return.interface';
+export { InventoryHead } from './inventory-head.interface';
+export { Inventory } from './inventory.interface';

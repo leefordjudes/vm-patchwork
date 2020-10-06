@@ -11,7 +11,7 @@ import { MergeService } from './merge.service';
 
 // const URI = 'mongodb+srv://username:password@host/database?retryWrites=true&w=majority';
 // const URI = 'mongodb://localhost/velavanmedical';
-const URI = 'mongodb://localhost/velavanstationery';
+export const URI = 'mongodb://localhost/velavanstationery';
 // const URI = 'mongodb://localhost/velavanstationery';
 
 @Module({
@@ -88,6 +88,14 @@ const URI = 'mongodb://localhost/velavanstationery';
       {
         name: 'Purchase_Return',
         schema: schema.purchaseReturnSchema,
+      },
+      {
+        name: 'Inventory_Head',
+        schema: schema.inventoryHeadSchema,
+      },
+      {
+        name: 'Inventorie',
+        schema: schema.inventorySchema,
       }
     ]),
   ],
