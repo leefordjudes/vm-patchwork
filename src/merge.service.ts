@@ -75,11 +75,12 @@ export class MergeService {
     for (const bid of bids) {
       const pre = preferences.map(x => {
         return {
-         code: x.code,
-         config: x.config,
-         branch: bid,
-       }}); 
-       arr.push(...pre);
+          code: x.code,
+          config: x.config,
+          branch: bid,
+        };
+      });
+      arr.push(...pre);
     }
     return await this.preferenceModel.insertMany(arr);
   }
@@ -182,9 +183,22 @@ export class MergeService {
           useNewUrlParser: true,
         }).connect();
         console.log('==================Print Collection====================');
-        await connection.db().collection('printtemplates').updateMany({ category: { $in: ['CASH-SALE', 'CREDIT-SALE'] } }, { $set: { category: ['SALE'] } });
-        await connection.db().collection('printtemplates').updateMany({ category: { $in: ['CASH-SALE-RETURN', 'CREDIT-SALE-RETURN'] } }, { $set: { category: ['SALE-RETURN'] } });
+        await connection
+          .db()
+          .collection('printtemplates')
+          .updateMany(
+            { category: { $in: ['CASH-SALE', 'CREDIT-SALE'] } },
+            { $set: { category: ['SALE'] } },
+          );
+        await connection
+          .db()
+          .collection('printtemplates')
+          .updateMany(
+            { category: { $in: ['CASH-SALE-RETURN', 'CREDIT-SALE-RETURN'] } },
+            { $set: { category: ['SALE-RETURN'] } },
+          );
         console.log('Print templates category value updated sucessfully');
+
         console.log('==================Rename Collection====================');
         await connection.db().renameCollection('m1inventories', 'inventories');
         console.log('m1inventories', 'inventories');
@@ -269,6 +283,8 @@ export class MergeService {
         console.log('taxtypes');
         await connection.db().dropCollection('vouchertypes');
         console.log('vouchertypes');
+        await connection.db().dropCollection('m1dashboardconfigs');
+        console.log('m1dashboardconfigs');
 
         const bookObj = [];
         const openingObj1 = {
@@ -361,11 +377,32 @@ export class MergeService {
           },
         };
         bookObj.push(purchaseReturnObj2);
-        await connection.db().collection('inventorybooks').bulkWrite(bookObj);
-        await connection.db().collection('accountbooks').bulkWrite(bookObj);
-        await connection.db().collection('customerbooks').bulkWrite(bookObj);
-        await connection.db().collection('vendorbooks').bulkWrite(bookObj);
-        await connection.db().collection('cashregisterbooks').bulkWrite(bookObj);
+
+        await connection
+          .db()
+          .collection('inventorybooks')
+          .bulkWrite(bookObj);
+        console.log('inventorybooks collection name updated');
+        await connection
+          .db()
+          .collection('accountbooks')
+          .bulkWrite(bookObj);
+        console.log('accountbooks collection name updated');
+        await connection
+          .db()
+          .collection('customerbooks')
+          .bulkWrite(bookObj);
+        console.log('customerbooks collection name updated');
+        await connection
+          .db()
+          .collection('vendorbooks')
+          .bulkWrite(bookObj);
+        console.log('vendorbooks collection name updated');
+        await connection
+          .db()
+          .collection('cashregisterbooks')
+          .bulkWrite(bookObj);
+        console.log('cashregisterbooks collection name updated');
         await connection.close();
         return true;
       } catch (err) {
@@ -379,8 +416,20 @@ export class MergeService {
           useNewUrlParser: true,
         }).connect();
         console.log('==================Print Collection====================');
-        await connection.db().collection('printtemplates').updateMany({ category: { $in: ['CASH-SALE', 'CREDIT-SALE'] } }, { $set: { category: ['SALE'] } });
-        await connection.db().collection('printtemplates').updateMany({ category: { $in: ['CASH-SALE-RETURN', 'CREDIT-SALE-RETURN'] } }, { $set: { category: ['SALE-RETURN'] } });
+        await connection
+          .db()
+          .collection('printtemplates')
+          .updateMany(
+            { category: { $in: ['CASH-SALE', 'CREDIT-SALE'] } },
+            { $set: { category: ['SALE'] } },
+          );
+        await connection
+          .db()
+          .collection('printtemplates')
+          .updateMany(
+            { category: { $in: ['CASH-SALE-RETURN', 'CREDIT-SALE-RETURN'] } },
+            { $set: { category: ['SALE-RETURN'] } },
+          );
         console.log('Print templates category value updated sucessfully');
         console.log('==================Rename Collection====================');
         await connection.db().renameCollection('m2inventories', 'inventories');
@@ -464,8 +513,6 @@ export class MergeService {
         console.log('states');
         await connection.db().dropCollection('taxtypes');
         console.log('taxtypes');
-        await connection.db().dropCollection('templatelayouts');
-        console.log('templatelayouts');
         await connection.db().dropCollection('vouchertypes');
         console.log('vouchertypes');
 
@@ -560,11 +607,31 @@ export class MergeService {
           },
         };
         bookObj.push(purchaseReturnObj2);
-        await connection.db().collection('inventorybooks').bulkWrite(bookObj);
-        await connection.db().collection('accountbooks').bulkWrite(bookObj);
-        await connection.db().collection('customerbooks').bulkWrite(bookObj);
-        await connection.db().collection('vendorbooks').bulkWrite(bookObj);
-        await connection.db().collection('cashregisterbooks').bulkWrite(bookObj);
+        await connection
+          .db()
+          .collection('inventorybooks')
+          .bulkWrite(bookObj);
+        console.log('inventorybooks collection name updated');
+        await connection
+          .db()
+          .collection('accountbooks')
+          .bulkWrite(bookObj);
+        console.log('accountbooks collection name updated');
+        await connection
+          .db()
+          .collection('customerbooks')
+          .bulkWrite(bookObj);
+        console.log('customerbooks collection name updated');
+        await connection
+          .db()
+          .collection('vendorbooks')
+          .bulkWrite(bookObj);
+        console.log('vendorbooks collection name updated');
+        await connection
+          .db()
+          .collection('cashregisterbooks')
+          .bulkWrite(bookObj);
+        console.log('cashregisterbooks collection name updated');
 
         await connection.close();
         return true;
@@ -591,5 +658,9 @@ export class MergeService {
       {},
       { $set: { head: defaultHead.id } },
     );
+    return {
+      head: `new head ${defaultHead.name} created`,
+      message: `inventory head updated in branch, inventory collection`,
+    };
   }
 }

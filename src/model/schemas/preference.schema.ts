@@ -4,7 +4,6 @@ export const preferenceSchema = new Schema({
   code: {
     type: String,
     required: true,
-    index: true,
   },
   branch: {
     type: String,
@@ -13,5 +12,5 @@ export const preferenceSchema = new Schema({
   config: {
     type: String,
     required: true,
-  }
+  },
 });

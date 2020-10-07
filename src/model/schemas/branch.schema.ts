@@ -6,12 +6,10 @@ export const branchSchema = new mongoose.Schema(
       type: String,
       trim: true,
       minlength: 1,
-      index: true,
     },
     validateAliasName: {
       type: String,
       trim: true,
-      index: true,
     },
     name: {
       type: String,

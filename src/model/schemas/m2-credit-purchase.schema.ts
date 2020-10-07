@@ -5,7 +5,6 @@ export const m2CreditPurchaseSchema = new Schema(
     date: {
       type: Date,
       required: true,
-      index: true,
     },
     billDate: {
       type: Date,
@@ -88,13 +87,11 @@ export const m2CreditPurchaseSchema = new Schema(
     },
     vendorPending: {
       type: String,
-      index: true,
     },
     voucherNo: {
       type: String,
       required: true,
       maxlength: 50,
-      index: true,
     },
     amount: {
       type: Number,
@@ -128,7 +125,12 @@ export const m2CreditPurchaseSchema = new Schema(
         batchNo: String,
         hsnCode: String,
         serialNo: Number,
-        unit: { id: String, name: String, displayName: String, conversion: Number },
+        unit: {
+          id: String,
+          name: String,
+          displayName: String,
+          conversion: Number,
+        },
         qty: Number,
         freeQty: {
           type: Number,

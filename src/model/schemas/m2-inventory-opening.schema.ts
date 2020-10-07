@@ -3,11 +3,9 @@ import * as mongoose from 'mongoose';
 export const m2InventoryOpeningSchema = new mongoose.Schema({
   inventory: {
     type: String,
-    index: true,
   },
   branch: {
     type: String,
-    index: true,
   },
   batch: String,
   batchNo: {

@@ -12,7 +12,6 @@ export const roleSchema = new mongoose.Schema(
       type: String,
       trim: true,
       minlength: 1,
-      index: true,
     },
     displayName: {
       type: String,

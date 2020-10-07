@@ -10,8 +10,7 @@ import { MergeController } from './merge.controller';
 import { MergeService } from './merge.service';
 
 // const URI = 'mongodb+srv://username:password@host/database?retryWrites=true&w=majority';
-// const URI = 'mongodb://localhost/velavanmedical';
-const URI = 'mongodb://localhost/velavanstationery';
+const URI = 'mongodb://localhost/velavanmedical';
 // const URI = 'mongodb://localhost/velavanstationery';
 
 @Module({
@@ -86,7 +85,7 @@ const URI = 'mongodb://localhost/velavanstationery';
       {
         name: 'Purchase',
         schema: schema.purchaseSchema,
-        collection: 'purchases'
+        collection: 'purchases',
       },
       {
         name: 'Purchase_Return',
@@ -106,7 +105,7 @@ const URI = 'mongodb://localhost/velavanstationery';
       {
         name: 'Preference',
         schema: schema.preferenceSchema,
-      }
+      },
     ]),
   ],
   controllers: [AppController, Patch3Controller, MergeController],

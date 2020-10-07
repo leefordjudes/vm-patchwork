@@ -28,7 +28,6 @@ http://127.0.0.1:3000/common/preference
 
 */
 
-
 /*
 velavanmedical
 1. merge sale,sale-return,purchase and purchase-return
@@ -55,7 +54,6 @@ http://127.0.0.1:3000/common/preference
 
 */
 
-
 @Controller('common')
 export class MergeController {
   constructor(private readonly mergeService: MergeService) {}
@@ -75,7 +73,6 @@ export class MergeController {
 
   @Post('head')
   async head(@Body() data: any) {
-    console.log(data);
     return await this.mergeService.head(data);
   }
 
