@@ -269,6 +269,103 @@ export class MergeService {
         console.log('taxtypes');
         await connection.db().dropCollection('vouchertypes');
         console.log('vouchertypes');
+
+        const bookObj = [];
+        const openingObj1 = {
+          updateMany: {
+            filter: { collectionName: 'inventoryopenings' },
+            update: {
+              $set: { collectionName: 'inventory_openings' },
+            },
+          },
+        };
+        bookObj.push(openingObj1);
+        const openingObj2 = {
+          updateMany: {
+            filter: { collectionName: 'm1inventoryopenings' },
+            update: {
+              $set: { collectionName: 'inventory_openings' },
+            },
+          },
+        };
+        bookObj.push(openingObj2);
+        const saleObj1 = {
+          updateMany: {
+            filter: { collectionName: 'm1cashsales' },
+            update: {
+              $set: { collectionName: 'sales' },
+            },
+          },
+        };
+        bookObj.push(saleObj1);
+        const saleObj2 = {
+          updateMany: {
+            filter: { collectionName: 'm1creditsales' },
+            update: {
+              $set: { collectionName: 'sales' },
+            },
+          },
+        };
+        bookObj.push(saleObj2);
+        const saleReturnObj1 = {
+          updateMany: {
+            filter: { collectionName: 'm1cashsalereturns' },
+            update: {
+              $set: { collectionName: 'sale_returns' },
+            },
+          },
+        };
+        bookObj.push(saleReturnObj1);
+        const saleReturnObj2 = {
+          updateMany: {
+            filter: { collectionName: 'm1creditsalereturns' },
+            update: {
+              $set: { collectionName: 'sale_returns' },
+            },
+          },
+        };
+        bookObj.push(saleReturnObj2);
+        const purchaseObj1 = {
+          updateMany: {
+            filter: { collectionName: 'm1cashpurchases' },
+            update: {
+              $set: { collectionName: 'purchases' },
+            },
+          },
+        };
+        bookObj.push(purchaseObj1);
+        const purchaseObj2 = {
+          updateMany: {
+            filter: { collectionName: 'm1creditpurchases' },
+            update: {
+              $set: { collectionName: 'purchases' },
+            },
+          },
+        };
+        bookObj.push(purchaseObj2);
+        const purchaseReturnObj1 = {
+          updateMany: {
+            filter: { collectionName: 'm1cashpurchasereturns' },
+            update: {
+              $set: { collectionName: 'purchase_returns' },
+            },
+          },
+        };
+        bookObj.push(purchaseReturnObj1);
+        const purchaseReturnObj2 = {
+          updateMany: {
+            filter: { collectionName: 'm1creditpurchasereturns' },
+            update: {
+              $set: { collectionName: 'purchase_returns' },
+            },
+          },
+        };
+        bookObj.push(purchaseReturnObj2);
+        await connection.db().collection('inventorybooks').bulkWrite(bookObj);
+        await connection.db().collection('accountbooks').bulkWrite(bookObj);
+        await connection.db().collection('customerbooks').bulkWrite(bookObj);
+        await connection.db().collection('vendorbooks').bulkWrite(bookObj);
+        await connection.db().collection('cashregisterbooks').bulkWrite(bookObj);
         await connection.close();
         return true;
       } catch (err) {
@@ -371,6 +468,103 @@ export class MergeService {
         console.log('templatelayouts');
         await connection.db().dropCollection('vouchertypes');
         console.log('vouchertypes');
+
+        const bookObj = [];
+        const openingObj1 = {
+          updateMany: {
+            filter: { collectionName: 'inventoryopenings' },
+            update: {
+              $set: { collectionName: 'inventory_openings' },
+            },
+          },
+        };
+        bookObj.push(openingObj1);
+        const openingObj2 = {
+          updateMany: {
+            filter: { collectionName: 'm2inventoryopenings' },
+            update: {
+              $set: { collectionName: 'inventory_openings' },
+            },
+          },
+        };
+        bookObj.push(openingObj2);
+        const saleObj1 = {
+          updateMany: {
+            filter: { collectionName: 'm2cashsales' },
+            update: {
+              $set: { collectionName: 'sales' },
+            },
+          },
+        };
+        bookObj.push(saleObj1);
+        const saleObj2 = {
+          updateMany: {
+            filter: { collectionName: 'm2creditsales' },
+            update: {
+              $set: { collectionName: 'sales' },
+            },
+          },
+        };
+        bookObj.push(saleObj2);
+        const saleReturnObj1 = {
+          updateMany: {
+            filter: { collectionName: 'm2cashsalereturns' },
+            update: {
+              $set: { collectionName: 'sale_returns' },
+            },
+          },
+        };
+        bookObj.push(saleReturnObj1);
+        const saleReturnObj2 = {
+          updateMany: {
+            filter: { collectionName: 'm2creditsalereturns' },
+            update: {
+              $set: { collectionName: 'sale_returns' },
+            },
+          },
+        };
+        bookObj.push(saleReturnObj2);
+        const purchaseObj1 = {
+          updateMany: {
+            filter: { collectionName: 'm2cashpurchases' },
+            update: {
+              $set: { collectionName: 'purchases' },
+            },
+          },
+        };
+        bookObj.push(purchaseObj1);
+        const purchaseObj2 = {
+          updateMany: {
+            filter: { collectionName: 'm2creditpurchases' },
+            update: {
+              $set: { collectionName: 'purchases' },
+            },
+          },
+        };
+        bookObj.push(purchaseObj2);
+        const purchaseReturnObj1 = {
+          updateMany: {
+            filter: { collectionName: 'm2cashpurchasereturns' },
+            update: {
+              $set: { collectionName: 'purchase_returns' },
+            },
+          },
+        };
+        bookObj.push(purchaseReturnObj1);
+        const purchaseReturnObj2 = {
+          updateMany: {
+            filter: { collectionName: 'm2creditpurchasereturns' },
+            update: {
+              $set: { collectionName: 'purchase_returns' },
+            },
+          },
+        };
+        bookObj.push(purchaseReturnObj2);
+        await connection.db().collection('inventorybooks').bulkWrite(bookObj);
+        await connection.db().collection('accountbooks').bulkWrite(bookObj);
+        await connection.db().collection('customerbooks').bulkWrite(bookObj);
+        await connection.db().collection('vendorbooks').bulkWrite(bookObj);
+        await connection.db().collection('cashregisterbooks').bulkWrite(bookObj);
 
         await connection.close();
         return true;
