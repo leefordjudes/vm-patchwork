@@ -84,6 +84,16 @@ export class MergeService {
     return await this.preferenceModel.insertMany(arr);
   }
 
+  async merge(orgType: string) {
+    if (orgType === 'm1') {
+      return await this.m1Merge();
+    } else if (orgType === 'm2') {
+      return await this.m2Merge();
+    } else {
+      return 'Accept only m1 or m2';
+    }
+  }
+
   async m2Merge() {
     await this.m2CashSaleModel.aggregate([
       { $addFields: { saleType: 'cash' } },
