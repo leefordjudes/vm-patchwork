@@ -285,6 +285,10 @@ export class MergeService {
         console.log('vouchertypes');
         await connection.db().dropCollection('m1dashboardconfigs');
         console.log('m1dashboardconfigs');
+        await connection.db().dropCollection('userconfigs');
+        console.log('userconfigs');
+        await connection.db().dropCollection('configurations');
+        console.log('configurations');
 
         const bookObj = [];
         const openingObj1 = {
@@ -515,6 +519,10 @@ export class MergeService {
         console.log('taxtypes');
         await connection.db().dropCollection('vouchertypes');
         console.log('vouchertypes');
+        await connection.db().dropCollection('userconfigs');
+        console.log('userconfigs');
+        await connection.db().dropCollection('configurations');
+        console.log('configurations');
 
         const bookObj = [];
         const openingObj1 = {
