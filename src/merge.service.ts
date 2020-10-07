@@ -283,6 +283,8 @@ export class MergeService {
         console.log('taxtypes');
         await connection.db().dropCollection('vouchertypes');
         console.log('vouchertypes');
+        await connection.db().dropCollection('inventoryopenings');
+        console.log('inventoryopenings');
         await connection.db().dropCollection('m1dashboardconfigs');
         console.log('m1dashboardconfigs');
         await connection.db().dropCollection('userconfigs');

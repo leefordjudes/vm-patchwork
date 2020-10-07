@@ -18,7 +18,7 @@ http://127.0.0.1:3000/common/rename?orgType=m1&dbname=velavanstationery
 http://127.0.0.1:3000/common/head
 BODY of the data:
 {
-    "name": "head name",
+    "name": "stationery",
     "pharmacyRetail": false
 }
 
@@ -44,7 +44,7 @@ http://127.0.0.1:3000/common/rename?orgType=m2&dbname=velavanmedical
 http://127.0.0.1:3000/common/head
 BODY of the data:
 {
-    "name": "head name",
+    "name": "medical",
     "pharmacyRetail": true
 }
 
