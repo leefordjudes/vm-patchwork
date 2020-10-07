@@ -7,12 +7,10 @@ const schema = new mongoose.Schema(
       type: String,
       trim: true,
       minlength: 1,
-      index: true,
     },
     validateAliasName: {
       type: String,
       trim: true,
-      index: true,
     },
     name: {
       type: String,
@@ -31,7 +29,6 @@ const schema = new mongoose.Schema(
     },
     barcode: {
       type: String,
-      index: true,
     },
     precision: {
       type: Number,
@@ -54,12 +51,10 @@ const schema = new mongoose.Schema(
     section: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Section',
-      index: true,
     },
     manufacturer: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Manufacturer',
-      index: true,
     },
     preferredVendor: {
       type: mongoose.Schema.Types.ObjectId,
