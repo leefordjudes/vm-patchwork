@@ -96,6 +96,10 @@ const URI = 'mongodb://localhost/velavanstationery';
       {
         name: 'Inventory',
         schema: schema.inventorySchema,
+      },
+      {
+        name: 'Preference',
+        schema: schema.preferenceSchema,
       }
     ]),
   ],

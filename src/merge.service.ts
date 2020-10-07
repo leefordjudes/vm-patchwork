@@ -62,7 +62,37 @@ export class MergeService {
     private readonly branchModel: Model<iface.Branch>,
     @InjectModel('Inventory')
     private readonly inventoryModel: Model<iface.Inventory>,
+    @InjectModel('Preference')
+    private readonly preferenceModel: Model<iface.Preference>,
   ) {}
+
+  async preference() {
+    const preferences = await this.preferenceModel.find({});
+    const branches = await this.branchModel.find({});
+    await this.preferenceModel.deleteMany({});
+    const bids = branches.map(x => x.id);
+    let arr = [];
+    for (const bid of bids) {
+      const pre = preferences.map(x => {
+        return {
+         code: x.code,
+         config: x.config,
+         branch: bid,
+       }}); 
+       arr.push(...pre);
+    }
+    return await this.preferenceModel.insertMany(arr);
+  }
+
+  async merge(orgType: string) {
+    if (orgType === 'm1') {
+      return await this.m1Merge();
+    } else if (orgType === 'm2') {
+      return await this.m2Merge();
+    } else {
+      return 'Accept only m1 or m2';
+    }
+  }
 
   async m2Merge() {
     await this.m2CashSaleModel.aggregate([
@@ -151,6 +181,10 @@ export class MergeService {
           useUnifiedTopology: true,
           useNewUrlParser: true,
         }).connect();
+        console.log('==================Print Collection====================');
+        await connection.db().collection('printtemplates').updateMany({ category: { $in: ['CASH-SALE', 'CREDIT-SALE'] } }, { $set: { category: ['SALE'] } });
+        await connection.db().collection('printtemplates').updateMany({ category: { $in: ['CASH-SALE-RETURN', 'CREDIT-SALE-RETURN'] } }, { $set: { category: ['SALE-RETURN'] } });
+        console.log('Print templates category value updated sucessfully');
         console.log('==================Rename Collection====================');
         await connection.db().renameCollection('m1inventories', 'inventories');
         console.log('m1inventories', 'inventories');
@@ -247,6 +281,10 @@ export class MergeService {
           useUnifiedTopology: true,
           useNewUrlParser: true,
         }).connect();
+        console.log('==================Print Collection====================');
+        await connection.db().collection('printtemplates').updateMany({ category: { $in: ['CASH-SALE', 'CREDIT-SALE'] } }, { $set: { category: ['SALE'] } });
+        await connection.db().collection('printtemplates').updateMany({ category: { $in: ['CASH-SALE-RETURN', 'CREDIT-SALE-RETURN'] } }, { $set: { category: ['SALE-RETURN'] } });
+        console.log('Print templates category value updated sucessfully');
         console.log('==================Rename Collection====================');
         await connection.db().renameCollection('m2inventories', 'inventories');
         console.log('m2inventories', 'inventories');
