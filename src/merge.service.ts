@@ -71,15 +71,17 @@ export class MergeService {
     const branches = await this.branchModel.find({});
     await this.preferenceModel.deleteMany({});
     const bids = branches.map(x => x.id);
+    let arr = [];
     for (const bid of bids) {
       const pre = preferences.map(x => {
         return {
          code: x.code,
          config: x.config,
          branch: bid,
-       }});
-      await this.preferenceModel.insertMany(pre);
+       }}); 
+       arr.push(...pre);
     }
+    return await this.preferenceModel.insertMany(arr);
   }
 
   async m2Merge() {
