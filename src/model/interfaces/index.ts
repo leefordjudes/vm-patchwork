@@ -38,3 +38,4 @@ export { Purchase } from './purchase.interface';
 export { PurchaseReturn } from './purchase-return.interface';
 export { InventoryHead } from './inventory-head.interface';
 export { Inventory } from './inventory.interface';
+export { Preference } from './preference.interface';

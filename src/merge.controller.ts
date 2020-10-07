@@ -29,4 +29,9 @@ export class MergeController {
     console.log(data);
     return await this.mergeService.head(data);
   }
+
+  @Put('preference')
+  async preference() {
+    return await this.mergeService.preference();
+  }
 }

@@ -62,7 +62,25 @@ export class MergeService {
     private readonly branchModel: Model<iface.Branch>,
     @InjectModel('Inventory')
     private readonly inventoryModel: Model<iface.Inventory>,
+    @InjectModel('Preference')
+    private readonly preferenceModel: Model<iface.Preference>,
   ) {}
+
+  async preference() {
+    const preferences = await this.preferenceModel.find({});
+    const branches = await this.branchModel.find({});
+    await this.preferenceModel.deleteMany({});
+    const bids = branches.map(x => x.id);
+    for (const bid of bids) {
+      const pre = preferences.map(x => {
+        return {
+         code: x.code,
+         config: x.config,
+         branch: bid,
+       }});
+      await this.preferenceModel.insertMany(pre);
+    }
+  }
 
   async m2Merge() {
     await this.m2CashSaleModel.aggregate([

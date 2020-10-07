@@ -36,3 +36,4 @@ export { purchaseSchema } from './purchase.schema';
 export { purchaseReturnSchema } from './purchase-return.schema';
 export { inventoryHeadSchema } from './inventory-head.schema';
 export { inventorySchema } from './inventory.schema';
+export { preferenceSchema } from './preference.schema';
