@@ -171,6 +171,10 @@ export class MergeService {
           useUnifiedTopology: true,
           useNewUrlParser: true,
         }).connect();
+        console.log('==================Print Collection====================');
+        await connection.db().collection('printtemplates').updateMany({ category: { $in: ['CASH-SALE', 'CREDIT-SALE'] } }, { $set: { category: ['SALE'] } });
+        await connection.db().collection('printtemplates').updateMany({ category: { $in: ['CASH-SALE-RETURN', 'CREDIT-SALE-RETURN'] } }, { $set: { category: ['SALE-RETURN'] } });
+        console.log('Print templates category value updated sucessfully');
         console.log('==================Rename Collection====================');
         await connection.db().renameCollection('m1inventories', 'inventories');
         console.log('m1inventories', 'inventories');
@@ -267,6 +271,10 @@ export class MergeService {
           useUnifiedTopology: true,
           useNewUrlParser: true,
         }).connect();
+        console.log('==================Print Collection====================');
+        await connection.db().collection('printtemplates').updateMany({ category: { $in: ['CASH-SALE', 'CREDIT-SALE'] } }, { $set: { category: ['SALE'] } });
+        await connection.db().collection('printtemplates').updateMany({ category: { $in: ['CASH-SALE-RETURN', 'CREDIT-SALE-RETURN'] } }, { $set: { category: ['SALE-RETURN'] } });
+        console.log('Print templates category value updated sucessfully');
         console.log('==================Rename Collection====================');
         await connection.db().renameCollection('m2inventories', 'inventories');
         console.log('m2inventories', 'inventories');
