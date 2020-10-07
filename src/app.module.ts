@@ -76,26 +76,32 @@ const URI = 'mongodb://localhost/velavanstationery';
       {
         name: 'Sale',
         schema: schema.saleSchema,
+        collection: 'sales',
       },
       {
         name: 'Sale_Return',
         schema: schema.saleReturnSchema,
+        collection: 'sale_returns',
       },
       {
         name: 'Purchase',
         schema: schema.purchaseSchema,
+        collection: 'purchases'
       },
       {
         name: 'Purchase_Return',
         schema: schema.purchaseReturnSchema,
+        collection: 'purchase_returns',
       },
       {
         name: 'Inventory_Head',
         schema: schema.inventoryHeadSchema,
+        collection: 'inventory_heads',
       },
       {
         name: 'Inventory',
         schema: schema.inventorySchema,
+        collection: 'inventories',
       },
       {
         name: 'Preference',
