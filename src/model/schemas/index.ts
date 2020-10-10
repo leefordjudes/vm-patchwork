@@ -37,3 +37,5 @@ export { purchaseReturnSchema } from './purchase-return.schema';
 export { inventoryHeadSchema } from './inventory-head.schema';
 export { inventorySchema } from './inventory.schema';
 export { preferenceSchema } from './preference.schema';
+export { customerPendingSchema } from './customer-pending.schema';
+export { vendorPendingSchema } from './vendor-pending.schema';
