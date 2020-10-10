@@ -5,13 +5,15 @@ import { AppService } from './app.service';
 
 import * as schema from './model/schemas';
 import { Patch3Controller } from './patch3.controller';
+import { Patch4Controller } from './patch4.controller';
 import { Patch3Service } from './patch3.service';
 import { MergeController } from './merge.controller';
 import { MergeService } from './merge.service';
+import { Patch4Service } from './patch4.service';
 
 // const URI = 'mongodb+srv://username:password@host/database?retryWrites=true&w=majority';
-const URI = 'mongodb://localhost/velavanmedical';
-// const URI = 'mongodb://localhost/velavanstationery';
+// const URI = 'mongodb://localhost/velavanmedical';
+const URI = 'mongodb://localhost/velavanstationery';
 
 @Module({
   imports: [
@@ -106,9 +108,22 @@ const URI = 'mongodb://localhost/velavanmedical';
         name: 'Preference',
         schema: schema.preferenceSchema,
       },
+      {
+        name: 'VendorPending',
+        schema: schema.vendorPendingSchema,
+      },
+      {
+        name: 'CustomerPending',
+        schema: schema.customerPendingSchema,
+      },
     ]),
   ],
-  controllers: [AppController, Patch3Controller, MergeController],
-  providers: [AppService, Patch3Service, MergeService],
+  controllers: [
+    AppController,
+    Patch3Controller,
+    MergeController,
+    Patch4Controller,
+  ],
+  providers: [AppService, Patch3Service, MergeService, Patch4Service],
 })
 export class AppModule {}

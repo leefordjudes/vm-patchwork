@@ -39,3 +39,5 @@ export { PurchaseReturn } from './purchase-return.interface';
 export { InventoryHead } from './inventory-head.interface';
 export { Inventory } from './inventory.interface';
 export { Preference } from './preference.interface';
+export { VendorPending } from './vendor-pending.interface';
+export { CustomerPending } from './customer-pending.interface';
