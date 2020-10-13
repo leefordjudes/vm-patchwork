@@ -41,3 +41,4 @@ export { Inventory } from './inventory.interface';
 export { Preference } from './preference.interface';
 export { VendorPending } from './vendor-pending.interface';
 export { CustomerPending } from './customer-pending.interface';
+export { GSTFiling } from './gst-filing.interface';

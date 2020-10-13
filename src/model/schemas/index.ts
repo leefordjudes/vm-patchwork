@@ -39,3 +39,4 @@ export { inventorySchema } from './inventory.schema';
 export { preferenceSchema } from './preference.schema';
 export { customerPendingSchema } from './customer-pending.schema';
 export { vendorPendingSchema } from './vendor-pending.schema';
+export { gstFilingSchema } from './gst-filing.schema';

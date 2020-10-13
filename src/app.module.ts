@@ -10,6 +10,8 @@ import { Patch3Service } from './patch3.service';
 import { MergeController } from './merge.controller';
 import { MergeService } from './merge.service';
 import { Patch4Service } from './patch4.service';
+import { GSTFilingController } from './gst-filing.controller';
+import { GSTFilingService } from './gst-filing.service';
 
 // const URI = 'mongodb+srv://username:password@host/database?retryWrites=true&w=majority';
 // const URI = 'mongodb://localhost/velavanmedical';
@@ -116,6 +118,11 @@ const URI = 'mongodb://localhost/velavanstationery';
         name: 'CustomerPending',
         schema: schema.customerPendingSchema,
       },
+      {
+        name: 'GST_Filing',
+        schema: schema.gstFilingSchema,
+        collection: 'gst_filings',
+      }
     ]),
   ],
   controllers: [
@@ -123,7 +130,14 @@ const URI = 'mongodb://localhost/velavanstationery';
     Patch3Controller,
     MergeController,
     Patch4Controller,
+    GSTFilingController,
   ],
-  providers: [AppService, Patch3Service, MergeService, Patch4Service],
+  providers: [
+    AppService,
+    Patch3Service,
+    MergeService,
+    Patch4Service,
+    GSTFilingService,
+  ],
 })
 export class AppModule {}
