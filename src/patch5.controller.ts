@@ -14,7 +14,7 @@ export class Patch5Controller {
   */
 
   @Put('print')
-  async patchPendings(@Body() configData: any, @Query() query: any) {
-    return await this.patch5Service.printConfig(configData, query);
+  async patchPendings() {
+    return await this.patch5Service.printConfig();
   }
 }

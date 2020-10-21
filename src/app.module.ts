@@ -14,10 +14,11 @@ import { GSTFilingController } from './gst-filing.controller';
 import { GSTFilingService } from './gst-filing.service';
 import { Patch5Controller } from './patch5.controller';
 import { Patch5Service } from './patch5.service';
+import { URI } from './config';
 
 // const URI = 'mongodb+srv://username:password@host/database?retryWrites=true&w=majority';
-const URI =  `mongodb://admin:12345678@192.168.1.20:27017/velavanmedical1?authSource=admin`;
-
+// const URI =  `mongodb://admin:12345678@192.168.1.20:27017/velavanmedical1?authSource=admin`;
+// const URI = `mongodb://localhost/velavanstationery`;
 @Module({
   imports: [
     MongooseModule.forRoot(URI, {
@@ -123,7 +124,7 @@ const URI =  `mongodb://admin:12345678@192.168.1.20:27017/velavanmedical1?authSo
         name: 'GST_Filing',
         schema: schema.gstFilingSchema,
         collection: 'gst_filings',
-      }
+      },
     ]),
   ],
   controllers: [
