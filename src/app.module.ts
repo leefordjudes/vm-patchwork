@@ -12,10 +12,11 @@ import { MergeService } from './merge.service';
 import { Patch4Service } from './patch4.service';
 import { GSTFilingController } from './gst-filing.controller';
 import { GSTFilingService } from './gst-filing.service';
+import { Patch5Controller } from './patch5.controller';
+import { Patch5Service } from './patch5.service';
 
 // const URI = 'mongodb+srv://username:password@host/database?retryWrites=true&w=majority';
-// const URI = 'mongodb://localhost/velavanmedical';
-const URI = 'mongodb://localhost/velavanstationery';
+const URI =  `mongodb://admin:12345678@192.168.1.20:27017/velavanmedical1?authSource=admin`;
 
 @Module({
   imports: [
@@ -131,6 +132,7 @@ const URI = 'mongodb://localhost/velavanstationery';
     MergeController,
     Patch4Controller,
     GSTFilingController,
+    Patch5Controller,
   ],
   providers: [
     AppService,
@@ -138,6 +140,7 @@ const URI = 'mongodb://localhost/velavanstationery';
     MergeService,
     Patch4Service,
     GSTFilingService,
+    Patch5Service,
   ],
 })
 export class AppModule {}
