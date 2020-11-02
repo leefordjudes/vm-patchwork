@@ -22,6 +22,95 @@ const PRINT_CONFIG = {
 @Injectable()
 export class Patch5Service {
   constructor() {}
+
+  async config() {
+    try {
+      const connection = await new MongoClient(URI, {
+        useUnifiedTopology: true,
+        useNewUrlParser: true,
+      }).connect();
+      const obj1 = {
+        updateMany: {
+          filter: { collectionName: { $in: ['m2stocktransfers', 'm1stocktransfers'] } },
+          update: {
+            $set: { collectionName: 'stock_transfers' },
+          },
+        },
+      };
+      const obj2 = {
+        updateMany: {
+          filter: { collectionName: { $in: ['m2stockadjustments', 'm1stockadjustments'] } },
+          update: {
+            $set: { collectionName: 'stock_adjustments' },
+          },
+        },
+      };
+      await connection.db().collection('accountbooks').bulkWrite([obj1, obj2]);
+      await connection.db().collection('inventorybooks').bulkWrite([obj1, obj2]);
+      await connection.db().collection('branchbooks').bulkWrite([obj1, obj2]);
+      const invBookData = [
+        {
+          'saleValue': 0,
+          'assetValue': 0,
+          'inventoryId': '5f416bb86daef125612fda3c',
+          'inventoryName': 'ACCUSURE PULSE MACHINE',
+          'outward': 0,
+          'inward': 6,
+          'date': new Date('2020-08-26T00:00:00.000+0000'),
+          'refNo': null,
+          'voucherNo': 'GF27',
+          'createdAt': new Date('2020-08-26T11:57:56.924+0000'),
+          'updatedAt': new Date('2020-08-26T13:13:22.256+0000'),
+          'createdBy': '5f421c5c6daef1c99f37a555',
+          'updatedBy': '5f41548a6daef15c692bbe9a',
+          'voucherId': '5f464e440632a59f9e2b71a0',
+          'voucherType': 'STOCK_JOURNAL',
+          'branchId': '5f4146b4600c4a425e22ed9d',
+          'branchName': 'PALAY MARKET BRANCH',
+          'warehouseId': null,
+          'warehouseName': null,
+          'collectionName': 'stock_transfers',
+          'voucherName': 'Stock Transfer',
+          '__v': 0,
+        },
+        {
+          'saleValue': 0,
+          'assetValue': 0,
+          'inventoryId': '5f44a7beb622c5db479fc8ef',
+          'inventoryName': 'PULSE OXIMETER POINT OF CARE',
+          'outward': 2,
+          'inward': 0,
+          'date': new Date('2020-08-26T00:00:00.000+0000'),
+          'refNo': null,
+          'voucherNo': 'GF26',
+          'createdAt': new Date('2020-08-26T11:44:35.776+0000'),
+          'updatedAt': new Date('2020-08-26T12:05:08.418+0000'),
+          'createdBy': '5f3b800758ec352a10c12e78',
+          'updatedBy': '5f377382f777b3554ba5994e',
+          'voucherId': '5f464b230632a5d8a02b6cc8',
+          'voucherType': 'STOCK_JOURNAL',
+          'branchId': '5f361b7366f8ad60f4020b5a',
+          'branchName': 'GF ROAD BRANCH',
+          'warehouseId': null,
+          'warehouseName': null,
+          'collectionName': 'stock_transfers',
+          'voucherName': 'Stock Transfer',
+          '__v': 0
+        }
+      ];
+      const result = await connection.db().collection('inventorybooks').insertMany(invBookData);
+      try {
+        await connection.db().dropCollection('dashboardconfigs');
+        console.log('dashboardconfigs dropped');
+      } catch (err) {
+        console.log('dashboardconfigs collection not found');
+      }
+      await connection.close();
+      return result;
+    } catch (err) {
+      return false;
+    }
+  }
   async printConfig() {
     // const uri = `mongodb+srv://${DB_USER}:${DB_PASS}@${DB_HOST}/${DB_NAME}?retryWrites=true&w=majority`;
     // const URI = `mongodb://localhost/velavanstationery`;
