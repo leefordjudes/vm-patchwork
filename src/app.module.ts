@@ -15,6 +15,8 @@ import { GSTFilingService } from './gst-filing.service';
 import { Patch5Controller } from './patch5.controller';
 import { Patch5Service } from './patch5.service';
 import { URI } from './config';
+import { Patch6Controller } from './patch6.controller';
+import { Patch6Service } from './patch6.service';
 
 // const URI = 'mongodb+srv://username:password@host/database?retryWrites=true&w=majority';
 // const URI =  `mongodb://admin:12345678@192.168.1.20:27017/velavanmedical1?authSource=admin`;
@@ -134,6 +136,7 @@ import { URI } from './config';
     Patch4Controller,
     GSTFilingController,
     Patch5Controller,
+    Patch6Controller,
   ],
   providers: [
     AppService,
@@ -142,6 +145,7 @@ import { URI } from './config';
     Patch4Service,
     GSTFilingService,
     Patch5Service,
+    Patch6Service,
   ],
 })
 export class AppModule {}
