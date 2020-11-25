@@ -14,19 +14,19 @@ export class Patch6Service {
   ) {}
   async discountConfig() {
     try {
-      console.log('1');
+      console.log('1.connect to mongodb server using mongo client');
       const connection = await new MongoClient(URI, {
         useUnifiedTopology: true,
         useNewUrlParser: true,
       }).connect();
-      console.log('2');
+      console.log('2. connected');
       const inventoryUpdateObj = [];
 
       const inventories = await this.inventoryModel.find(
         {},
         { _id: 1, sDisc: 1 },
       );
-      console.log('3');
+      console.log('3. inventory patch object generate start');
       for (const inv of inventories) {
         const priceConfigObj = [];
         for (const sd of inv.sDisc) {
@@ -49,7 +49,8 @@ export class Patch6Service {
         };
         inventoryUpdateObj.push(updateObj);
       }
-      console.log('4');
+      console.log('3a. inventory patch object generate end');
+      console.log('4. inventory patch start');
       const result = await connection
         .db()
         .collection('inventories')
@@ -79,22 +80,22 @@ export class Patch6Service {
           },
         },
       };
-      console.log('6');
+      console.log('6. stock_transfers,stock_adjustments object generated');
       const accBooks = await connection
         .db()
         .collection('accountbooks')
         .bulkWrite([obj1, obj2]);
-      console.log('7');
+      console.log('7.accountbooks');
       const invBooks = await connection
         .db()
         .collection('inventorybooks')
         .bulkWrite([obj1, obj2]);
-      console.log('8');
+      console.log('8.inventorybooks');
       const branchBooks = await connection
         .db()
         .collection('branchbooks')
         .bulkWrite([obj1, obj2]);
-      console.log('9');
+      console.log('9.branchbooks');
       console.log('Books updated');
 
       await connection.close();
