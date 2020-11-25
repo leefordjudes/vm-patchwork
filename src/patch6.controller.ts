@@ -6,7 +6,8 @@ export class Patch6Controller {
   constructor(private readonly patch6Service: Patch6Service) {}
 
   @Put('discount')
-  async patchPendings() {
+  async discountConfig() {
+    console.log('patch6 controller discount');
     return await this.patch6Service.discountConfig();
   }
 }
