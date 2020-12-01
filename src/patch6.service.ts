@@ -16,7 +16,7 @@ export class Patch6Service {
       const inventoryUpdateObj = [];
       const inventories: any = await connection.db().collection('inventories').find(
         {},
-        { projection: { priceConfig: 1 }, limit: 10 },
+        { projection: { priceConfig: 1 } },
       ).toArray();
       console.log('3. inventory patch object generate start');
       for (const inv of inventories) {
