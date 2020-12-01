@@ -48,84 +48,16 @@ export class Patch6Service {
         .db()
         .collection('inventories').updateMany({}, { $unset: { sDisc: true, priceConfig: true } });
       console.log('$$$$$ Unset sDisk & priceConfig end $$$$');
-
-      const dateRestriction = [
-        {
-          "code": "001",
-          "caption": "Today",
-          "description": "Restrict user to Create & modify current day material conversion transactions only",
-          "entity": "today",
-          "category": "Material Conversion"
-        },
-        {
-          "code": "002",
-          "caption": "7 days",
-          "description": "Restrict user to Create & modify past 7 days material conversion transactions",
-          "entity": "past",
-          "category": "Material Conversion"
-        },
-        {
-          "code": "003",
-          "caption": "30 days",
-          "description": "Restrict user to Create & modify past 30 days material conversion transactions",
-          "entity": "past",
-          "category": "Material Conversion"
-        },
-        {
-          "code": "004",
-          "caption": "365 days",
-          "description": "Restrict user to Create & modify past 365 days material conversion transactions",
-          "entity": "past",
-          "category": "Material Conversion"
-        },
-        {
-          "code": "005",
-          "caption": "All days",
-          "description": "Restrict user to Create & modify all past days material conversion transactions",
-          "entity": "past",
-          "category": "Material Conversion"
-        },
-        {
-          "code": "006",
-          "caption": "7 days",
-          "description": "Restrict user to Create & modify future 7 days material conversion transactions",
-          "entity": "future",
-          "category": "Material Conversion"
-        },
-        {
-          "code": "007",
-          "caption": "30 days",
-          "description": "Restrict user to Create & modify future 30 days material conversion transactions",
-          "entity": "future",
-          "category": "Material Conversion"
-        },
-        {
-          "code": "008",
-          "caption": "365 days",
-          "description": "Restrict user to Create & modify future 365 days material conversion transactions",
-          "entity": "future",
-          "category": "Material Conversion"
-        },
-        {
-          "code": "009",
-          "caption": "All days",
-          "description": "Restrict user to Create & modify all future material conversion transactions",
-          "entity": "future",
-          "category": "Material Conversion"
-        }
-      ];
-      const dateRestrictionResult = await connection
-      .db()
-      .collection('daterestrictions').insertMany(dateRestriction);
-      console.log('daterestrictions record inserted');
       try {
+        await connection.db().dropCollection('daterestrictions');
+        console.log('daterestrictions dropped');
         await connection.db().dropCollection('dashboardconfigs');
         console.log('dashboardconfigs dropped');
       } catch (err) {
         console.log('dashboardconfigs collection not found');
       }
       await connection.close();
-      return { result, unset, dateRestrictionResult};
+      return { result, unset };
     } catch (err) {
       return err;
     }
