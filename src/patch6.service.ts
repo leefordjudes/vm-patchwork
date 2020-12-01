@@ -1,17 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
 import { MongoClient } from 'mongodb';
-import { Model } from 'mongoose';
 
-import * as iface from './model/interfaces';
 import { URI } from './config';
 
 @Injectable()
 export class Patch6Service {
-  constructor(
-    @InjectModel('Inventory')
-    private readonly inventoryModel: Model<iface.Inventory>,
-  ) {}
   async discountConfig() {
     try {
       console.log('1.connect to mongodb server using mongo client');
@@ -21,28 +14,23 @@ export class Patch6Service {
       }).connect();
       console.log('2. connected');
       const inventoryUpdateObj = [];
-
-      const inventories = await this.inventoryModel.find(
+      const inventories: any = await connection.db().collection('inventories').find(
         {},
-        { _id: 1, sDisc: 1 },
-      );
+        { projection: { priceConfig: 1 }, limit: 10 },
+      ).toArray();
       console.log('3. inventory patch object generate start');
       for (const inv of inventories) {
-        const priceConfigObj = [];
-        for (const sd of inv.sDisc) {
-          const obj = {
-            pricingType: 'discount',
-            branch: sd.branch,
-            discount: { defaultDiscount: sd.ratio },
-          };
-          priceConfigObj.push(obj);
+        console.log(inv)
+        const sDiscount = {};
+        for (const sd of inv.priceConfig) {
+          sDiscount[sd.branch] = { ratio: sd.discount.defaultDiscount, cRatio: null };
         }
         const updateObj = {
           updateMany: {
             filter: { _id: inv._id },
             update: {
               $set: {
-                priceConfig: priceConfigObj,
+                sDiscount, sMargin: null,
               },
             },
           },
@@ -55,51 +43,20 @@ export class Patch6Service {
         .db()
         .collection('inventories')
         .bulkWrite(inventoryUpdateObj);
-      console.log('5');
-      console.log('inventory patch done');
-
-      const obj1 = {
-        updateMany: {
-          filter: {
-            collectionName: { $in: ['m2stocktransfers', 'm1stocktransfers'] },
-          },
-          update: {
-            $set: { collectionName: 'stock_transfers' },
-          },
-        },
-      };
-      const obj2 = {
-        updateMany: {
-          filter: {
-            collectionName: {
-              $in: ['m2stockadjustments', 'm1stockadjustments'],
-            },
-          },
-          update: {
-            $set: { collectionName: 'stock_adjustments' },
-          },
-        },
-      };
-      console.log('6. stock_transfers,stock_adjustments object generated');
-      const accBooks = await connection
+      console.log('--inventory patch done--');
+      console.log('Unset sDisk & priceConfig started');
+      const unset = await connection
         .db()
-        .collection('accountbooks')
-        .bulkWrite([obj1, obj2]);
-      console.log('7.accountbooks');
-      const invBooks = await connection
-        .db()
-        .collection('inventorybooks')
-        .bulkWrite([obj1, obj2]);
-      console.log('8.inventorybooks');
-      const branchBooks = await connection
-        .db()
-        .collection('branchbooks')
-        .bulkWrite([obj1, obj2]);
-      console.log('9.branchbooks');
-      console.log('Books updated');
-
+        .collection('inventories').updateMany({}, { $unset: { sDisk: true, priceConfig: true } });
+      console.log('$$$$$ Unset sDisk & priceConfig end $$$$');
+      try {
+        await connection.db().dropCollection('dashboardconfigs');
+        console.log('dashboardconfigs dropped');
+      } catch (err) {
+        console.log('dashboardconfigs collection not found');
+      }
       await connection.close();
-      return { result, accBooks, invBooks, branchBooks };
+      return { result, unset };
     } catch (err) {
       return err;
     }
