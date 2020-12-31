@@ -13,9 +13,9 @@ export class Patch6Service {
       }).connect();
       console.log('---connected---');
       console.log('1.sMargin unset if sMargin is NULL');
-      const sMargin = await connection.db().collection('inventories').updateMany({ sMargin: null }, { $unset: { sMargin: 1 } });
+      const sMargin = await connection.db().collection('inventories').updateMany({ $and : [ { sMargin : null }, { sMargin : { $exists : true } } ] }, { $unset: { sMargin: 1 } });
       console.log('2.sDiscount unset if sDiscount is NULL');
-      const sDisc = await connection.db().collection('inventories').updateMany({ sDiscount: null }, { $unset: { sDiscount: 1 } });
+      const sDisc = await connection.db().collection('inventories').updateMany({ $and : [ { sDiscount : null }, { sDiscount : { $exists : true } } ] }, { $unset: { sDiscount: 1 } });
       console.log('unset finished');
       await connection.close();
       return { sMargin, sDisc };
