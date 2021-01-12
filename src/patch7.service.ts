@@ -22,9 +22,6 @@ export class Patch7Service {
       const stockTransferUpdateObj = [];
       const accountBookUpdateObj = [];
       const branchBookUpdateObj = [];
-      const branchPayable = await connection.db()
-        .collection('accounts').findOne({ validateName: 'branchpayable' });
-      const accountId = branchPayable._id.toString();
       const stockTranfers: any = await connection.db()
         .collection('stock_transfers').find({}, { projection: { acTrns: 1, branch: 1, targetBranch: 1, amount: 1, approved: 1 } })
         .toArray();
@@ -32,26 +29,26 @@ export class Patch7Service {
       console.log('3. stock transfer patch object generate start');
       for (const st of stockTranfers) {
         const voucherId = st._id.toString();
-        const sourceBranch = st.branch.id;
-        const targetBranch = st.targetBranch.id;
+        // const sourceBranch = st.branch.id;
+        // const targetBranch = st.targetBranch.id;
         const amount = round(st.amount);
         const stUpdateObj1 = {
           updateMany: {
-            filter: { acTrns: { $elemMatch: { 'account.id': accountId, 'branch': sourceBranch } } },
+            filter: { _id: st._id, acTrns: { $elemMatch: { 'account.name': 'Branch Payable', 'debit': { $gt: 0 } } } },
             update: {
               $set: { 'acTrns.$[elm].debit': amount },
             },
-            arrayFilters: [{ 'elm.branch': sourceBranch, 'elm.account.id': accountId }],
+            arrayFilters: [{ 'elm.debit': { $gt: 0 }, 'elm.account.name': 'Branch Payable' }],
           },
         };
         stockTransferUpdateObj.push(stUpdateObj1);
         const stUpdateObj2 = {
           updateMany: {
-            filter: { acTrns: { $elemMatch: { 'account.id': accountId, 'branch': targetBranch } } },
+            filter: { _id: st._id, acTrns: { $elemMatch: { 'account.name': 'Branch Payable', 'credit': { $gt: 0 } } } },
             update: {
               $set: { 'acTrns.$[elm].credit': amount },
             },
-            arrayFilters: [{ 'elm.branch': targetBranch, 'elm.account.id': accountId }],
+            arrayFilters: [{ 'elm.credit': { $gt: 0 }, 'elm.account.name': 'Branch Payable' }],
           },
         };
         if (st.approved) {
@@ -59,7 +56,7 @@ export class Patch7Service {
         }
         const bookUpdateObj1 = {
           updateMany: {
-            filter: { voucherId, accountId, branchId: sourceBranch },
+            filter: { voucherId, accountName: 'Branch Payable', debit: { $gt: 0 } },
             update: {
               $set: { debit: amount },
             },
@@ -67,16 +64,14 @@ export class Patch7Service {
         };
         const bookUpdateObj2 = {
           updateMany: {
-            filter: { voucherId, accountId, branchId: targetBranch },
+            filter: { voucherId, accountName: 'Branch Payable', credit: { $gt: 0 } },
             update: {
               $set: { credit: amount },
             },
           },
         };
         accountBookUpdateObj.push(bookUpdateObj1);
-        if (st.approved) {
-          accountBookUpdateObj.push(bookUpdateObj2);
-        }
+        accountBookUpdateObj.push(bookUpdateObj2);
         const branchUpdateObj1 = {
           updateMany: {
             filter: { voucherId, debit: { $gt: 0 } },
@@ -130,6 +125,6 @@ export class Patch7Service {
       return err;
     }
     await connection.close();
-    return { result, accBook };
+    return { result, accBook, brBook };
   }
 }
