@@ -33,7 +33,7 @@ export class Patch7Service {
         // const targetBranch = st.targetBranch.id;
         const amount = round(st.amount);
         const stUpdateObj1 = {
-          updateMany: {
+          updateOne: {
             filter: { _id: st._id, acTrns: { $elemMatch: { 'account.name': 'Branch Payable', 'debit': { $gt: 0 } } } },
             update: {
               $set: { 'acTrns.$[elm].debit': amount },
@@ -43,7 +43,7 @@ export class Patch7Service {
         };
         stockTransferUpdateObj.push(stUpdateObj1);
         const stUpdateObj2 = {
-          updateMany: {
+          updateOne: {
             filter: { _id: st._id, acTrns: { $elemMatch: { 'account.name': 'Branch Payable', 'credit': { $gt: 0 } } } },
             update: {
               $set: { 'acTrns.$[elm].credit': amount },
@@ -55,7 +55,7 @@ export class Patch7Service {
           stockTransferUpdateObj.push(stUpdateObj2);
         }
         const bookUpdateObj1 = {
-          updateMany: {
+          updateOne: {
             filter: { voucherId, accountName: 'Branch Payable', debit: { $gt: 0 } },
             update: {
               $set: { debit: amount },
@@ -63,7 +63,7 @@ export class Patch7Service {
           },
         };
         const bookUpdateObj2 = {
-          updateMany: {
+          updateOne: {
             filter: { voucherId, accountName: 'Branch Payable', credit: { $gt: 0 } },
             update: {
               $set: { credit: amount },
@@ -73,7 +73,7 @@ export class Patch7Service {
         accountBookUpdateObj.push(bookUpdateObj1);
         accountBookUpdateObj.push(bookUpdateObj2);
         const branchUpdateObj1 = {
-          updateMany: {
+          updateOne: {
             filter: { voucherId, debit: { $gt: 0 } },
             update: {
               $set: { debit: amount },
@@ -81,7 +81,7 @@ export class Patch7Service {
           },
         };
         const branchUpdateObj2 = {
-          updateMany: {
+          updateOne: {
             filter: { voucherId, credit: { $gt: 0 } },
             update: {
               $set: { credit: amount },
