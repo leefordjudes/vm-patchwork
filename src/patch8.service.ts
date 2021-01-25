@@ -23,19 +23,13 @@ export class Patch8Service {
       const cashSaleobj = {
         updateMany: {
           filter: { saleType: 'cash' },
-          update: { $set: { voucherName: 'Cash Sale' } }
+          update: { $set: { voucherName: 'Cash Sale', voucherType: 'SALE' } }
         }
       };
       const creditSaleobj = {
         updateMany: {
           filter: { saleType: 'credit' },
-          update: { $set: { voucherName: 'Credit Sale' } }
-        }
-      };
-      const allSaleobj = {
-        updateMany: {
-          filter: {},
-          update: { $set: { voucherType: 'SALE' } }
+          update: { $set: { voucherName: 'Credit Sale', voucherType: 'SALE' } }
         }
       };
       const saleAcTrns = {
@@ -49,7 +43,7 @@ export class Patch8Service {
       };
 
       var sale = await connection.db()
-        .collection('sales').bulkWrite([saleAcTrns, cashSaleobj, creditSaleobj, allSaleobj]);
+        .collection('sales').bulkWrite([saleAcTrns, cashSaleobj, creditSaleobj]);
 
       console.log('-----sale patch end----');
 
@@ -57,24 +51,18 @@ export class Patch8Service {
       const cashSaleReturnobj = {
         updateMany: {
           filter: { saleType: 'cash' },
-          update: { $set: { voucherName: 'Cash Sale Return' } }
+          update: { $set: { voucherName: 'Cash Sale Return', voucherType: 'CREDIT_NOTE' } }
         }
       };
       const creditSaleReturnobj = {
         updateMany: {
           filter: { saleType: 'credit' },
-          update: { $set: { voucherName: 'Credit Sale Return' } }
-        }
-      };
-      const allSaleReturnobj = {
-        updateMany: {
-          filter: {},
-          update: { $set: { voucherType: 'CREDIT_NOTE' } }
+          update: { $set: { voucherName: 'Credit Sale Return', voucherType: 'CREDIT_NOTE' } }
         }
       };
 
       var saleReturn = await connection.db().collection('sale_returns')
-        .bulkWrite([saleAcTrns, cashSaleReturnobj, creditSaleReturnobj, allSaleReturnobj]);
+        .bulkWrite([saleAcTrns, cashSaleReturnobj, creditSaleReturnobj]);
 
       console.log('-----sale patch end----');
 
@@ -82,19 +70,13 @@ export class Patch8Service {
       const cashPurchaseobj = {
         updateMany: {
           filter: { purchaseType: 'cash' },
-          update: { $set: { voucherName: 'Cash Purchase' } }
+          update: { $set: { voucherName: 'Cash Purchase', voucherType: 'PURCHASE' } }
         }
       };
       const creditPurchaseobj = {
         updateMany: {
           filter: { purchaseType: 'credit' },
-          update: { $set: { voucherName: 'Credit Purchase' } }
-        }
-      };
-      const allPurchaseobj = {
-        updateMany: {
-          filter: {},
-          update: { $set: { voucherType: 'PURCHASE' } }
+          update: { $set: { voucherName: 'Credit Purchase', voucherType: 'PURCHASE' } }
         }
       };
       const purchaseAcTrns = {
@@ -108,7 +90,7 @@ export class Patch8Service {
       };
 
       var purchase = await connection.db()
-        .collection('purchases').bulkWrite([purchaseAcTrns, cashPurchaseobj, creditPurchaseobj, allPurchaseobj]);
+        .collection('purchases').bulkWrite([purchaseAcTrns, cashPurchaseobj, creditPurchaseobj]);
 
       console.log('-----purchases patch end----');
 
@@ -116,24 +98,18 @@ export class Patch8Service {
       const cashPurchaseReturnobj = {
         updateMany: {
           filter: { purchaseType: 'cash' },
-          update: { $set: { voucherName: 'Cash Purchase Return' } }
+          update: { $set: { voucherName: 'Cash Purchase Return', voucherType: 'DEBIT_NOTE' } }
         }
       };
       const creditPurchaseReturnobj = {
         updateMany: {
           filter: { purchaseType: 'credit' },
-          update: { $set: { voucherName: 'Credit Purchase Return' } }
-        }
-      };
-      const allPurchaseReturnobj = {
-        updateMany: {
-          filter: {},
-          update: { $set: { voucherType: 'DEBIT_NOTE' } }
+          update: { $set: { voucherName: 'Credit Purchase Return', voucherType: 'DEBIT_NOTE' } }
         }
       };
 
       var purchaseReurn = await connection.db()
-        .collection('purchase_returns').bulkWrite([purchaseAcTrns, cashPurchaseReturnobj, creditPurchaseReturnobj, allPurchaseReturnobj]);
+        .collection('purchase_returns').bulkWrite([purchaseAcTrns, cashPurchaseReturnobj, creditPurchaseReturnobj]);
 
       console.log('-----purchase-returns patch end----');
       const cashBookObj1 = {
@@ -205,17 +181,12 @@ export class Patch8Service {
 
       console.log('ALL tranaction collection update end----');
       const stockTransferUpdateObj = [];
-      const accountBookUpdateObj = [];
-      const branchBookUpdateObj = [];
       const stockTranfers: any = await connection.db()
         .collection('stock_transfers').find({}, { projection: { acTrns: 1, branch: 1, targetBranch: 1, amount: 1, approved: 1 } })
         .toArray();
       console.log('Total stock transfer to patch: ' + stockTranfers.length);
       console.log('3. stock transfer patch object generate start');
       for (const st of stockTranfers) {
-        const voucherId = st._id.toString();
-        // const sourceBranch = st.branch.id;
-        // const targetBranch = st.targetBranch.id;
         const amount = round(st.amount);
         const stUpdateObj1 = {
           updateOne: {
@@ -239,42 +210,6 @@ export class Patch8Service {
         if (st.approved) {
           stockTransferUpdateObj.push(stUpdateObj2);
         }
-        const bookUpdateObj1 = {
-          updateOne: {
-            filter: { voucherId, accountName: 'Branch Payable', debit: { $gt: 0 } },
-            update: {
-              $set: { debit: amount },
-            },
-          },
-        };
-        const bookUpdateObj2 = {
-          updateOne: {
-            filter: { voucherId, accountName: 'Branch Payable', credit: { $gt: 0 } },
-            update: {
-              $set: { credit: amount },
-            },
-          },
-        };
-        accountBookUpdateObj.push(bookUpdateObj1);
-        accountBookUpdateObj.push(bookUpdateObj2);
-        const branchUpdateObj1 = {
-          updateOne: {
-            filter: { voucherId, debit: { $gt: 0 } },
-            update: {
-              $set: { debit: amount },
-            },
-          },
-        };
-        const branchUpdateObj2 = {
-          updateOne: {
-            filter: { voucherId, credit: { $gt: 0 } },
-            update: {
-              $set: { credit: amount },
-            },
-          },
-        };
-        branchBookUpdateObj.push(branchUpdateObj1);
-        branchBookUpdateObj.push(branchUpdateObj2);
       }
       console.log('3. stock_transfers patch object generate end, Total patch Objects: ' + stockTransferUpdateObj.length);
       if (stockTransferUpdateObj.length > 0) {
@@ -287,25 +222,6 @@ export class Patch8Service {
       } else {
         console.log('No stock_transfers patched');
       }
-      console.log('4 accountbooks patch object generate end, Total patch Objects: ' + accountBookUpdateObj.length);
-      if (accountBookUpdateObj.length > 0) {
-        console.log('account patch start');
-        var accBook1 = await connection.db().collection('accountbooks')
-          .bulkWrite(accountBookUpdateObj);
-        console.log('--account book patch done--');
-      } else {
-        console.log('No account book patched');
-      }
-      console.log('5 branchbooks patch object generate end, Total patch Objects: ' + branchBookUpdateObj.length);
-      if (branchBookUpdateObj.length > 0) {
-        console.log('branch book patch start');
-        var brBook = await connection.db().collection('branchbooks')
-          .bulkWrite(branchBookUpdateObj);
-        console.log('--branch book patch done--');
-      } else {
-        console.log('No branch book patched');
-      }
-
     } catch (err) {
       console.log(err.message);
       return err;
@@ -317,7 +233,7 @@ export class Patch8Service {
       accountPayment, accountReceipt, cashDeposit, cashTransfer,
       cashWithdrawal, customerPayment, customerreceipts, expenses,
       incomes, materialConversions, stockAdjustments, stockTransfers,
-      vendorpayments, vendorreceipts, stockTransfersAcTrns, accBook1, brBook
+      vendorpayments, vendorreceipts, stockTransfersAcTrns
     };
   }
 }
