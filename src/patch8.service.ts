@@ -112,33 +112,6 @@ export class Patch8Service {
         .collection('purchase_returns').bulkWrite([purchaseAcTrns, cashPurchaseReturnobj, creditPurchaseReturnobj]);
 
       console.log('-----purchase-returns patch end----');
-      const cashBookObj1 = {
-        updateMany: {
-          filter: { voucherName: 'Customer Receipt' },
-          update: { $set: { voucherType: 'RECEIPT' } }
-        }
-      };
-      const cashBookObj2 = {
-        updateMany: {
-          filter: { voucherName: 'Cash Transfer' },
-          update: { $set: { voucherType: 'JOURNAL' } }
-        }
-      };
-      const accBookObj = {
-        updateMany: {
-          filter: { voucherName: { $in: ['Cash Purchase Return', 'Credit Purchase Return'] } },
-          update: { $set: { voucherType: 'DEBIT_NOTE' } }
-        }
-      };
-      console.log('-----cashregister books patch start----');
-      var cashRegBook = await connection.db().collection('cashregisterbooks')
-        .bulkWrite([cashBookObj1, cashBookObj2]);
-      console.log('-----cashregister books patch END----');
-
-      console.log('-----account books patch start----');
-      var accBook = await connection.db().collection('accountbooks')
-        .bulkWrite([accBookObj]);
-      console.log('-----account books patch END----');
 
       console.log('ALL tranaction collection update started----');
 
@@ -232,7 +205,7 @@ export class Patch8Service {
     }
     await connection.close();
     return {
-      sale, saleReturn, purchase, purchaseReurn, cashRegBook, accBook,
+      sale, saleReturn, purchase, purchaseReurn,
       accountOpening, customerOpening, inventoryOpening, vendorOpening,
       accountPayment, accountReceipt, cashDeposit, cashTransfer,
       cashWithdrawal, customerPayment, customerreceipts, expenses,
