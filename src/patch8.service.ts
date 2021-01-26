@@ -178,6 +178,10 @@ export class Patch8Service {
         .updateMany({}, { $set: { voucherName: 'Vendor Payment', voucherType: 'PAYMENT' } });
       var vendorreceipts = await connection.db().collection('vendorreceipts')
         .updateMany({}, { $set: { voucherName: 'Vendor Receipt', voucherType: 'RECEIPT' } });
+      var customerpendings = await connection.db().collection('customerpendings')
+        .updateMany({ voucherType: 'CUSTOMER OPENING' }, { $set: { voucherType: 'CUSTOMER_OPENING' } });
+      var vendorpendings = await connection.db().collection('vendorpendings')
+        .updateMany({ voucherType: 'VENDOR OPENING' }, { $set: { voucherType: 'VENDOR_OPENING' } });
 
       console.log('ALL tranaction collection update end----');
       const stockTransferUpdateObj = [];
@@ -233,7 +237,8 @@ export class Patch8Service {
       accountPayment, accountReceipt, cashDeposit, cashTransfer,
       cashWithdrawal, customerPayment, customerreceipts, expenses,
       incomes, materialConversions, stockAdjustments, stockTransfers,
-      vendorpayments, vendorreceipts, stockTransfersAcTrns
+      vendorpayments, vendorreceipts, stockTransfersAcTrns,
+      customerpendings, vendorpendings
     };
   }
 }
