@@ -22,10 +22,29 @@ export class RoughService {
       return err;
     }
     try {
+      await connection.db().collection('sales').updateMany({}, { $set: { fNo: 1 } });
+      await connection.db().collection('purchases').updateMany({}, { $set: { fNo: 1 } });
+      await connection.db().collection('purchase_returns').updateMany({}, { $set: { fNo: 1 } });
+      await connection.db().collection('sale_returns').updateMany({}, { $set: { fNo: 1 } });
+      await connection.db().collection('stock_transfers').updateMany({}, { $set: { fNo: 1 } });
+      await connection.db().collection('stock_adjustments').updateMany({}, { $set: { fNo: 1 } });
+      await connection.db().collection('material_conversions').updateMany({}, { $set: { fNo: 1 } });
+      await connection.db().collection('accountpayments').updateMany({}, { $set: { fNo: 1 } });
+      await connection.db().collection('accountreceipts').updateMany({}, { $set: { fNo: 1 } });
+      await connection.db().collection('cashdeposits').updateMany({}, { $set: { fNo: 1 } });
+      await connection.db().collection('cashwithdrawals').updateMany({}, { $set: { fNo: 1 } });
+      await connection.db().collection('customerpayments').updateMany({}, { $set: { fNo: 1 } });
+      await connection.db().collection('customerreceipts').updateMany({}, { $set: { fNo: 1 } });
+      await connection.db().collection('expenses').updateMany({}, { $set: { fNo: 1 } });
+      await connection.db().collection('incomes').updateMany({}, { $set: { fNo: 1 } });
+      await connection.db().collection('journals').updateMany({}, { $set: { fNo: 1 } });
+      await connection.db().collection('vendorpayments').updateMany({}, { $set: { fNo: 1 } });
+      await connection.db().collection('vendorreceipts').updateMany({}, { $set: { fNo: 1 } });
+
       const assetAccount: any = await connection.db().collection('accounts')
         .findOne({ defaultName: 'INVENTORY_ASSET' });
       const user = await connection.db().collection('users')
-        .findOne({});
+        .findOne({ isAdmin: true });
       const aggregate = await connection.db().collection('inventory_openings').aggregate([
         {
           $addFields: {
@@ -138,7 +157,7 @@ export class RoughService {
                 sRate: '$sRate',
                 expYear: '$expYear',
                 expMonth: '$expMonth',
-                unit: '$unit'
+                unit: '$unit',
               }
             }
           },
@@ -150,8 +169,7 @@ export class RoughService {
             inventoryId: '$_id.inventoryId',
             branchId: { '$toString': '$_id.branchId' },
             branchName: '$_id.branchName',
-            assetAccountId: assetAccount._id.toString(),
-            assetAccountName: assetAccount.name,
+            assetAccount: { id: assetAccount._id.toString(), name: assetAccount.name, displayName: assetAccount.displayName },
             updatedBy: user._id.toString(),
             updatedAt: new Date('2021-02-01T00:00:00.000+0000'),
             date: new Date('2020-03-31T00:00:00.000+0000'),
@@ -160,6 +178,7 @@ export class RoughService {
             assetAmount: { $round: ['$assetValue', 2] },
             pRateTaxInc: false,
             sRateTaxInc: true,
+            fNo: 1,
           }
         },
         { $project: { _id: 0, assetValue: 0 } },
