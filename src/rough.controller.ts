@@ -1,7 +1,7 @@
 import { Body, Controller, Post, Put, Query } from '@nestjs/common';
 import { RoughService } from './rough.service';
 
-@Controller('rough')
+@Controller('inv-opening')
 export class RoughController {
   constructor(private readonly roughService: RoughService) {}
 

@@ -4,6 +4,7 @@ import * as _ from 'lodash';
 
 import { URI } from './config';
 import { round } from './utils/utils';
+import { Types } from 'mongoose';
 
 @Injectable()
 export class RoughService {
@@ -21,51 +22,153 @@ export class RoughService {
       return err;
     }
     try {
-      const updateArray = [];
-      const invs: any = await connection.db().collection('inventories')
-        .find({}, { projection: { name: 1, precision: 1 } }).toArray();
-      const branches: any = await connection.db().collection('branches')
-        .find({}, { projection: { name: 1 } }).toArray();
-      const invOpenings: any = await connection.db().collection('inventory_openings')
-        .find({}, { projection: { pRate: 1, qty: 1, branch: 1, inventory: 1 } }).toArray();
+      const assetAccount: any = await connection.db().collection('accounts')
+        .findOne({ defaultName: 'INVENTORY_ASSET' });
       const user = await connection.db().collection('users')
         .findOne({});
-      const obj1 = {
-        updateMany: {
-          filter: {},
-          update: {
-            $set: {
-              updatedBy: user._id.toString(),
-              updatedAt: new Date('2021-02-01T00:00:00.000+0000'),
-              date: new Date('2020-03-31T00:00:00.000+0000'),
+      const aggregate = await connection.db().collection('inventory_openings').aggregate([
+        {
+          $addFields: {
+            inventoryId: {
+              $toObjectId: '$inventory'
+            }
+          }
+        },
+        {
+          $lookup: {
+            from: 'inventories',
+            localField: 'inventoryId',
+            foreignField: '_id',
+            as: 'inventoryArr'
+          }
+        },
+        {
+          $unwind: {
+            path: '$inventoryArr'
+          }
+        },
+        {
+          $addFields: {
+            primaryUnit: [
+              {
+                unit: '$inventoryArr.unit',
+                conversion: 1
+              }
+            ],
+            unitConversion: '$inventoryArr.unitConversion',
+            unitId: {
+              $toObjectId: '$unit.id'
+            }
+          }
+        },
+        {
+          $addFields: {
+            MergedArray: {
+              $setUnion: [
+                '$unitConversion',
+                '$primaryUnit'
+              ]
+            }
+          }
+        },
+        {
+          $addFields: {
+            conversion: {
+              $filter: {
+                input: '$MergedArray',
+                as: 'item',
+                cond: {
+                  $eq: [
+                    '$$item.unit',
+                    '$unitId'
+                  ]
+                }
+              }
+            }
+          }
+        },
+        { $unwind: '$conversion' },
+        {
+          $addFields: {
+            'unit.conversion': '$conversion.conversion',
+            inventoryName: '$inventoryArr.name',
+            unitPrecision: '$inventoryArr.precision',
+          }
+        },
+        {
+          $addFields: {
+            branch: {
+              $toObjectId: '$branch'
+            }
+          }
+        },
+        {
+          $lookup: {
+            from: 'branches',
+            localField: 'branch',
+            foreignField: '_id',
+            as: 'branchArr'
+          }
+        },
+        { $unwind: { path: '$branchArr' } },
+        {
+          $group: {
+            _id: {
+              inventoryId: '$inventory',
+              branchId: '$branch',
+              branchName: '$branchArr.name',
+              inventoryName: '$inventoryName',
+              unitPrecision: '$unitPrecision',
             },
+            assetValue: {
+              $sum: {
+                $multiply: [
+                  '$qty',
+                  '$pRate'
+                ]
+              }
+            },
+            trns: {
+              $push: {
+                batch: '$batch',
+                batchNo: '$batchNo',
+                qty: '$qty',
+                mrp: '$mrp',
+                pRate: '$pRate',
+                sRate: '$sRate',
+                expYear: '$expYear',
+                expMonth: '$expMonth',
+                unit: '$unit'
+              }
+            }
           },
         },
-      };
-      updateArray.push(obj1);
-      for (const invOps of invOpenings) {
-        const branchName = branches.find((branch: any) => branch._id.toString() === invOps.branch).name;
-        const inventory = invs.find((inv: any) => inv._id.toString() === invOps.inventory);
-        const obj2 = {
-          updateOne: {
-            filter: { _id: invOps._id },
-            update: {
-              $set: {
-                assertAmt: round(invOps.pRate * invOps.qty),
-                inventoryName: inventory.name,
-                branchName,
-                unitPrecision: inventory.precision,
-              },
-            },
-          },
-        };
-        updateArray.push(obj2);
-      }
-      const result = await connection.db().collection('inventory_openings')
-        .bulkWrite(updateArray);
-      return result;
+        {
+          $addFields: {
+            inventoryName: '$_id.inventoryName',
+            unitPrecision: '$_id.unitPrecision',
+            inventoryId: '$_id.inventoryId',
+            branchId: { '$toString': '$_id.branchId' },
+            branchName: '$_id.branchName',
+            assetAccountId: assetAccount._id.toString(),
+            assetAccountName: assetAccount.name,
+            updatedBy: user._id.toString(),
+            updatedAt: new Date('2021-02-01T00:00:00.000+0000'),
+            date: new Date('2020-03-31T00:00:00.000+0000'),
+            voucherName: 'Inventory Opening',
+            voucherType: 'INVENTORY_OPENING',
+            assetAmount: { $round: ['$assetValue', 2] },
+            pRateTaxInc: false,
+            sRateTaxInc: true,
+          }
+        },
+        { $project: { _id: 0, assetValue: 0 } },
+        { $out: 'inventory_openings_new' }
+      ], { allowDiskUse: true }).toArray();
+      return { message: 'new collection --inventory_openings_new-- created ' };
     }
     catch (err) {
+      console.log(err)
       return err;
     }
   }
