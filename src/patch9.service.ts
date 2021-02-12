@@ -6,8 +6,7 @@ import { round } from './utils/utils';
 
 @Injectable()
 export class Patch9Service {
-  async acTrnsRound(data: any) {
-    const { fromDate, toDate } = data;
+  async acTrnsRound() {
     try {
       console.log('1.connect to mongodb server using mongo client');
       var connection = await new MongoClient(URI, {
@@ -20,13 +19,12 @@ export class Patch9Service {
       return err;
     }
     try {
-
-      const arrayObj = [];
       const sales: any = await connection.db()
-        .collection('sales').find({ date: { $gte: new Date(fromDate), $lte: new Date(toDate) } }, { projection: { acTrns: 1 } })
+        .collection('sales').find({}, { projection: { acTrns: 1 } })
         .toArray();
       console.log('Total sales to patch: ' + sales.length);
-      console.log('3. sale patch object generate start');
+      console.log('sale patch object initialization started');
+      const bulkSale: any = connection.db().collection('sales').initializeOrderedBulkOp();
       for (const st of sales) {
         for (const item of st.acTrns) {
           const obj = {
@@ -41,28 +39,20 @@ export class Patch9Service {
               arrayFilters: [{ 'elm._id': item._id }],
             },
           };
-          arrayObj.push(obj);
+          bulkSale.raw(obj);
         }
       }
-      console.log('3. sales patch object generate end, Total patch Objects: ' + arrayObj.length);
-      if (arrayObj.length > 0) {
-        console.log('sales patch start');
-        var saleResult = await connection
-          .db()
-          .collection('sales')
-          .bulkWrite(arrayObj);
-        arrayObj.length = 0;  
-        arrayObj.length = 0;  
-        console.log('--sales patch done--');
-      } else {
-        console.log('No sales patched');
-      }
+      console.log('sale patch object initialized');
+      console.log('sales bulk execution start');
+      var saleResult = await bulkSale.execute();
+      console.log('sales bulk execution end, results are' + saleResult);
 
       const saleReturns: any = await connection.db()
-        .collection('sale_returns').find({ date: { $gte: new Date(fromDate), $lte: new Date(toDate) } }, { projection: { acTrns: 1 } })
+        .collection('sale_returns').find({}, { projection: { acTrns: 1 } })
         .toArray();
       console.log('Total sale returns to patch: ' + saleReturns.length);
-      console.log('3. sale returns patch object generate start');
+      const bulkSaleReturn: any = connection.db().collection('sale_returns').initializeOrderedBulkOp();
+      console.log('3. sale returns patch object initialization started');
       for (const st of saleReturns) {
         for (const item of st.acTrns) {
           const obj = {
@@ -77,27 +67,20 @@ export class Patch9Service {
               arrayFilters: [{ 'elm._id': item._id }],
             },
           };
-          arrayObj.push(obj);
+          bulkSaleReturn.raw(obj);
         }
       }
-      console.log('3. sale_returns patch object generate end, Total patch Objects: ' + arrayObj.length);
-      if (arrayObj.length > 0) {
-        console.log('sale_returns patch start');
-        var saleReturnResult = await connection
-          .db()
-          .collection('sale_returns')
-          .bulkWrite(arrayObj);
-        arrayObj.length = 0;  
-        console.log('--sale_returns patch done--');
-      } else {
-        console.log('No sale_returns patched');
-      }
+      console.log('sale_returns patch object generate end');
+      console.log('sale_returns bulk execution start');
+      var saleReturnResult = await bulkSale.execute();
+      console.log('sale_return bulk execution end, results are' + saleReturnResult);
 
       const purchases: any = await connection.db()
-        .collection('purchases').find({ date: { $gte: new Date(fromDate), $lte: new Date(toDate) } }, { projection: { acTrns: 1 } })
+        .collection('purchases').find({}, { projection: { acTrns: 1 } })
         .toArray();
+      const bulkPurchase: any = connection.db().collection('purchases').initializeOrderedBulkOp();
       console.log('Total purchases to patch: ' + purchases.length);
-      console.log('3. purchases patch object generate start');
+      console.log('3. purchases patch object initialization started');
       for (const st of purchases) {
         for (const item of st.acTrns) {
           const obj = {
@@ -112,27 +95,20 @@ export class Patch9Service {
               arrayFilters: [{ 'elm._id': item._id }],
             },
           };
-          arrayObj.push(obj);
+          bulkPurchase.raw(obj);
         }
       }
-      console.log('3. purchases patch object generate end, Total patch Objects: ' + arrayObj.length);
-      if (arrayObj.length > 0) {
-        console.log('purchases patch start');
-        var purchaseResult = await connection
-          .db()
-          .collection('purchases')
-          .bulkWrite(arrayObj);
-        arrayObj.length = 0;  
-        console.log('--purchases patch done--');
-      } else {
-        console.log('No purchases patched');
-      }
+      console.log('purchases patch object generate end');
+      console.log('purchases bulk execution start');
+      var purchaseResult = await bulkSale.execute();
+      console.log('purchases bulk execution end, results are' + bulkPurchase);
 
       const purchaseReturns: any = await connection.db()
-        .collection('purchase_returns').find({ date: { $gte: new Date(fromDate), $lte: new Date(toDate) } }, { projection: { acTrns: 1 } })
+        .collection('purchase_returns').find({}, { projection: { acTrns: 1 } })
         .toArray();
       console.log('Total purchase_returns to patch: ' + purchaseReturns.length);
-      console.log('3. purchase_returns patch object generate start');
+      const bulkPurchaseReturn: any = connection.db().collection('purchase_returns').initializeOrderedBulkOp();
+      console.log('3. purchase_returns patch object initialization started');
       for (const st of purchaseReturns) {
         for (const item of st.acTrns) {
           const obj = {
@@ -147,27 +123,20 @@ export class Patch9Service {
               arrayFilters: [{ 'elm._id': item._id }],
             },
           };
-          arrayObj.push(obj);
+          bulkPurchaseReturn.raw(obj);
         }
       }
-      console.log('3. purchase_returns patch object generate end, Total patch Objects: ' + arrayObj.length);
-      if (arrayObj.length > 0) {
-        console.log('purchase_returns patch start');
-        var purchaseReturnResult = await connection
-          .db()
-          .collection('purchase_returns')
-          .bulkWrite(arrayObj);
-        arrayObj.length = 0;  
-        console.log('--purchase_returns patch done--');
-      } else {
-        console.log('No purchase_returns patched');
-      }
+      console.log('purchase_returns patch object generate end');
+      console.log('purchase_returns bulk execution start');
+      var purchaseReturnResult = await bulkSale.execute();
+      console.log('purchase_returns bulk execution end, results are' + purchaseReturnResult);
 
       const materialConversions: any = await connection.db()
-        .collection('material_conversions').find({ date: { $gte: new Date(fromDate), $lte: new Date(toDate) } }, { projection: { acTrns: 1 } })
+        .collection('material_conversions').find({}, { projection: { acTrns: 1 } })
         .toArray();
-      console.log('Total stock Adjustments to patch: ' + materialConversions.length);
-      console.log('3. stock Adjustments patch object generate start');
+      console.log('Total material_conversions to patch: ' + materialConversions.length);
+      const bulkMaterialConversion: any = connection.db().collection('material_conversions').initializeOrderedBulkOp();
+      console.log('material_conversions patch object initialization started');
       for (const st of materialConversions) {
         for (const item of st.acTrns) {
           const obj = {
@@ -182,27 +151,20 @@ export class Patch9Service {
               arrayFilters: [{ 'elm._id': item._id }],
             },
           };
-          arrayObj.push(obj);
+          bulkMaterialConversion.raw(obj);
         }
       }
-      console.log('3. material Conversions patch object generate end, Total patch Objects: ' + arrayObj.length);
-      if (arrayObj.length > 0) {
-        console.log('material_conversions patch start');
-        var materialConversionResult = await connection
-          .db()
-          .collection('material_conversions')
-          .bulkWrite(arrayObj);
-        arrayObj.length = 0;  
-        console.log('--material_conversions patch done--');
-      } else {
-        console.log('No material_conversions patched');
-      }
+      console.log('material_conversions patch object generate end');
+      console.log('material_conversions bulk execution start');
+      var materialConversionResult = await bulkSale.execute();
+      console.log('material_conversions bulk execution end, results are' + materialConversionResult);
 
       const stockAdjs: any = await connection.db()
-        .collection('stock_adjustments').find({ date: { $gte: new Date(fromDate), $lte: new Date(toDate) } }, { projection: { acTrns: 1 } })
+        .collection('stock_adjustments').find({}, { projection: { acTrns: 1 } })
         .toArray();
       console.log('Total stock Adjustments to patch: ' + stockAdjs.length);
-      console.log('3. stock Adjustments patch object generate start');
+      console.log('Stock Adjustments patch object initialization started');
+      const bulkstockAdjs: any = connection.db().collection('stock_adjustments').initializeOrderedBulkOp();
       for (const st of stockAdjs) {
         for (const item of st.acTrns) {
           const obj = {
@@ -217,27 +179,20 @@ export class Patch9Service {
               arrayFilters: [{ 'elm._id': item._id }],
             },
           };
-          arrayObj.push(obj);
+          bulkstockAdjs.raw(obj);
         }
       }
-      console.log('3. stock Adjustments patch object generate end, Total patch Objects: ' + arrayObj.length);
-      if (arrayObj.length > 0) {
-        console.log('stock_adjustments patch start');
-        var stockAdjResult = await connection
-          .db()
-          .collection('stock_adjustments')
-          .bulkWrite(arrayObj);
-        arrayObj.length = 0;  
-        console.log('--stock_adjustments patch done--');
-      } else {
-        console.log('No stock_adjustments patched');
-      }
+      console.log('stock_adjustments patch object generate end');
+      console.log('stock_adjustments bulk execution start');
+      var stockAdjResult = await bulkSale.execute();
+      console.log('stock_adjustments bulk execution end, results are' + stockAdjResult);
 
       const stockTransfers: any = await connection.db()
-        .collection('stock_transfers').find({ date: { $gte: new Date(fromDate), $lte: new Date(toDate) } }, { projection: { acTrns: 1 } })
+        .collection('stock_transfers').find({}, { projection: { acTrns: 1 } })
         .toArray();
       console.log('Total stock transfer to patch: ' + stockTransfers.length);
-      console.log('3. stock transfer patch object generate start');
+      console.log('Stock Adjustments patch object initialization started');
+      const bulkstockTrns: any = connection.db().collection('stock_transfers').initializeOrderedBulkOp();
       for (const st of stockTransfers) {
         for (const item of st.acTrns) {
           const obj = {
@@ -252,21 +207,13 @@ export class Patch9Service {
               arrayFilters: [{ 'elm._id': item._id }],
             },
           };
-          arrayObj.push(obj);
+          bulkstockTrns.raw(obj);
         }
       }
-      console.log('3. stock_transfers patch object generate end, Total patch Objects: ' + arrayObj.length);
-      if (arrayObj.length > 0) {
-        console.log('stock_transfers patch start');
-        var stockTransferResult = await connection
-          .db()
-          .collection('stock_transfers')
-          .bulkWrite(arrayObj);
-        arrayObj.length = 0;  
-        console.log('--stock_transfers patch done--');
-      } else {
-        console.log('No stock_transfers patched');
-      }
+      console.log('stock_transfers patch object generate end');
+      console.log('stock_transfers bulk execution start');
+      var stockTransferResult = await bulkSale.execute();
+      console.log('stock_transfers bulk execution end, results are' + stockTransferResult);
 
     } catch (err) {
       console.log(err.message);

@@ -6,8 +6,8 @@ export class Patch9Controller {
   constructor(private readonly patch9Service: Patch9Service) {}
 
   @Put('round')
-  async stockStranfer(@Body() data: any) {
+  async stockStranfer() {
     console.log('patch9 controller acTrns DR,CR round');
-    return await this.patch9Service.acTrnsRound(data);
+    return await this.patch9Service.acTrnsRound();
   }
 }
