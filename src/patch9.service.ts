@@ -72,7 +72,7 @@ export class Patch9Service {
       }
       console.log('sale_returns patch object generate end');
       console.log('sale_returns bulk execution start');
-      var saleReturnResult = await bulkSale.execute();
+      var saleReturnResult = await bulkSaleReturn.execute();
       console.log('sale_return bulk execution end, results are' + saleReturnResult);
 
       const purchases: any = await connection.db()
@@ -100,7 +100,7 @@ export class Patch9Service {
       }
       console.log('purchases patch object generate end');
       console.log('purchases bulk execution start');
-      var purchaseResult = await bulkSale.execute();
+      var purchaseResult = await bulkPurchase.execute();
       console.log('purchases bulk execution end, results are' + bulkPurchase);
 
       const purchaseReturns: any = await connection.db()
@@ -128,7 +128,7 @@ export class Patch9Service {
       }
       console.log('purchase_returns patch object generate end');
       console.log('purchase_returns bulk execution start');
-      var purchaseReturnResult = await bulkSale.execute();
+      var purchaseReturnResult = await bulkPurchaseReturn.execute();
       console.log('purchase_returns bulk execution end, results are' + purchaseReturnResult);
 
       const materialConversions: any = await connection.db()
@@ -156,7 +156,7 @@ export class Patch9Service {
       }
       console.log('material_conversions patch object generate end');
       console.log('material_conversions bulk execution start');
-      var materialConversionResult = await bulkSale.execute();
+      var materialConversionResult = await bulkMaterialConversion.execute();
       console.log('material_conversions bulk execution end, results are' + materialConversionResult);
 
       const stockAdjs: any = await connection.db()
@@ -184,7 +184,7 @@ export class Patch9Service {
       }
       console.log('stock_adjustments patch object generate end');
       console.log('stock_adjustments bulk execution start');
-      var stockAdjResult = await bulkSale.execute();
+      var stockAdjResult = await bulkstockAdjs.execute();
       console.log('stock_adjustments bulk execution end, results are' + stockAdjResult);
 
       const stockTransfers: any = await connection.db()
@@ -212,7 +212,7 @@ export class Patch9Service {
       }
       console.log('stock_transfers patch object generate end');
       console.log('stock_transfers bulk execution start');
-      var stockTransferResult = await bulkSale.execute();
+      var stockTransferResult = await bulkstockTrns.execute();
       console.log('stock_transfers bulk execution end, results are' + stockTransferResult);
 
     } catch (err) {
