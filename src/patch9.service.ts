@@ -44,8 +44,12 @@ export class Patch9Service {
       }
       console.log('sale patch object initialized');
       console.log('sales bulk execution start');
-      var saleResult = await bulkSale.execute();
-      console.log('sales bulk execution end, results are' + saleResult);
+      if (bulkSale.length > 0) {
+        var saleResult = await bulkSale.execute();
+        console.log('sales bulk execution end, results are' + saleResult);
+      } else {
+        saleResult = { message: 'Record not Found' };
+      }
 
       const saleReturns: any = await connection.db()
         .collection('sale_returns').find({}, { projection: { acTrns: 1 } })
@@ -72,8 +76,12 @@ export class Patch9Service {
       }
       console.log('sale_returns patch object generate end');
       console.log('sale_returns bulk execution start');
-      var saleReturnResult = await bulkSaleReturn.execute();
-      console.log('sale_return bulk execution end, results are' + saleReturnResult);
+      if (bulkSaleReturn.length > 0) {
+        var saleReturnResult = await bulkSaleReturn.execute();
+        console.log('sale_return bulk execution end, results are' + saleReturnResult);
+      } else {
+        saleReturnResult = { message: 'Record not Found' };
+      }
 
       const purchases: any = await connection.db()
         .collection('purchases').find({}, { projection: { acTrns: 1 } })
@@ -100,8 +108,12 @@ export class Patch9Service {
       }
       console.log('purchases patch object generate end');
       console.log('purchases bulk execution start');
-      var purchaseResult = await bulkPurchase.execute();
-      console.log('purchases bulk execution end, results are' + bulkPurchase);
+      if (bulkPurchase.length > 0) {
+        var purchaseResult = await bulkPurchase.execute();
+        console.log('purchases bulk execution end, results are' + bulkPurchase);
+      } else {
+        purchaseResult = { message: 'Records Not Found' };
+      }
 
       const purchaseReturns: any = await connection.db()
         .collection('purchase_returns').find({}, { projection: { acTrns: 1 } })
@@ -128,8 +140,13 @@ export class Patch9Service {
       }
       console.log('purchase_returns patch object generate end');
       console.log('purchase_returns bulk execution start');
-      var purchaseReturnResult = await bulkPurchaseReturn.execute();
-      console.log('purchase_returns bulk execution end, results are' + purchaseReturnResult);
+      if (bulkPurchaseReturn.length > 0) {
+        var purchaseReturnResult = await bulkPurchaseReturn.execute();
+        console.log('purchase_returns bulk execution end, results are' + purchaseReturnResult);
+      }
+      else {
+        purchaseReturnResult = { message: 'Records Not Found' };
+      }
 
       const materialConversions: any = await connection.db()
         .collection('material_conversions').find({}, { projection: { acTrns: 1 } })
@@ -156,8 +173,13 @@ export class Patch9Service {
       }
       console.log('material_conversions patch object generate end');
       console.log('material_conversions bulk execution start');
-      var materialConversionResult = await bulkMaterialConversion.execute();
-      console.log('material_conversions bulk execution end, results are' + materialConversionResult);
+      if (bulkMaterialConversion.length > 0) {
+        var materialConversionResult = await bulkMaterialConversion.execute();
+        console.log('material_conversions bulk execution end, results are' + materialConversionResult);
+      } else {
+        materialConversionResult = { message: 'records Not found' };
+        console.log('records Not found');
+      }
 
       const stockAdjs: any = await connection.db()
         .collection('stock_adjustments').find({}, { projection: { acTrns: 1 } })
@@ -184,8 +206,12 @@ export class Patch9Service {
       }
       console.log('stock_adjustments patch object generate end');
       console.log('stock_adjustments bulk execution start');
-      var stockAdjResult = await bulkstockAdjs.execute();
-      console.log('stock_adjustments bulk execution end, results are' + stockAdjResult);
+      if (bulkstockAdjs.length > 0) {
+        var stockAdjResult = await bulkstockAdjs.execute();
+        console.log('stock_adjustments bulk execution end, results are' + stockAdjResult);
+      } else {
+        stockAdjResult = { message: 'Records not found' };
+      }
 
       const stockTransfers: any = await connection.db()
         .collection('stock_transfers').find({}, { projection: { acTrns: 1 } })
@@ -212,8 +238,12 @@ export class Patch9Service {
       }
       console.log('stock_transfers patch object generate end');
       console.log('stock_transfers bulk execution start');
-      var stockTransferResult = await bulkstockTrns.execute();
-      console.log('stock_transfers bulk execution end, results are' + stockTransferResult);
+      if (bulkstockTrns.length > 0) {
+        var stockTransferResult = await bulkstockTrns.execute();
+        console.log('stock_transfers bulk execution end, results are' + stockTransferResult);
+      } else {
+        stockTransferResult = { message: 'Records not found' };
+      }
 
     } catch (err) {
       console.log(err.message);
