@@ -21,58 +21,62 @@ export class Patch9Service {
     try {
       const connectdb = connection.db().databaseName;
       console.log(connectdb);
-      const auditplusDB = await connection.db('auditplusdb').collection('organizations').findOne({ name: connectdb });
+      const auditplusDB = await connection
+        .db('auditplusdb')
+        .collection('organizations')
+        .findOne({ name: connectdb });
       const date = auditplusDB.bookBegin;
       date.setDate(date.getDate() - 1);
       console.log(date);
-      const assetAccount: any = await connection.db().collection('accounts')
+      const assetAccount: any = await connection
+        .db()
+        .collection('accounts')
         .findOne({ defaultName: 'INVENTORY_ASSET' });
-      const user = await connection.db().collection('users')
+      const user = await connection
+        .db()
+        .collection('users')
         .findOne({ isAdmin: true });
       const pipeLine = [
         {
           $addFields: {
             inventoryId: {
-              $toObjectId: '$inventory'
-            }
-          }
+              $toObjectId: '$inventory',
+            },
+          },
         },
         {
           $lookup: {
             from: 'inventories',
             localField: 'inventoryId',
             foreignField: '_id',
-            as: 'inventoryArr'
-          }
+            as: 'inventoryArr',
+          },
         },
         {
           $unwind: {
-            path: '$inventoryArr'
-          }
+            path: '$inventoryArr',
+          },
         },
         {
           $addFields: {
             primaryUnit: [
               {
                 unit: '$inventoryArr.unit',
-                conversion: 1
-              }
+                conversion: 1,
+              },
             ],
             unitConversion: '$inventoryArr.unitConversion',
             unitId: {
-              $toObjectId: '$unit.id'
-            }
-          }
+              $toObjectId: '$unit.id',
+            },
+          },
         },
         {
           $addFields: {
             MergedArray: {
-              $setUnion: [
-                '$unitConversion',
-                '$primaryUnit'
-              ]
-            }
-          }
+              $setUnion: ['$unitConversion', '$primaryUnit'],
+            },
+          },
         },
         {
           $addFields: {
@@ -81,14 +85,11 @@ export class Patch9Service {
                 input: '$MergedArray',
                 as: 'item',
                 cond: {
-                  $eq: [
-                    '$$item.unit',
-                    '$unitId'
-                  ]
-                }
-              }
-            }
-          }
+                  $eq: ['$$item.unit', '$unitId'],
+                },
+              },
+            },
+          },
         },
         { $unwind: '$conversion' },
         {
@@ -96,22 +97,22 @@ export class Patch9Service {
             'unit.conversion': '$conversion.conversion',
             inventoryName: '$inventoryArr.name',
             unitPrecision: '$inventoryArr.precision',
-          }
+          },
         },
         {
           $addFields: {
             branch: {
-              $toObjectId: '$branch'
-            }
-          }
+              $toObjectId: '$branch',
+            },
+          },
         },
         {
           $lookup: {
             from: 'branches',
             localField: 'branch',
             foreignField: '_id',
-            as: 'branchArr'
-          }
+            as: 'branchArr',
+          },
         },
         { $unwind: { path: '$branchArr' } },
         {
@@ -124,11 +125,8 @@ export class Patch9Service {
             },
             assetValue: {
               $sum: {
-                $multiply: [
-                  '$qty',
-                  '$pRate'
-                ]
-              }
+                $multiply: ['$qty', '$pRate'],
+              },
             },
             trns: {
               $push: {
@@ -141,9 +139,9 @@ export class Patch9Service {
                 expYear: '$expYear',
                 expMonth: '$expMonth',
                 unit: '$unit',
-                unitPrecision: '$unitPrecision'
-              }
-            }
+                unitPrecision: '$unitPrecision',
+              },
+            },
           },
         },
         {
@@ -151,9 +149,13 @@ export class Patch9Service {
             inventoryName: '$_id.inventoryName',
             unitPrecision: '$_id.unitPrecision',
             inventoryId: '$_id.inventoryId',
-            branchId: { '$toString': '$_id.branchId' },
+            branchId: { $toString: '$_id.branchId' },
             branchName: '$_id.branchName',
-            assetAccount: { id: assetAccount._id.toString(), name: assetAccount.name, displayName: assetAccount.displayName },
+            assetAccount: {
+              id: assetAccount._id.toString(),
+              name: assetAccount.name,
+              displayName: assetAccount.displayName,
+            },
             updatedBy: user._id.toString(),
             updatedAt: new Date('2021-02-17T00:00:00.000+0000'),
             date,
@@ -163,42 +165,114 @@ export class Patch9Service {
             pRateTaxInc: false,
             sRateTaxInc: true,
             fNo: 1,
-          }
+          },
         },
         { $project: { _id: 0, assetValue: 0 } },
-        { $out: 'inventory_openings_new' }
+        { $out: 'inventory_openings_new' },
       ];
       console.log('inventory opening patch started');
-      await connection.db().collection('inventory_openings').aggregate(pipeLine, { allowDiskUse: true }).toArray();
-      console.log('inventory opening new collection created as inventory_openings_new');
-      await connection.db().collection('inventory_openings').rename('inventory_openings_old');
-      const invOpening = await connection.db().collection('inventory_openings_new').rename('inventory_openings');
+      await connection
+        .db()
+        .collection('inventory_openings')
+        .aggregate(pipeLine, { allowDiskUse: true })
+        .toArray();
+      console.log(
+        'inventory opening new collection created as inventory_openings_new',
+      );
+      await connection
+        .db()
+        .collection('inventory_openings')
+        .rename('inventory_openings_old');
+      const invOpening = await connection
+        .db()
+        .collection('inventory_openings_new')
+        .rename('inventory_openings');
       console.log('inventory_openings_new was renamed as inventory_openings');
       await invOpening.createIndex({ branchId: 1 });
       await invOpening.createIndex({ inventoryId: 1 });
       console.log('inventory_openings index was created');
 
-      await connection.db().collection('sales').updateMany({}, { $set: { fNo: 1 } });
-      await connection.db().collection('purchases').updateMany({}, { $set: { fNo: 1 } });
-      await connection.db().collection('purchase_returns').updateMany({}, { $set: { fNo: 1 } });
-      await connection.db().collection('sale_returns').updateMany({}, { $set: { fNo: 1 } });
-      await connection.db().collection('stock_transfers').updateMany({}, { $set: { fNo: 1 } });
-      await connection.db().collection('stock_adjustments').updateMany({}, { $set: { fNo: 1 } });
-      await connection.db().collection('material_conversions').updateMany({}, { $set: { fNo: 1 } });
-      await connection.db().collection('accountpayments').updateMany({}, { $set: { fNo: 1 } });
-      await connection.db().collection('accountreceipts').updateMany({}, { $set: { fNo: 1 } });
-      await connection.db().collection('cashdeposits').updateMany({}, { $set: { fNo: 1 } });
-      await connection.db().collection('cashwithdrawals').updateMany({}, { $set: { fNo: 1 } });
-      await connection.db().collection('customerpayments').updateMany({}, { $set: { fNo: 1 } });
-      await connection.db().collection('customerreceipts').updateMany({}, { $set: { fNo: 1 } });
-      await connection.db().collection('expenses').updateMany({}, { $set: { fNo: 1 } });
-      await connection.db().collection('incomes').updateMany({}, { $set: { fNo: 1 } });
-      await connection.db().collection('journals').updateMany({}, { $set: { fNo: 1 } });
-      await connection.db().collection('vendorpayments').updateMany({}, { $set: { fNo: 1 } });
-      await connection.db().collection('vendorreceipts').updateMany({}, { $set: { fNo: 1 } });
-      await connection.db().collection('financialyears').updateOne({}, { $set: { fNo: 1, fSync: false } });
-      await connection.db().collection('batches').updateMany({}, { $unset: { closing: true, sold: true } });
-
+      await connection
+        .db()
+        .collection('sales')
+        .updateMany({}, { $set: { fNo: 1 } });
+      await connection
+        .db()
+        .collection('purchases')
+        .updateMany({}, { $set: { fNo: 1 } });
+      await connection
+        .db()
+        .collection('purchase_returns')
+        .updateMany({}, { $set: { fNo: 1 } });
+      await connection
+        .db()
+        .collection('sale_returns')
+        .updateMany({}, { $set: { fNo: 1 } });
+      await connection
+        .db()
+        .collection('stock_transfers')
+        .updateMany({}, { $set: { fNo: 1 } });
+      await connection
+        .db()
+        .collection('stock_adjustments')
+        .updateMany({}, { $set: { fNo: 1 } });
+      await connection
+        .db()
+        .collection('material_conversions')
+        .updateMany({}, { $set: { fNo: 1 } });
+      await connection
+        .db()
+        .collection('accountpayments')
+        .updateMany({}, { $set: { fNo: 1 } });
+      await connection
+        .db()
+        .collection('accountreceipts')
+        .updateMany({}, { $set: { fNo: 1 } });
+      await connection
+        .db()
+        .collection('cashdeposits')
+        .updateMany({}, { $set: { fNo: 1 } });
+      await connection
+        .db()
+        .collection('cashwithdrawals')
+        .updateMany({}, { $set: { fNo: 1 } });
+      await connection
+        .db()
+        .collection('customerpayments')
+        .updateMany({}, { $set: { fNo: 1 } });
+      await connection
+        .db()
+        .collection('customerreceipts')
+        .updateMany({}, { $set: { fNo: 1 } });
+      await connection
+        .db()
+        .collection('expenses')
+        .updateMany({}, { $set: { fNo: 1 } });
+      await connection
+        .db()
+        .collection('incomes')
+        .updateMany({}, { $set: { fNo: 1 } });
+      await connection
+        .db()
+        .collection('journals')
+        .updateMany({}, { $set: { fNo: 1 } });
+      await connection
+        .db()
+        .collection('vendorpayments')
+        .updateMany({}, { $set: { fNo: 1 } });
+      await connection
+        .db()
+        .collection('vendorreceipts')
+        .updateMany({}, { $set: { fNo: 1 } });
+      await connection
+        .db()
+        .collection('financialyears')
+        .updateOne({}, { $set: { fNo: 1, fSync: false } });
+      await connection
+        .db()
+        .collection('batches')
+        .updateMany({}, { $unset: { closing: true, sold: true } });
+      /*
       const limit = 25000;
       const saleCount = await connection.db().collection('sales').countDocuments();
       if (saleCount > 0) {
@@ -530,20 +604,25 @@ export class Patch9Service {
         stockTransferResult = 'No Stock Adjustment found';
         console.log(stockTransferResult);
       }
-      console.log('delete INVENTORY_OPENING from inventorybooks started.')
-      await connection.db().collection('inventorybooks').deleteMany({voucherType: 'INVENTORY_OPENING'});
-      console.log('delete INVENTORY_OPENING from inventorybooks finished.')
+      
+      */
 
+      console.log('delete INVENTORY_OPENING from inventorybooks started.');
+      await connection
+        .db()
+        .collection('inventorybooks')
+        .deleteMany({ voucherType: 'INVENTORY_OPENING' });
+      console.log('delete INVENTORY_OPENING from inventorybooks finished.');
+      await connection.close();
     } catch (err) {
       console.log(err.message);
       return err;
     }
-    await connection.close();
-    return {
-      saleResult, saleReturnResult,
-      purchaseResult, purchaseReturnResult,
-      materialConversionResult, stockTransferResult, stockAdjResult
-    };
+    // return {
+    //   saleResult, saleReturnResult,
+    //   purchaseResult, purchaseReturnResult,
+    //   materialConversionResult, stockTransferResult, stockAdjResult
+    // };
   }
 
   async postAccountBookUpdate() {
@@ -560,14 +639,26 @@ export class Patch9Service {
     }
     try {
       const connectdb = connection.db().databaseName;
-      console.log({database: connectdb});
+      console.log({ database: connectdb });
       console.log('accountbooks update for opening records started.');
-      await connection.db().collection('accountbooks').updateMany({voucherType: /.*OPENING.*/i}, {$set: {fNo: 1, fSync: false, isOpening: true}});
+      await connection
+        .db()
+        .collection('accountbooks')
+        .updateMany(
+          { voucherType: /.*OPENING.*/i },
+          { $set: { fNo: 1, fSync: false, isOpening: true } },
+        );
       console.log('accountbooks update for opening records finished.');
       console.log('accountbooks update for other records started.');
-      await connection.db().collection('accountbooks').updateMany({voucherType: {$not : /.*OPENING.*/i }}, {$set: {fNo: 1, fSync: false, isOpening: false}});
+      await connection
+        .db()
+        .collection('accountbooks')
+        .updateMany(
+          { voucherType: { $not: /.*OPENING.*/i } },
+          { $set: { fNo: 1, fSync: false, isOpening: false } },
+        );
       console.log('accountbooks update for other records finished.');
-    } catch(err) {
+    } catch (err) {
       console.log(err.message);
       return err;
     }
