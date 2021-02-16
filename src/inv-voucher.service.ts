@@ -19,6 +19,7 @@ export class Patch9Service {
       return err;
     }
     try {
+      /*      
       const connectdb = connection.db().databaseName;
       console.log(connectdb);
       const auditplusDB = await connection
@@ -272,7 +273,7 @@ export class Patch9Service {
         .db()
         .collection('batches')
         .updateMany({}, { $unset: { closing: true, sold: true } });
-      /*
+      //*
       const limit = 25000;
       const saleCount = await connection.db().collection('sales').countDocuments();
       if (saleCount > 0) {
