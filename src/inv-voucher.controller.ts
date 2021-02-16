@@ -10,4 +10,9 @@ export class Patch9Controller {
     console.log('patch9 controller inv-voucher');
     return await this.patch9Service.acTrnsRound();
   }
+  @Put('post-acbook')
+  async postAccountBookUpdate() {
+    console.log('patch9 controller post account book update.');
+    return await this.patch9Service.postAccountBookUpdate();
+  }
 }

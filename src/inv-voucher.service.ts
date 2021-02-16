@@ -560,10 +560,17 @@ export class Patch9Service {
     }
     try {
       const connectdb = connection.db().databaseName;
-      console.log(connectdb);
+      console.log({database: connectdb});
+      console.log('accountbooks update for opening records started.');
+      await connection.db().collection('accountbooks').updateMany({voucherType: /.*OPENING.*/i}, {$set: {fNo: 1, fSync: false, isOpening: true}});
+      console.log('accountbooks update for opening records finished.');
+      console.log('accountbooks update for other records started.');
+      await connection.db().collection('accountbooks').updateMany({voucherType: {$not : /.*OPENING.*/i }}, {$set: {fNo: 1, fSync: false, isOpening: false}});
+      console.log('accountbooks update for other records finished.');
     } catch(err) {
       console.log(err.message);
       return err;
     }
+    console.log('patch9 controller post account book update end.');
   }
 }
