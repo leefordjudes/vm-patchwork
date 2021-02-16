@@ -1,1 +1,1 @@
-export const URI = `mongodb://localhost/sample`;
+export const URI = `mongodb://localhost/velavanmedical1`;
