@@ -9,6 +9,34 @@ import { round } from './utils/utils';
 @Injectable()
 export class Patch10Service {
 
+  async actAccount() {
+    try {
+      console.log('1.connect to mongodb server using mongo client');
+      var connection = await new MongoClient(URI, {
+        useUnifiedTopology: true,
+        useNewUrlParser: true,
+      }).connect();
+      console.log('2. connected');
+    } catch (err) {
+      console.log(err.message);
+      return err;
+    }
+    try {
+      const tradeReceivable = await connection.db().collection('act_accounts').findOne({ defaultName: 'TRADE_RECEIVABLE' });
+      const tradePayble = await connection.db().collection('act_accounts').findOne({ defaultName: 'TRADE_PAYABLE' });
+      await connection.db().collection('act_accounts')
+        .updateMany({ parentAccount: tradePayble._id }, { $set: { parentDefaultName: 'TRADE_PAYABLE' } });
+      await connection.db().collection('act_accounts')
+        .updateMany({ parentAccount: tradeReceivable._id }, { $set: { parentDefaultName: 'TRADE_RECEIVABLE' } });
+
+    } catch (err) {
+      console.log(err.message);
+      return err;
+    }
+    await connection.close();
+    return '$$$$$$ ALL FINISHED SUCESSFULLY $$$$$';
+  }
+
   async inventoryOpening() {
     try {
       console.log('1.connect to mongodb server using mongo client');

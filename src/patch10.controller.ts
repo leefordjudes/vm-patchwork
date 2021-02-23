@@ -15,4 +15,10 @@ export class Patch10Controller {
     console.log('patch10 controller inv-opening');
     return await this.patch10Service.inventoryOpening();
   }
+
+  @Put('act-account')
+  async actAccount() {
+    console.log('patch10 actAccount');
+    return await this.patch10Service.actAccount();
+  }
 }
