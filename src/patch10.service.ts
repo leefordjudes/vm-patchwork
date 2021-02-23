@@ -8,6 +8,103 @@ import { round } from './utils/utils';
 
 @Injectable()
 export class Patch10Service {
+
+  async inventoryOpening() {
+    try {
+      console.log('1.connect to mongodb server using mongo client');
+      var connection = await new MongoClient(URI, {
+        useUnifiedTopology: true,
+        useNewUrlParser: true,
+      }).connect();
+      console.log('2. connected');
+    } catch (err) {
+      console.log(err.message);
+      return err;
+    }
+    try {
+      const limit = 10000;
+      await connection.db().collection('inventory_openings').updateMany({ 'trns.sNo': { $exists: true } }, { $unset: { 'trns.$[].sNo': true } });
+      await connection.db().collection('inventory_openings').updateMany({ createdAt: { $exists: true } }, { $unset: { createdAt: true } });
+      const invOpeningCount = await connection.db().collection('inventory_openings').countDocuments();
+      if (invOpeningCount > 0) {
+        console.log('inventory_opening transactions patch object initialization started');
+        const now = Date.now();
+        for (let skip = 0; skip <= invOpeningCount; skip = skip + limit) {
+          const now1 = Date.now();
+          const bulkOperation: any = connection.db().collection('inventory_openings').initializeOrderedBulkOp();
+          console.log({ skip, limit, invOpeningCount });
+          const openings: any = await connection.db()
+            .collection('inventory_openings').find({}, { projection: { trns: 1 }, sort: { _id: 1 }, skip, limit })
+            .toArray();
+          console.log('Records: ' + openings.length);
+          for (const op of openings) {
+            const trns = [];
+            for (const trn of op.trns) {
+              trns.push(_.assign(trn, { _id: new Types.ObjectId() }));
+            }
+            const io = {
+              updateOne: {
+                filter: { _id: op._id },
+                update: {
+                  $set: { trns },
+                },
+              },
+
+            };
+            bulkOperation.raw(io);
+          }
+          console.log('inventory_opening transactions patch object initialized');
+          console.log('inventory_opening transactions bulk execution start');
+          var opResult = await bulkOperation.execute();
+          console.log('bulk execution results are' + JSON.stringify(opResult));
+          const delay1 = Date.now() - now1;
+          console.log(`Slot execution time: ${delay1} milliseconds.`);
+        }
+        console.log('inventory_opening transactions patch finished');
+        const delay = (Date.now() - now) / 60000;
+        console.log(`Total execution time: ${delay} min.`);
+      } else {
+        console.log('No inventory openings found');
+      }
+
+      const purchaseCount = await connection.db().collection('purchases').countDocuments();
+      const arr = [];
+      if (purchaseCount > 0) {
+        const purchases: any = await connection.db().collection('purchases')
+          .find({ 'invTrns.unitPrecision': null }, { projection: { invTrns: 1 } }).toArray();
+        for (const purchase of purchases) {
+          for (const item of purchase.invTrns) {
+            if (typeof item.unitPrecision === 'undefined') {
+              const inventory: any = await connection.db().collection('inventories').findOne({ _id: Types.ObjectId(item.inventory.id) });
+              const invTrnsObj = {
+                updateOne: {
+                  filter: { _id: purchase._id, invTrns: { $elemMatch: { _id: item._id } } },
+                  update: {
+                    $set: {
+                      'invTrns.$[elm].unitPrecision': inventory.precision,
+                    },
+                  },
+                  arrayFilters: [{ 'elm._id': item._id }],
+                },
+              };
+              arr.push(invTrnsObj);
+            }
+          }
+        }
+        await connection.db().collection('purchases')
+          .bulkWrite(arr);
+      } else {
+        console.log('No Purchase Found');
+      }
+
+    } catch (err) {
+      console.log(err.message);
+      return err;
+    }
+    await connection.close();
+    return '$$$$$$ ALL FINISHED SUCESSFULLY $$$$$';
+  }
+
   async round() {
     try {
       console.log('1.connect to mongodb server using mongo client');
@@ -405,50 +502,6 @@ export class Patch10Service {
         console.log('****MATERIAL CONVERSION PATCH END****');
       } else {
         console.log('No MATERIAL CONVERSION found');
-      }
-
-      await connection.db().collection('inventory_openings').updateMany({ 'trns.sNo': { $exists: true } }, { $unset: { sNo: true } });
-      await connection.db().collection('inventory_openings').updateMany({ createdAt: { $exists: true } }, { $unset: { createdAt: true } });
-      const invOpeningCount = await connection.db().collection('inventory_openings').countDocuments();
-      if (invOpeningCount > 0) {
-        console.log('inventory_opening transactions patch object initialization started');
-        const now = Date.now();
-        for (let skip = 0; skip <= invOpeningCount; skip = skip + limit) {
-          const now1 = Date.now();
-          const bulkOperation: any = connection.db().collection('inventory_openings').initializeOrderedBulkOp();
-          console.log({ skip, limit, invOpeningCount });
-          const openings: any = await connection.db()
-            .collection('inventory_openings').find({}, { projection: { trns: 1 }, sort: { _id: 1 }, skip, limit })
-            .toArray();
-          console.log('Records: ' + openings.length);
-          for (const op of openings) {
-            const trns = [];
-            for (const trn of op.trns) {
-              trns.push(_.assign(trn, { _id: new Types.ObjectId() }));
-            }
-            const io = {
-              updateOne: {
-                filter: { _id: op._id },
-                update: {
-                  $set: { trns },
-                },
-              },
-
-            };
-            bulkOperation.raw(io);
-          }
-          console.log('inventory_opening transactions patch object initialized');
-          console.log('inventory_opening transactions bulk execution start');
-          var opResult = await bulkOperation.execute();
-          console.log('bulk execution results are' + JSON.stringify(opResult));
-          const delay1 = Date.now() - now1;
-          console.log(`Slot execution time: ${delay1} milliseconds.`);
-        }
-        console.log('inventory_opening transactions patch finished');
-        const delay = (Date.now() - now) / 60000;
-        console.log(`Total execution time: ${delay} min.`);
-      } else {
-        console.log('No inventory openings found');
       }
       console.log('$$$$$$ ALL FINISHED SUCESSFULLY $$$$$');
     } catch (err) {

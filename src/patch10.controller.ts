@@ -10,4 +10,9 @@ export class Patch10Controller {
     console.log('patch10 controller inv-voucher');
     return await this.patch10Service.round();
   }
+  @Put('inv-opening')
+  async inventoryOpening() {
+    console.log('patch10 controller inv-opening');
+    return await this.patch10Service.inventoryOpening();
+  }
 }
