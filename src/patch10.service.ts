@@ -28,7 +28,7 @@ export class Patch10Service {
         .updateMany({ parentAccount: tradePayble._id }, { $set: { parentDefaultName: 'TRADE_PAYABLE' } });
       await connection.db().collection('act_accounts')
         .updateMany({ parentAccount: tradeReceivable._id }, { $set: { parentDefaultName: 'TRADE_RECEIVABLE' } });
-
+      await connection.db().collection('act_gstregistrations').rename('act_gst_registrations');
     } catch (err) {
       console.log(err.message);
       return err;
