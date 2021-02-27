@@ -100,10 +100,24 @@ export class Patch10Service {
       if (purchaseCount > 0) {
         const purchases: any = await connection.db().collection('purchases')
           .find({ 'invTrns.unitPrecision': null }, { projection: { invTrns: 1 } }).toArray();
+        console.log(purchases.length);  
+        let inventoryIds = [];
+        for (const p of purchases) {
+          const ids = _.map(p.invTrns, i => { 
+            if(typeof i.unitPrecision === 'undefined' || i.unitPrecision === null) {
+              return Types.ObjectId(i.inventory.id)
+            }
+          });
+          inventoryIds.push(...ids);
+        }
+        inventoryIds = _.compact(_.uniq(inventoryIds));
+        const inventories: any = await connection.db().collection('inventories')
+              .find({ _id: {$in: inventoryIds} }, {projection: {precision: 1, name: 1}}).toArray();     
         for (const purchase of purchases) {
           for (const item of purchase.invTrns) {
-            if (typeof item.unitPrecision === 'undefined') {
-              const inventory: any = await connection.db().collection('inventories').findOne({ _id: Types.ObjectId(item.inventory.id) });
+            if (typeof item.unitPrecision === 'undefined' || item.unitPrecision === null) {
+              const inventory = inventories.find(i => i._id.toString() === item.inventory.id);
+              console.log({inventory})
               const invTrnsObj = {
                 updateOne: {
                   filter: { _id: purchase._id, invTrns: { $elemMatch: { _id: item._id } } },
@@ -461,6 +475,7 @@ export class Patch10Service {
                   filter: { _id: st._id, invTrns: { $elemMatch: { _id: item._id } } },
                   update: {
                     $set: {
+                      'invTrns.$[elm].cost': round(item.cost),
                       'invTrns.$[elm].amount': round(item.amount),
                     },
                   },
