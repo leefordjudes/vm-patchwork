@@ -21,6 +21,8 @@ import { Patch7Controller } from './patch7.controller';
 import { Patch7Service } from './patch7.service';
 import { Patch8Service } from './patch8.service';
 import { Patch8Controller } from './patch8.controller';
+import { Patch10Controller } from './patch10.controller';
+import { Patch10Service } from './patch10.service';
 
 // const URI = 'mongodb+srv://username:password@host/database?retryWrites=true&w=majority';
 // const URI =  `mongodb://admin:12345678@192.168.1.20:27017/velavanmedical1?authSource=admin`;
@@ -33,127 +35,30 @@ import { Patch8Controller } from './patch8.controller';
       useCreateIndex: true,
       useFindAndModify: false,
     }),
-    MongooseModule.forFeature([
-      { name: 'PrintTemplate', schema: schema.printTemplateSchema },
-      { name: 'Role', schema: schema.roleSchema },
-      { name: 'User', schema: schema.userSchema },
-      { name: 'Tax', schema: schema.taxSchema },
-      { name: 'Branch', schema: schema.branchSchema },
-      { name: 'Account', schema: schema.accountSchema },
-      { name: 'VoucherNumbering', schema: schema.voucherNumberingSchema },
-      { name: 'Warehouse', schema: schema.warehouseSchema },
-      { name: 'Customer', schema: schema.customerSchema },
-      { name: 'Vendor', schema: schema.vendorSchema },
-      { name: 'GSTOutward', schema: schema.gstOutwardSchema },
-      { name: 'GSTtransaction', schema: schema.gstTransactionSchema },
-      { name: 'State', schema: schema.stateSchema },
-      { name: 'CustomerBook', schema: schema.customerBookSchema },
-      { name: 'M1CashSale', schema: schema.m1CashSaleSchema },
-      { name: 'M2CashSale', schema: schema.m2CashSaleSchema },
-      { name: 'M1CreditSale', schema: schema.m1CreditSaleSchema },
-      { name: 'M2CreditSale', schema: schema.m2CreditSaleSchema },
-      { name: 'M1CashPurchase', schema: schema.m1CashPurchaseSchema },
-      { name: 'M2CashPurchase', schema: schema.m2CashPurchaseSchema },
-      { name: 'M1CreditPurchase', schema: schema.m1CreditPurchaseSchema },
-      { name: 'M2CreditPurchase', schema: schema.m2CreditPurchaseSchema },
-      { name: 'M1CashSaleReturn', schema: schema.m1CashSaleReturnSchema },
-      { name: 'M2CashSaleReturn', schema: schema.m2CashSaleReturnSchema },
-      { name: 'M1CreditSaleReturn', schema: schema.m1CreditSaleReturnSchema },
-      { name: 'M2CreditSaleReturn', schema: schema.m2CreditSaleReturnSchema },
-      {
-        name: 'M1CashPurchaseReturn',
-        schema: schema.m1CashPurchaseReturnSchema,
-      },
-      {
-        name: 'M2CashPurchaseReturn',
-        schema: schema.m2CashPurchaseReturnSchema,
-      },
-      {
-        name: 'M1CreditPurchaseReturn',
-        schema: schema.m1CreditPurchaseReturnSchema,
-      },
-      {
-        name: 'M2CreditPurchaseReturn',
-        schema: schema.m2CreditPurchaseReturnSchema,
-      },
-      {
-        name: 'M1InventoryOpening',
-        schema: schema.m1InventoryOpeningSchema,
-      },
-      {
-        name: 'M2InventoryOpening',
-        schema: schema.m2InventoryOpeningSchema,
-      },
-      {
-        name: 'Sale',
-        schema: schema.saleSchema,
-        collection: 'sales',
-      },
-      {
-        name: 'Sale_Return',
-        schema: schema.saleReturnSchema,
-        collection: 'sale_returns',
-      },
-      {
-        name: 'Purchase',
-        schema: schema.purchaseSchema,
-        collection: 'purchases',
-      },
-      {
-        name: 'Purchase_Return',
-        schema: schema.purchaseReturnSchema,
-        collection: 'purchase_returns',
-      },
-      {
-        name: 'Inventory_Head',
-        schema: schema.inventoryHeadSchema,
-        collection: 'inventory_heads',
-      },
-      {
-        name: 'Inventory',
-        schema: schema.inventorySchema,
-        collection: 'inventories',
-      },
-      {
-        name: 'Preference',
-        schema: schema.preferenceSchema,
-      },
-      {
-        name: 'VendorPending',
-        schema: schema.vendorPendingSchema,
-      },
-      {
-        name: 'CustomerPending',
-        schema: schema.customerPendingSchema,
-      },
-      {
-        name: 'GST_Filing',
-        schema: schema.gstFilingSchema,
-        collection: 'gst_filings',
-      },
-    ]),
   ],
   controllers: [
-    AppController,
-    Patch3Controller,
-    MergeController,
-    Patch4Controller,
-    GSTFilingController,
-    Patch5Controller,
-    Patch6Controller,
-    Patch7Controller,
-    Patch8Controller,
+    // AppController,
+    // Patch3Controller,
+    // MergeController,
+    // Patch4Controller,
+    // GSTFilingController,
+    // Patch5Controller,
+    // Patch6Controller,
+    // Patch7Controller,
+    // Patch8Controller,
+    Patch10Controller
   ],
   providers: [
-    AppService,
-    Patch3Service,
-    MergeService,
-    Patch4Service,
-    GSTFilingService,
-    Patch5Service,
-    Patch6Service,
-    Patch7Service,
-    Patch8Service
+    // AppService,
+    // Patch3Service,
+    // MergeService,
+    // Patch4Service,
+    // GSTFilingService,
+    // Patch5Service,
+    // Patch6Service,
+    // Patch7Service,
+    // Patch8Service,
+    Patch10Service
   ],
 })
 export class AppModule {}
