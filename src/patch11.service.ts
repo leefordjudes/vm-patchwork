@@ -126,6 +126,7 @@ export class Patch11Service {
             accountId: { $toString: '$acc._id' },
             accountName: '$acc.name',
             branchId: '$branch',
+            voucherType: { $cond: [{ $eq: ['$voucherType', 'CUSTOMER_OPENING'] }, 'ACCOUNT_OPENING', '$voucherType'], },
           }
         },
         { $project: { acc: 0, adjusted: 0, branch: 0, closing: 0, customer: 0, customerName: 0 } },
@@ -150,6 +151,7 @@ export class Patch11Service {
             accountId: { $toString: '$acc._id' },
             accountName: '$acc.name',
             branchId: '$branch',
+            voucherType: { $cond: [{ $eq: ['$voucherType', 'VENDOR_OPENING'] }, 'ACCOUNT_OPENING', '$voucherType'], },
           }
         },
         { $project: { acc: 0, adjusted: 0, branch: 0, closing: 0, vendor: 0, vendorName: 0 } },
@@ -405,14 +407,13 @@ export class Patch11Service {
       }
 
       const pendings: any = await connection.db().collection('customerpendingadjustments').find({}, { projection: { _id: 0, __v: 0 } }).toArray();
-      const accounts: any = await connection.db().collection('accounts').find({}, { projection: { party: 1, name: 1, type: 1 } }).toArray();
+      const accounts: any = await connection.db().collection('accounts').find({}, { projection: { party: 1, name: 1, displayName: 1, type: 1 } }).toArray();
       console.log('1');
       const customerpaymentsCount = await connection.db().collection('customerpayments').countDocuments();
       if (customerpaymentsCount > 0) {
         const docs = [];
         const vouchers: any = await connection.db().collection('customerpayments').find({}, { projection: { cashRegister: 0 } }).toArray();
         for (const voucher of vouchers) {
-          console.log(voucher);
           let doc = {
             _id: voucher._id,
             branchId: voucher.branch.id,
@@ -433,16 +434,18 @@ export class Patch11Service {
           const cashAcc = accounts.find((cash) => cash._id.toString() === voucher.byAccount.id);
           const trns = [
             {
+              _id: new Types.ObjectId(),
               accountId: partyAcc._id.toString(),
-              accountName: partyAcc.name,
+              accountName: partyAcc.displayName,
               accountType: partyAcc.type.defaultName,
               pendingId: voucher.customerPending,
               debit: voucher.amount,
               credit: 0,
             },
             {
+              _id: new Types.ObjectId(),
               accountId: cashAcc._id.toString(),
-              accountName: cashAcc.name,
+              accountName: cashAcc.displayName,
               accountType: cashAcc.type.defaultName,
               instNo: voucher.instNo,
               instDate: voucher.instDate,
@@ -452,7 +455,7 @@ export class Patch11Service {
           ];
           _.assign(doc, { trns });
           const acAdjs = pendings.filter((pending) => (pending.byPending === voucher.customerPending) && (pending.byPending > pending.toPending)).map((p) => {
-            return { accountId: partyAcc._id.toString(), pendingId: p.toPending, amount: p.amount };
+            return { _id: new Types.ObjectId(), accountId: partyAcc._id.toString(), pendingId: p.toPending, amount: p.amount };
           });
           console.log('2');
           _.assign(doc, { acAdjs });
@@ -489,16 +492,18 @@ export class Patch11Service {
           const cashAcc = accounts.find((cash) => cash._id.toString() === voucher.byAccount.id);
           const trns = [
             {
+              _id: new Types.ObjectId(),
               accountId: partyAcc._id.toString(),
-              accountName: partyAcc.name,
+              accountName: partyAcc.displayName,
               accountType: partyAcc.type.defaultName,
               pendingId: voucher.customerPending,
               debit: 0,
               credit: voucher.amount,
             },
             {
+              _id: new Types.ObjectId(),
               accountId: cashAcc._id.toString(),
-              accountName: cashAcc.name,
+              accountName: cashAcc.displayName,
               accountType: cashAcc.type.defaultName,
               instNo: voucher.instNo,
               instDate: voucher.instDate,
@@ -508,7 +513,7 @@ export class Patch11Service {
           ];
           _.assign(doc, { trns });
           const acAdjs = pendings.filter((pending) => (pending.byPending === voucher.customerPending) && (pending.byPending > pending.toPending)).map((p) => {
-            return { accountId: partyAcc._id.toString(), pendingId: p.toPending, amount: p.amount };
+            return { _id: new Types.ObjectId(), accountId: partyAcc._id.toString(), pendingId: p.toPending, amount: p.amount };
           });
           _.assign(doc, { acAdjs });
           docs.push(doc);
@@ -523,7 +528,6 @@ export class Patch11Service {
         const docs = [];
         const vouchers: any = await connection.db().collection('vendorpayments').find({}, { projection: { cashRegister: 0 } }).toArray();
         for (const voucher of vouchers) {
-          console.log(voucher);
           let doc = {
             _id: voucher._id,
             branchId: voucher.branch.id,
@@ -544,16 +548,18 @@ export class Patch11Service {
           const cashAcc = accounts.find((cash) => cash._id.toString() === voucher.byAccount.id);
           const trns = [
             {
+              _id: new Types.ObjectId(),
               accountId: partyAcc._id.toString(),
-              accountName: partyAcc.name,
+              accountName: partyAcc.displayName,
               accountType: partyAcc.type.defaultName,
               pendingId: voucher.customerPending,
               debit: voucher.amount,
               credit: 0,
             },
             {
+              _id: new Types.ObjectId(),
               accountId: cashAcc._id.toString(),
-              accountName: cashAcc.name,
+              accountName: cashAcc.displayName,
               accountType: cashAcc.type.defaultName,
               instNo: voucher.instNo,
               instDate: voucher.instDate,
@@ -563,7 +569,7 @@ export class Patch11Service {
           ];
           _.assign(doc, { trns });
           const acAdjs = pendings.filter((pending) => (pending.byPending === voucher.customerPending) && (pending.byPending > pending.toPending)).map((p) => {
-            return { accountId: partyAcc._id.toString(), pendingId: p.toPending, amount: p.amount };
+            return { _id: new Types.ObjectId(), accountId: partyAcc._id.toString(), pendingId: p.toPending, amount: p.amount };
           });
           console.log('2');
           _.assign(doc, { acAdjs });
@@ -600,16 +606,18 @@ export class Patch11Service {
           const cashAcc = accounts.find((cash) => cash._id.toString() === voucher.byAccount.id);
           const trns = [
             {
+              _id: new Types.ObjectId(),
               accountId: partyAcc._id.toString(),
-              accountName: partyAcc.name,
+              accountName: partyAcc.displayName,
               accountType: partyAcc.type.defaultName,
               pendingId: voucher.customerPending,
               debit: 0,
               credit: voucher.amount,
             },
             {
+              _id: new Types.ObjectId(),
               accountId: cashAcc._id.toString(),
-              accountName: cashAcc.name,
+              accountName: cashAcc.displayName,
               accountType: cashAcc.type.defaultName,
               instNo: voucher.instNo,
               instDate: voucher.instDate,
@@ -619,7 +627,7 @@ export class Patch11Service {
           ];
           _.assign(doc, { trns });
           const acAdjs = pendings.filter((pending) => (pending.byPending === voucher.customerPending) && (pending.byPending > pending.toPending)).map((p) => {
-            return { accountId: partyAcc._id.toString(), pendingId: p.toPending, amount: p.amount };
+            return { _id: new Types.ObjectId(), accountId: partyAcc._id.toString(), pendingId: p.toPending, amount: p.amount };
           });
           _.assign(doc, { acAdjs });
           docs.push(doc);
@@ -629,22 +637,384 @@ export class Patch11Service {
         console.log('No Vendor Receipt Found');
       }
 
+      const expensesCount = await connection.db().collection('expenses').countDocuments();
+      if (expensesCount > 0) {
+        const docs = [];
+        const vouchers: any = await connection.db().collection('expenses').find({}, { projection: { cashRegister: 0 } }).toArray();
+        for (const voucher of vouchers) {
+          let doc = {
+            _id: voucher._id,
+            branchId: voucher.branch.id,
+            branchName: voucher.branch.name,
+            date: voucher.date,
+            refNo: voucher.refNo,
+            fNo: 1,
+            description: voucher.description,
+            voucherNo: voucher.voucherNo,
+            voucherName: voucher.voucherName,
+            voucherType: voucher.voucherType,
+            createdBy: voucher.createdBy,
+            updatedBy: voucher.updatedBy,
+            createdAt: voucher.createdAt,
+            updatedAt: voucher.updatedAt,
+          };
+          const partyAcc = accounts.find((party) => party._id.toString() === voucher.toAccount.id);
+          const cashAcc = accounts.find((cash) => cash._id.toString() === voucher.byAccount.id);
+          const trns = [
+            {
+              _id: new Types.ObjectId(),
+              accountId: partyAcc._id.toString(),
+              accountName: partyAcc.displayName,
+              accountType: partyAcc.type.defaultName,
+              debit: voucher.amount,
+              credit: 0,
+            },
+            {
+              _id: new Types.ObjectId(),
+              accountId: cashAcc._id.toString(),
+              accountName: cashAcc.displayName,
+              accountType: cashAcc.type.defaultName,
+              instNo: voucher.instNo,
+              instDate: voucher.instDate,
+              debit: 0,
+              credit: voucher.amount,
+            },
+          ];
+          _.assign(doc, { trns });
+          docs.push(doc);
+        }
+        await connection.db().collection('vouchers').insertMany(docs);
+      } else {
+        console.log('No Expense Found');
+      }
+      console.log('3');
+      const incomesCount = await connection.db().collection('incomes').countDocuments();
+      if (incomesCount > 0) {
+        const docs = [];
+        const vouchers: any = await connection.db().collection('incomes').find({}, { projection: { cashRegister: 0 } }).toArray();
+        console.log('4');
+        for (const voucher of vouchers) {
+          let doc = {
+            _id: voucher._id,
+            branchId: voucher.branch.id,
+            branchName: voucher.branch.name,
+            date: voucher.date,
+            refNo: voucher.refNo,
+            fNo: 1,
+            description: voucher.description,
+            voucherNo: voucher.voucherNo,
+            voucherName: voucher.voucherName,
+            voucherType: voucher.voucherType,
+            createdBy: voucher.createdBy,
+            updatedBy: voucher.updatedBy,
+            createdAt: voucher.createdAt,
+            updatedAt: voucher.updatedAt,
+          };
+          const partyAcc = accounts.find((party) => party._id.toString() === voucher.toAccount.id);
+          const cashAcc = accounts.find((cash) => cash._id.toString() === voucher.byAccount.id);
+          const trns = [
+            {
+              _id: new Types.ObjectId(),
+              accountId: partyAcc._id.toString(),
+              accountName: partyAcc.displayName,
+              accountType: partyAcc.type.defaultName,
+              debit: 0,
+              credit: voucher.amount,
+            },
+            {
+              _id: new Types.ObjectId(),
+              accountId: cashAcc._id.toString(),
+              accountName: cashAcc.displayName,
+              accountType: cashAcc.type.defaultName,
+              instNo: voucher.instNo,
+              instDate: voucher.instDate,
+              debit: voucher.amount,
+              credit: 0,
+            },
+          ];
+          _.assign(doc, { trns });
+          docs.push(doc);
+        }
+        await connection.db().collection('vouchers').insertMany(docs);
+      } else {
+        console.log('No Incomes Found');
+      }
+
+      const accountpaymentsCount = await connection.db().collection('accountpayments').countDocuments();
+      if (accountpaymentsCount > 0) {
+        const docs = [];
+        const vouchers: any = await connection.db().collection('accountpayments').find({}, { projection: { cashRegister: 0 } }).toArray();
+        for (const voucher of vouchers) {
+          let doc = {
+            _id: voucher._id,
+            branchId: voucher.branch.id,
+            branchName: voucher.branch.name,
+            date: voucher.date,
+            refNo: voucher.refNo,
+            fNo: 1,
+            description: voucher.description,
+            voucherNo: voucher.voucherNo,
+            voucherName: voucher.voucherName,
+            voucherType: voucher.voucherType,
+            createdBy: voucher.createdBy,
+            updatedBy: voucher.updatedBy,
+            createdAt: voucher.createdAt,
+            updatedAt: voucher.updatedAt,
+          };
+          const partyAcc = accounts.find((party) => party._id.toString() === voucher.toAccount.id);
+          const cashAcc = accounts.find((cash) => cash._id.toString() === voucher.byAccount.id);
+          const trns = [
+            {
+              _id: new Types.ObjectId(),
+              accountId: partyAcc._id.toString(),
+              accountName: partyAcc.displayName,
+              accountType: partyAcc.type.defaultName,
+              debit: voucher.amount,
+              credit: 0,
+            },
+            {
+              _id: new Types.ObjectId(),
+              accountId: cashAcc._id.toString(),
+              accountName: cashAcc.displayName,
+              accountType: cashAcc.type.defaultName,
+              instNo: voucher.instNo,
+              instDate: voucher.instDate,
+              debit: 0,
+              credit: voucher.amount,
+            },
+          ];
+          _.assign(doc, { trns });
+          docs.push(doc);
+        }
+        await connection.db().collection('vouchers').insertMany(docs);
+      } else {
+        console.log('No account payments Found');
+      }
+      console.log('3');
+      const accountreceiptsCount = await connection.db().collection('accountreceipts').countDocuments();
+      if (accountreceiptsCount > 0) {
+        const docs = [];
+        const vouchers: any = await connection.db().collection('accountreceipts').find({}, { projection: { cashRegister: 0 } }).toArray();
+        console.log('4');
+        for (const voucher of vouchers) {
+          let doc = {
+            _id: voucher._id,
+            branchId: voucher.branch.id,
+            branchName: voucher.branch.name,
+            date: voucher.date,
+            refNo: voucher.refNo,
+            fNo: 1,
+            description: voucher.description,
+            voucherNo: voucher.voucherNo,
+            voucherName: voucher.voucherName,
+            voucherType: voucher.voucherType,
+            createdBy: voucher.createdBy,
+            updatedBy: voucher.updatedBy,
+            createdAt: voucher.createdAt,
+            updatedAt: voucher.updatedAt,
+          };
+          const partyAcc = accounts.find((party) => party._id.toString() === voucher.toAccount.id);
+          const cashAcc = accounts.find((cash) => cash._id.toString() === voucher.byAccount.id);
+          const trns = [
+            {
+              _id: new Types.ObjectId(),
+              accountId: partyAcc._id.toString(),
+              accountName: partyAcc.displayName,
+              accountType: partyAcc.type.defaultName,
+              debit: 0,
+              credit: voucher.amount,
+            },
+            {
+              _id: new Types.ObjectId(),
+              accountId: cashAcc._id.toString(),
+              accountName: cashAcc.displayName,
+              accountType: cashAcc.type.defaultName,
+              instNo: voucher.instNo,
+              instDate: voucher.instDate,
+              debit: voucher.amount,
+              credit: 0,
+            },
+          ];
+          _.assign(doc, { trns });
+          docs.push(doc);
+        }
+        await connection.db().collection('vouchers').insertMany(docs);
+      } else {
+        console.log('No accountreceipts Found');
+      }
+
+      const cashdepositsCount = await connection.db().collection('cashdeposits').countDocuments();
+      if (cashdepositsCount > 0) {
+        const docs = [];
+        const vouchers: any = await connection.db().collection('cashdeposits').find({}, { projection: { cashRegister: 0 } }).toArray();
+        for (const voucher of vouchers) {
+          let doc = {
+            _id: voucher._id,
+            branchId: voucher.branch.id,
+            branchName: voucher.branch.name,
+            date: voucher.date,
+            refNo: voucher.refNo,
+            fNo: 1,
+            description: voucher.description,
+            voucherNo: voucher.voucherNo,
+            voucherName: voucher.voucherName,
+            voucherType: voucher.voucherType,
+            createdBy: voucher.createdBy,
+            updatedBy: voucher.updatedBy,
+            createdAt: voucher.createdAt,
+            updatedAt: voucher.updatedAt,
+          };
+          const partyAcc = accounts.find((party) => party._id.toString() === voucher.toAccount.id);
+          const cashAcc = accounts.find((cash) => cash._id.toString() === voucher.byAccount.id);
+          const trns = [
+            {
+              _id: new Types.ObjectId(),
+              accountId: partyAcc._id.toString(),
+              accountName: partyAcc.displayName,
+              accountType: partyAcc.type.defaultName,
+              instNo: voucher.instNo,
+              instDate: voucher.instDate,
+              debit: voucher.amount,
+              credit: 0,
+            },
+            {
+              _id: new Types.ObjectId(),
+              accountId: cashAcc._id.toString(),
+              accountName: cashAcc.displayName,
+              accountType: cashAcc.type.defaultName,
+              debit: 0,
+              credit: voucher.amount,
+            },
+          ];
+          _.assign(doc, { trns });
+          docs.push(doc);
+        }
+        await connection.db().collection('vouchers').insertMany(docs);
+      } else {
+        console.log('No cashdeposits Found');
+      }
+      console.log('3');
+      const cashwithdrawalsCount = await connection.db().collection('cashwithdrawals').countDocuments();
+      if (cashwithdrawalsCount > 0) {
+        const docs = [];
+        const vouchers: any = await connection.db().collection('cashwithdrawals').find({}, { projection: { cashRegister: 0 } }).toArray();
+        console.log('4');
+        for (const voucher of vouchers) {
+          let doc = {
+            _id: voucher._id,
+            branchId: voucher.branch.id,
+            branchName: voucher.branch.name,
+            date: voucher.date,
+            refNo: voucher.refNo,
+            fNo: 1,
+            description: voucher.description,
+            voucherNo: voucher.voucherNo,
+            voucherName: voucher.voucherName,
+            voucherType: voucher.voucherType,
+            createdBy: voucher.createdBy,
+            updatedBy: voucher.updatedBy,
+            createdAt: voucher.createdAt,
+            updatedAt: voucher.updatedAt,
+          };
+          const partyAcc = accounts.find((party) => party._id.toString() === voucher.toAccount.id);
+          const cashAcc = accounts.find((cash) => cash._id.toString() === voucher.byAccount.id);
+          const trns = [
+            {
+              _id: new Types.ObjectId(),
+              accountId: partyAcc._id.toString(),
+              accountName: partyAcc.displayName,
+              accountType: partyAcc.type.defaultName,
+              instNo: voucher.instNo,
+              instDate: voucher.instDate,
+              debit: 0,
+              credit: voucher.amount,
+            },
+            {
+              _id: new Types.ObjectId(),
+              accountId: cashAcc._id.toString(),
+              accountName: cashAcc.displayName,
+              accountType: cashAcc.type.defaultName,
+              debit: voucher.amount,
+              credit: 0,
+            },
+          ];
+          _.assign(doc, { trns });
+          docs.push(doc);
+        }
+        await connection.db().collection('vouchers').insertMany(docs);
+      } else {
+        console.log('No cashwithdrawals Found');
+      }
+
+      const journalsCount = await connection.db().collection('journals').countDocuments();
+      if (journalsCount > 0) {
+        const docs = [];
+        const vouchers: any = await connection.db().collection('journals').find({}, { projection: { cashRegister: 0 } }).toArray();
+        console.log('4');
+        for (const voucher of vouchers) {
+          let doc = {
+            _id: voucher._id,
+            branchId: voucher.branch.id,
+            branchName: voucher.branch.name,
+            date: voucher.date,
+            refNo: voucher.refNo,
+            fNo: 1,
+            description: voucher.description,
+            voucherNo: voucher.voucherNo,
+            voucherName: voucher.voucherName,
+            voucherType: voucher.voucherType,
+            createdBy: voucher.createdBy,
+            updatedBy: voucher.updatedBy,
+            createdAt: voucher.createdAt,
+            updatedAt: voucher.updatedAt,
+          };
+
+          const trns = voucher.transactions.map((trn) => {
+            const type = accounts.find(acc => trn.account.id === acc._id.toString());
+            return {
+              _id: new Types.ObjectId(),
+              accountId: trn.account.id,
+              accountName: trn.account.displayName,
+              accountType: type.type.defaultName,
+              debit: trn.debit,
+              credit: trn.credit,
+            }
+          });
+          _.assign(doc, { trns });
+          docs.push(doc);
+        }
+        await connection.db().collection('vouchers').insertMany(docs);
+      } else {
+        console.log('No journals Found');
+      }
+
+      await connection.db().collection('customerpendingadjustments')
+        .aggregate([
+          { $merge: 'accountpendingadjustments' }
+        ]).toArray();
+      await connection.db().collection('vendorpendingadjustments')
+        .aggregate([
+          { $merge: 'accountpendingadjustments' }
+        ]).toArray();
+
       const collNames = [
-        'customerreceipts',
-        'customerpayments',
         'accountpayments',
         'accountreceipts',
         'cashdeposits',
         'cashwithdrawals',
+        'customerreceipts',
+        'customerpayments',
         'expenses',
         'incomes',
         'vendorpayments',
         'vendorreceipts',
+        'journals',
       ];
       console.log('5');
       const accBook = await connection.db().collection('accountbooks')
         .updateMany({ collectionName: { $in: collNames } }, { $set: { collectionName: 'vouchers' } });
-      // DELETE COLLECTIONS
+
+      // DELETE COLLECTIONS customerpendingadjustments
       // await connection.db().collection('accountopenings_old').drop();
       // await connection.db().collection('accountpayments').drop();
       // await connection.db().collection('accountreceipts').drop();
