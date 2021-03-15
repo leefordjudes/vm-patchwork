@@ -10,4 +10,9 @@ export class Patch11Controller {
     console.log('patch11 controller account');
     return await this.patch6Service.patch11();
   }
+  @Put('delete')
+  async delete() {
+    console.log('patch11 controller account delete collections');
+    return await this.patch6Service.delete();
+  }
 }
