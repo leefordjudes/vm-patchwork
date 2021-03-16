@@ -113,60 +113,6 @@ export class Patch11Service {
           'Credit account createion Something error'
       );
       console.log('1.account creation end....');
-      /*
-      console.log('Merge pending collection start');
-      await connection.db().collection('customerpendings').aggregate([
-        {
-          $lookup: {
-            from: 'accounts',
-            localField: 'customer',
-            foreignField: 'party',
-            as: 'acc',
-          },
-        },
-        {
-          $unwind: '$acc',
-        },
-        {
-          $addFields: {
-            accountType: 'TRADE_RECEIVABLE',
-            accountId: { $toString: '$acc._id' },
-            accountName: '$acc.name',
-            branchId: '$branch',
-            voucherType: { $cond: [{ $eq: ['$voucherType', 'CUSTOMER_OPENING'] }, 'ACCOUNT_OPENING', '$voucherType'], },
-          }
-        },
-        { $project: { acc: 0, adjusted: 0, branch: 0, closing: 0, customer: 0, customerName: 0 } },
-        { $merge: { into: 'accountpendings' } },
-      ]).toArray();
-      console.log('customer pending finished');
-      await connection.db().collection('vendorpendings').aggregate([
-        {
-          $lookup: {
-            from: 'accounts',
-            localField: 'vendor',
-            foreignField: 'party',
-            as: 'acc',
-          },
-        },
-        {
-          $unwind: '$acc',
-        },
-        {
-          $addFields: {
-            accountType: 'TRADE_PAYABLE',
-            accountId: { $toString: '$acc._id' },
-            accountName: '$acc.name',
-            branchId: '$branch',
-            voucherType: { $cond: [{ $eq: ['$voucherType', 'VENDOR_OPENING'] }, 'ACCOUNT_OPENING', '$voucherType'], },
-          }
-        },
-        { $project: { acc: 0, adjusted: 0, branch: 0, closing: 0, vendor: 0, vendorName: 0 } },
-        { $merge: { into: 'accountpendings' } },
-      ]).toArray();
-      console.log('vendor pending finished');
-      console.log('Merge vendor,customer pending finished and new collection as accountpendings');
-      */
       const accOpeningPipeLine = [
         {
           $addFields: {
@@ -417,7 +363,7 @@ export class Patch11Service {
         }
       });
 
-      async function voucherFn(collectionName: string) {
+      async function accVoucher(collectionName: string) {
         const count = await connection.db().collection(collectionName).countDocuments();
         if (count > 0) {
           const limit = 1000;
@@ -537,18 +483,18 @@ export class Patch11Service {
         }
       }
 
-      await voucherFn('customerpayments');
-      await voucherFn('customerreceipts');
-      await voucherFn('vendorpayments');
-      await voucherFn('vendorreceipts');
+      await accVoucher('customerpayments');
+      await accVoucher('customerreceipts');
+      await accVoucher('vendorpayments');
+      await accVoucher('vendorreceipts');
 
-      await voucherFn('accountreceipts');
-      await voucherFn('accountpayments');
-      await voucherFn('expenses');
-      await voucherFn('incomes');
+      await accVoucher('accountreceipts');
+      await accVoucher('accountpayments');
+      await accVoucher('expenses');
+      await accVoucher('incomes');
 
-      await voucherFn('cashdeposits');
-      await voucherFn('cashwithdrawals');
+      await accVoucher('cashdeposits');
+      await accVoucher('cashwithdrawals');
 
       console.log('journals Start');
       const journalsCount = await connection.db().collection('journals').countDocuments();
@@ -607,19 +553,23 @@ export class Patch11Service {
         'vendorreceipts',
         'journals',
       ];
-      const accBook = await connection.db().collection('accountbooks')
+      console.log('Account book set collectionName field value set as vouchers START...');
+      const accBookstart = new Date().getTime();
+      await connection.db().collection('accountbooks')
         .updateMany({ collectionName: { $in: collNames } }, { $set: { collectionName: 'vouchers' } });
-      console.log('Account book collection name set as vouchers END');
+      console.log(`Account book collection name set as vouchers END, DURATION ${new Date().getTime() - accBookstart}-ms`);
 
       async function purchaseVoucher(collectionName: string) {
         console.log(collectionName, 'START');
+        const start = new Date().getTime();
         const limit = 1000;
         const count = await connection.db().collection(collectionName).find({ purchaseType: 'credit' }).count();
         if (count > 0) {
           for (let skip = 0; skip <= count; skip = skip + limit) {
+            const start = new Date().getTime();
             const bulkOperation: any = connection.db().collection(collectionName).initializeOrderedBulkOp();
             const vouchers: any = await connection.db().collection(collectionName)
-              .find({ purchaseType: 'credit' }, { projection: { acTrns: 1, vendorPending: 1, vendor: 1, invTrns: 0 }, sort: { _id: 1 }, skip, limit }).toArray();
+              .find({ purchaseType: 'credit' }, { projection: { acTrns: 1, vendorPending: 1, vendor: 1 }, sort: { _id: 1 }, skip, limit }).toArray();
             for (const voucher of vouchers) {
               const partyAcc = accounts.find(acc => voucher.vendor.id === acc.party);
               for (const item of voucher.acTrns) {
@@ -648,21 +598,27 @@ export class Patch11Service {
               };
             }
             await bulkOperation.execute();
+            const end = new Date().getTime();
+            console.log(`Duration for ${collectionName}, ${skip} to ${limit + skip} was ${end - start}-ms`);
           }
         } else {
           console.log(`Credit ${collectionName} Not found`);
         }
+        const end = new Date().getTime();
+        console.log(`Total duration for ${collectionName} was  ${(end - start) / 1000}-sec`);
       }
 
       async function saleVoucher(collectionName: string) {
+        const start = new Date().getTime();
         console.log(collectionName, 'START');
         const limit = 1000;
         const count = await connection.db().collection(collectionName).find({ saleType: 'credit' }).count();
         if (count > 0) {
           for (let skip = 0; skip <= count; skip = skip + limit) {
+            const start = new Date().getTime();
             const bulkOperation: any = connection.db().collection(collectionName).initializeOrderedBulkOp();
             const vouchers: any = await connection.db().collection(collectionName)
-              .find({ purchaseType: 'credit' }, { projection: { acTrns: 1, customerPending: 1, customer: 1 }, sort: { _id: 1 }, skip, limit }).toArray();
+              .find({ saleType: 'credit' }, { projection: { acTrns: 1, customerPending: 1, customer: 1 }, sort: { _id: 1 }, skip, limit }).toArray();
             for (const voucher of vouchers) {
               const partyAcc = accounts.find(acc => voucher.customer.id === acc.party);
               for (const item of voucher.acTrns) {
@@ -691,10 +647,14 @@ export class Patch11Service {
               };
             }
             await bulkOperation.execute();
+            const end = new Date().getTime();
+            console.log(`Duration for ${collectionName}, ${skip} to ${limit + skip} was ${end - start}-ms`);
           }
         } else {
           console.log(`Credit ${collectionName} Not found`);
         }
+        const end = new Date().getTime();
+        console.log(`Total duration for ${collectionName} was  ${(end - start) / 1000}-sec`);
       }
 
       await purchaseVoucher('purchases');
