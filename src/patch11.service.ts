@@ -135,9 +135,9 @@ export class Patch11Service {
         {
           $addFields: {
             accountId: { $toString: '$accs._id' },
-            accountName: '$accs.name',
+            accountName: '$accs.displayName',
             branchId: '$branch.id',
-            branchName: '$branch.name',
+            branchName: '$branch.displayName',
             updatedBy: '$updatedBy',
           },
         },
@@ -163,6 +163,7 @@ export class Patch11Service {
           $addFields: {
             accountId: '$_id.accountId',
             branchId: '$_id.branchId',
+            date,
             voucherName: 'Account Opening',
             voucherType: 'ACCOUNT_OPENING',
             updatedAt: new Date(),
@@ -207,9 +208,9 @@ export class Patch11Service {
         {
           $addFields: {
             accountId: { $toString: '$accs._id' },
-            accountName: '$accs.name',
+            accountName: '$accs.displayName',
             branchId: { $toString: '$brs._id' },
-            branchName: '$brs.name',
+            branchName: '$brs.displayName',
           },
         },
         {
@@ -222,8 +223,7 @@ export class Patch11Service {
             accountName: { $last: '$accountName' },
             trns: {
               $push: {
-                _id: '$_id',
-                pending: '$pending',
+                _id:  { $toObjectId: '$pending' },
                 effDate: '$effDate',
                 refNo: '$refNo',
                 credit: '$credit',
@@ -236,6 +236,7 @@ export class Patch11Service {
           $addFields: {
             accountId: '$_id.accountId',
             branchId: '$_id.branchId',
+            date,
             voucherName: 'Account Opening',
             voucherType: 'ACCOUNT_OPENING',
             updatedBy: user._id.toString(),
@@ -278,9 +279,9 @@ export class Patch11Service {
         {
           $addFields: {
             accountId: { $toString: '$accs._id' },
-            accountName: '$accs.name',
+            accountName: '$accs.displayName',
             branchId: { $toString: '$brs._id' },
-            branchName: '$brs.name',
+            branchName: '$brs.displayName',
           },
         },
         {
@@ -293,8 +294,7 @@ export class Patch11Service {
             accountName: { $last: '$accountName' },
             trns: {
               $push: {
-                _id: '$_id',
-                pending: '$pending',
+                _id: { $toObjectId: '$pending' },
                 effDate: '$effDate',
                 refNo: '$refNo',
                 credit: '$credit',
@@ -307,6 +307,7 @@ export class Patch11Service {
           $addFields: {
             accountId: '$_id.accountId',
             branchId: '$_id.branchId',
+            date,
             voucherName: 'Account Opening',
             voucherType: 'ACCOUNT_OPENING',
             updatedBy: user._id.toString(),
@@ -318,8 +319,8 @@ export class Patch11Service {
       ];
 
       const accOpCount = await connection.db().collection('accountopenings').countDocuments();
-      const cusOpCount = await connection.db().collection('accountopenings').countDocuments();
-      const venOpCount = await connection.db().collection('accountopenings').countDocuments();
+      const cusOpCount = await connection.db().collection('customeropenings').countDocuments();
+      const venOpCount = await connection.db().collection('vendoropenings').countDocuments();
       console.log({ accOpCount, cusOpCount, venOpCount });
       if (accOpCount > 0) {
         await connection.db().collection('accountopenings').aggregate(accOpeningPipeLine).toArray();
@@ -352,7 +353,8 @@ export class Patch11Service {
         ]).toArray();
 
       const pendings: any = await connection.db().collection('accountpendingadjustments').find({}, { projection: { _id: 0, __v: 0 } }).toArray();
-      const accountcoll: any = await connection.db().collection('accounts').find({}, { projection: { party: 1, name: 1, displayName: 1, type: 1 } }).toArray();
+      const accountcoll: any = await connection.db().collection('accounts')
+        .find({}, { projection: { party: 1, name: 1, displayName: 1, type: 1 } }).toArray();
       const accounts = accountcoll.map((acc) => {
         return {
           id: acc._id.toString(),
@@ -366,6 +368,7 @@ export class Patch11Service {
       async function accVoucher(collectionName: string) {
         const count = await connection.db().collection(collectionName).countDocuments();
         if (count > 0) {
+          console.log(`Total count of ${collectionName} was ${count}`);
           const limit = 1000;
           console.log(`${collectionName} START`);
           for (let skip = 0; skip <= count; skip = skip + limit) {
@@ -402,12 +405,12 @@ export class Patch11Service {
               if (collectionName === 'cashdeposits') {
                 credit = voucher.amount;
                 debit = 0;
-                voucherName = voucher.voucherName;
+                voucherName = 'Contra';
               }
               if (collectionName === 'cashwithdrawals') {
                 debit = voucher.amount;
                 credit = 0;
-                voucherName = voucher.voucherName;
+                voucherName = 'Contra';
               }
               if (creditCollections.includes(collectionName)) {
                 partyAcc = accounts.find((party) => party.party === voucher.toAccount.id);
@@ -423,7 +426,7 @@ export class Patch11Service {
               const doc = {
                 _id: voucher._id,
                 branchId: voucher.branch.id,
-                branchName: voucher.branch.name,
+                branchName: voucher.branch.displayName,
                 date: voucher.date,
                 refNo: voucher.refNo,
                 fNo: 1,
@@ -436,7 +439,23 @@ export class Patch11Service {
                 createdAt: voucher.createdAt,
                 updatedAt: voucher.updatedAt,
               };
-              const _id = new Types.ObjectId();
+              let _id: any;
+              if (creditCollections.includes(collectionName)) {
+                const getPending = pendings
+                  .find((pending) => (pending.byPending === voucherPending || pending.toPending === voucherPending));
+                if (getPending) {
+                  if (getPending.byPending > getPending.toPending) {
+                    _id = Types.ObjectId(getPending.byPending);
+                  } else {
+                    _id = Types.ObjectId(getPending.toPending);
+                  }
+                }
+                if (!getPending) {
+                  _id = new Types.ObjectId();
+                }
+              } else {
+                _id = new Types.ObjectId();
+              }
               const trns = [
                 {
                   _id,
@@ -459,12 +478,13 @@ export class Patch11Service {
               ];
               _.assign(doc, { trns });
               if (creditCollections.includes(collectionName)) {
-                const acAdjs = pendings.filter((pending) => (pending.byPending === voucherPending) && (pending.byPending > pending.toPending))
+                const acAdjs = pendings
+                  .filter((pending) => (pending.byPending === voucherPending || pending.toPending === voucherPending) && (pending.byPending > pending.toPending))
                   .map((p) => {
                     return {
                       _id: new Types.ObjectId(),
                       accountId: partyAcc.id,
-                      pendingId: _id.toHexString(),
+                      pendingId: p.toPending,
                       amount: p.amount,
                     };
                   });
@@ -483,18 +503,17 @@ export class Patch11Service {
         }
       }
 
-      await accVoucher('customerpayments');
-      await accVoucher('customerreceipts');
-      await accVoucher('vendorpayments');
-      await accVoucher('vendorreceipts');
+      const collectionNames = [
+        'customerpayments', 'customerreceipts',
+        'vendorpayments', 'vendorreceipts',
+        'accountreceipts', 'accountpayments',
+        'expenses', 'incomes',
+        'cashdeposits', 'cashwithdrawals',
+      ];
 
-      await accVoucher('accountreceipts');
-      await accVoucher('accountpayments');
-      await accVoucher('expenses');
-      await accVoucher('incomes');
-
-      await accVoucher('cashdeposits');
-      await accVoucher('cashwithdrawals');
+      for (const coll of collectionNames) {
+        await accVoucher(coll);
+      }
 
       console.log('journals Start');
       const journalsCount = await connection.db().collection('journals').countDocuments();
@@ -505,7 +524,7 @@ export class Patch11Service {
           const doc = {
             _id: voucher._id,
             branchId: voucher.branch.id,
-            branchName: voucher.branch.name,
+            branchName: voucher.branch.displayName,
             date: voucher.date,
             refNo: voucher.refNo,
             fNo: 1,
@@ -540,24 +559,12 @@ export class Patch11Service {
       console.log('journals END');
       console.log('Account book collection name set as vouchers Start');
 
-      const collNames = [
-        'accountpayments',
-        'accountreceipts',
-        'cashdeposits',
-        'cashwithdrawals',
-        'customerreceipts',
-        'customerpayments',
-        'expenses',
-        'incomes',
-        'vendorpayments',
-        'vendorreceipts',
-        'journals',
-      ];
       console.log('Account book set collectionName field value set as vouchers START...');
       const accBookstart = new Date().getTime();
-      await connection.db().collection('accountbooks')
-        .updateMany({ collectionName: { $in: collNames } }, { $set: { collectionName: 'vouchers' } });
-      console.log(`Account book collection name set as vouchers END, DURATION ${new Date().getTime() - accBookstart}-ms`);
+      // collectionNames.push('journals');
+      // await connection.db().collection('accountbooks')
+      //   .updateMany({ collectionName: { $in: collectionNames } }, { $set: { collectionName: 'vouchers' } });
+      // console.log(`Account book collection name set as vouchers END, DURATION ${new Date().getTime() - accBookstart}-ms`);
 
       async function purchaseVoucher(collectionName: string) {
         console.log(collectionName, 'START');
@@ -657,11 +664,11 @@ export class Patch11Service {
         console.log(`Total duration for ${collectionName} was  ${(end - start) / 1000}-sec`);
       }
 
-      await purchaseVoucher('purchases');
-      await purchaseVoucher('purchase_returns');
+      // await purchaseVoucher('purchases');
+      // await purchaseVoucher('purchase_returns');
 
-      await saleVoucher('sales');
-      await saleVoucher('sale_returns');
+      // await saleVoucher('sales');
+      // await saleVoucher('sale_returns');
 
       await connection.close();
       return 'OK';
@@ -689,15 +696,209 @@ export class Patch11Service {
         'vendorpayments', 'vendorpendingadjustments', 'vendorpendings', 'vendorreceipts',
       ];
       console.log('---connected---');
-      const list = await connection.db().listCollections().toArray();
-      for (const item of list) {
-        for (const x of deleteCollectionList) {
-          if (item.name === x) {
-            console.log(`${item.name} collection deleted`);
-            await connection.db().dropCollection(x);
+      // const list = await connection.db().listCollections().toArray();
+      // for (const item of list) {
+      //   for (const x of deleteCollectionList) {
+      //     if (item.name === x) {
+      //       console.log(`${item.name} collection deleted`);
+      //       await connection.db().dropCollection(x);
+      //     }
+      //   };
+      // }
+      // const invDatas = await connection.db().collection('inventories').find({} ).toArray();
+      // const invs = invDatas.map((inv: any) => {
+      //   return {
+      //     id: inv._id.toString(),
+      //     precision: inv.precision,
+      //     bwd: inv.bwd,
+      //   }
+      // });
+      //console.log(invs);
+
+      const purchasePipe = [
+        {
+          $unwind: '$invTrns'
+        },
+        { $project: { invTrns: 1 } },
+        {
+          $addFields: { batch: { $toObjectId: '$invTrns.batch' } }
+        },
+        {
+          $lookup: {
+            from: 'batches',
+            localField: 'batch',
+            foreignField: '_id',
+            as: 'batchArr'
           }
-        };
+        },
+        {
+          $unwind: '$batchArr',
+        },
+        {
+          $addFields: {
+            transactionId: {
+              $toString: '$invTrns._id',
+            },
+            existBatchId: '$batchArr._id',
+            singleton: '$batchArr.singleton',
+            allowNegativeStock: '$batchArr.allowNegativeStock',
+            netLandingCost: '$batchArr.netLandingCost',
+            voucherName: 'PURCHASE',
+          },
+        },
+        {
+          $project: { _id: 0, transactionId: 1, existBatchId: 1, singleton: 1, allowNegativeStock: 1, netLandingCost: 1, voucherName: 1 }
+        },
+        { $merge: { into: 'batches1234' } }
+      ];
+      const openingPipe = [
+        {
+          $unwind: '$trns'
+        },
+        { $project: { trns: 1 } },
+        {
+          $addFields: { batch: { $toObjectId: '$trns.batch' } }
+        },
+        {
+          $lookup: {
+            from: 'batches',
+            localField: 'batch',
+            foreignField: '_id',
+            as: 'batchArr'
+          }
+        },
+        {
+          $unwind: '$batchArr',
+        },
+        {
+          $addFields: {
+            transactionId: {
+              $toString: '$trns._id',
+            },
+            existBatchId: '$batchArr._id',
+            singleton: '$batchArr.singleton',
+            allowNegativeStock: '$batchArr.allowNegativeStock',
+            netLandingCost: '$batchArr.netLandingCost',
+            voucherName: 'OPENING'
+          },
+        },
+        {
+          $project: { _id: 0, transactionId: 1, existBatchId: 1, singleton: 1, allowNegativeStock: 1, netLandingCost: 1, voucherName: 1 }
+        },
+        { $merge: { into: 'batches1234' } }
+      ];
+      const stockTransferPipe = [
+        {
+          $unwind: '$invTrns'
+        },
+        { $project: { invTrns: 1, targetBranch: 1 } },
+        {
+          $addFields:
+          {
+            targetBatch:
+            {
+              $cond: { if: { $eq: ["$targetBranch.id", '$invTrns.branch'] }, then: true, else: false }
+            }
+          }
+        },
+        {
+          $match: { targetBatch: true }
+        },
+        {
+          $addFields: { batch: { $toObjectId: '$invTrns.batch' } }
+        },
+        {
+          $lookup: {
+            from: 'batches',
+            localField: 'batch',
+            foreignField: '_id',
+            as: 'batchArr',
+          }
+        },
+        {
+          $unwind: '$batchArr',
+        },
+        {
+          $addFields: {
+            transactionId: {
+              $toString: '$invTrns._id',
+            },
+            existBatchId: '$batchArr._id',
+            singleton: '$batchArr.singleton',
+            allowNegativeStock: '$batchArr.allowNegativeStock',
+            netLandingCost: '$batchArr.netLandingCost',
+            voucherName: 'TRANSFER',
+          },
+        },
+        {
+          $project: { _id: 0, transactionId: 1, existBatchId: 1, singleton: 1, allowNegativeStock: 1, netLandingCost: 1, voucherName: 1 }
+        },
+        { $merge: { into: 'batches1234' } }
+      ];
+      const batches: any = await connection.db().collection('batches1234')
+        .find({}, { projection: { _id: 0, existBatchId: 1 } }).map(c => c.existBatchId).toArray();
+      //console.log(batches);
+      const arr = await connection.db().collection('batches').find({ _id: { $nin: batches } }).toArray();
+      console.log(arr.length, arr);
+      const newBatchStart = new Date().getTime();
+      // await connection.db().collection('purchases').aggregate(purchasePipe).toArray();
+      // await connection.db().collection('inventory_openings').aggregate(openingPipe).toArray();
+      // await connection.db().collection('stock_transfers').aggregate(stockTransferPipe).toArray();
+      console.log(`DURATION for new Batch ${new Date().getTime() - newBatchStart}`)
+      const before = process.memoryUsage().heapUsed / 1024 / 1024;
+      console.log(`The script uses approximately before get batch table ${Math.round(before * 100) / 100} MB`);
+
+      const after = process.memoryUsage().heapUsed / 1024 / 1024;
+      console.log(`The script uses approximately after get batch table ${Math.round(after * 100) / 100} MB`);
+
+      const limit = 1000;
+      async function sales(collectionName: string) {
+        const count = await connection.db().collection(collectionName).countDocuments();
+        if (count > 0) {
+          for (let skip = 0; skip <= count; skip = skip + limit) {
+            const start = new Date().getTime();
+            const bulkOperation: any = connection.db().collection(collectionName).initializeOrderedBulkOp();
+            const vouchers: any = await connection.db().collection(collectionName)
+              .find({}, { projection: { invTrns: 1, voucherNo: 1 }, sort: { _id: 1 }, skip, limit }).toArray();
+
+            for (const voucher of vouchers) {
+              console.log(voucher.voucherNo);
+              for (const item of voucher.invTrns) {
+                const batch = batches.find((bat: any) => bat.existBatchId === item.batch);
+                const updateObj = {
+                  updateOne: {
+                    filter: { _id: voucher._id, invTrns: { $elemMatch: { batch: batch.existBatchId } } },
+                    update: {
+                      $set: {
+                        'invTrns.$[elm].transactionId': batch.singleton ? null : batch.transactionId,
+                        'invTrns.$[elm].bwd': !batch.singleton,
+                      },
+                    },
+                    arrayFilters: [{ 'elm.batch': batch.existBatchId }],
+                  },
+                };
+                const start = new Date().getTime();
+                bulkOperation.raw(updateObj);
+                const end = new Date().getTime();
+                console.log(`${skip} to ${limit + skip} Duration ${end - start}`);
+              }
+            }
+            const start1 = new Date().getTime();
+            console.log(`${skip} to ${limit + skip} patch object initialized`);
+            console.log(`${skip} to ${limit + skip} bulk execution start....`);
+            const result = await bulkOperation.execute();
+            console.log(`DURATION ${new Date().getTime() - start1}`);
+            // var total = result.nModified
+            console.log(`results are` + JSON.stringify(result));
+            console.log('bulk execution end');
+          }
+        } else {
+
+        }
       }
+
+      //await sales('sales');
+
       await connection.close();
       return 'unnecessary collection dropped successfully';
     } catch (err) {
