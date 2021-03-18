@@ -479,7 +479,7 @@ export class Patch11Service {
               _.assign(doc, { trns });
               if (creditCollections.includes(collectionName)) {
                 const acAdjs = pendings
-                  .filter((pending) => (pending.byPending === voucherPending || pending.toPending === voucherPending) && (pending.byPending > pending.toPending))
+                  .filter((pending) => (pending.byPending === voucherPending) && (pending.byPending > pending.toPending))
                   .map((p) => {
                     return {
                       _id: new Types.ObjectId(),
