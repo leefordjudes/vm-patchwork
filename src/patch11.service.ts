@@ -223,7 +223,7 @@ export class Patch11Service {
             accountName: { $last: '$accountName' },
             trns: {
               $push: {
-                _id:  { $toObjectId: '$pending' },
+                _id: { $toObjectId: '$pending' },
                 effDate: '$effDate',
                 refNo: '$refNo',
                 credit: '$credit',
@@ -325,6 +325,7 @@ export class Patch11Service {
       if (accOpCount > 0) {
         await connection.db().collection('accountopenings').aggregate(accOpeningPipeLine).toArray();
       } else {
+        await connection.db().createCollection('accountopenings');
         console.log('No Account Openings Found');
       }
       if (cusOpCount > 0) {
@@ -380,7 +381,7 @@ export class Patch11Service {
               let credit: number;
               let debit: number;
               let partyAcc: any;
-              let voucherName: string;
+              // let voucherName: string;
               const receiptCollections = ['customerreceipts', 'vendorreceipts', 'accountreceipts', 'incomes'];
               const paymentCollections = ['customerpayments', 'vendorpayments', 'accountpayments', 'expenses'];
               const creditCollections = ['customerpayments', 'customerreceipts', 'vendorpayments', 'vendorreceipts'];
@@ -393,24 +394,24 @@ export class Patch11Service {
                 voucherPending = voucher.vendorPending;
               }
               if (paymentCollections.includes(collectionName)) {
-                voucherName = 'Payment';
+                //voucherName = 'Payment';
                 debit = voucher.amount;
                 credit = 0;
               }
               if (receiptCollections.includes(collectionName)) {
-                voucherName = 'Receipt';
+                //voucherName = 'Receipt';
                 credit = voucher.amount;
                 debit = 0;
               }
               if (collectionName === 'cashdeposits') {
                 credit = voucher.amount;
                 debit = 0;
-                voucherName = 'Contra';
+                //voucherName = 'Contra';
               }
               if (collectionName === 'cashwithdrawals') {
                 debit = voucher.amount;
                 credit = 0;
-                voucherName = 'Contra';
+                //voucherName = 'Contra';
               }
               if (creditCollections.includes(collectionName)) {
                 partyAcc = accounts.find((party) => party.party === voucher.toAccount.id);
@@ -423,7 +424,7 @@ export class Patch11Service {
                 cashAcc = accounts.find((party) => party.id === voucher.toAccount.id);
                 partyAcc = accounts.find((cash) => cash.id === voucher.byAccount.id);
               }
-              const doc = {
+              const doc: any = {
                 _id: voucher._id,
                 branchId: voucher.branch.id,
                 branchName: voucher.branch.displayName,
@@ -432,7 +433,7 @@ export class Patch11Service {
                 fNo: 1,
                 description: voucher.description,
                 voucherNo: voucher.voucherNo,
-                voucherName,
+                voucherName: voucher.voucherName,
                 voucherType: voucher.voucherType,
                 createdBy: voucher.createdBy,
                 updatedBy: voucher.updatedBy,
@@ -442,7 +443,7 @@ export class Patch11Service {
               let _id: any;
               if (creditCollections.includes(collectionName)) {
                 const getPending = pendings
-                  .find((pending) => (pending.byPending === voucherPending || pending.toPending === voucherPending));
+                  .find((pending: any) => (pending.byPending === voucherPending || pending.toPending === voucherPending));
                 if (getPending) {
                   if (getPending.byPending > getPending.toPending) {
                     _id = Types.ObjectId(getPending.byPending);
@@ -458,7 +459,7 @@ export class Patch11Service {
               }
               const trns = [
                 {
-                  _id,
+                  _id: new Types.ObjectId(),
                   accountId: partyAcc.id,
                   accountName: partyAcc.displayName,
                   accountType: partyAcc.type,
@@ -471,12 +472,35 @@ export class Patch11Service {
                   accountName: cashAcc.displayName,
                   accountType: cashAcc.type,
                   instNo: voucher.instNo,
-                  instDate: voucher.instDate,
+                  instDate: voucher.instDate ? new Date(new Date(voucher.instDate).setUTCHours(0, 0, 0, 0)) : null,
+                  debit: credit,
+                  credit: debit,
+                },
+              ];
+              const acTrns = [
+                {
+                  _id,
+                  accountId: partyAcc.id,
+                  accountName: partyAcc.displayName,
+                  branchId: voucher.branch.id,
+                  branchName: voucher.branch.displayName,
+                  isAlt: true,
+                  debit,
+                  credit,
+                },
+                {
+                  _id: new Types.ObjectId(),
+                  accountId: cashAcc.id,
+                  accountName: cashAcc.displayName,
+                  branchId: voucher.branch.id,
+                  branchName: voucher.branch.displayName,
+                  isAlt: true,
                   debit: credit,
                   credit: debit,
                 },
               ];
               _.assign(doc, { trns });
+              _.assign(doc, { acTrns });
               if (creditCollections.includes(collectionName)) {
                 const acAdjs = pendings
                   .filter((pending) => (pending.byPending === voucherPending) && (pending.byPending > pending.toPending))
@@ -488,7 +512,15 @@ export class Patch11Service {
                       amount: p.amount,
                     };
                   });
-                _.assign(doc, { acAdjs });
+                _.assign(doc.trns[0], { acAdjs });
+                _.assign(doc.trns[1], { acAdjs: [] });
+                _.assign(doc.acTrns[0], { acAdjs, bwd: true });
+                _.assign(doc.acTrns[1], { acAdjs: [], bwd: false });
+              } else {
+                _.assign(doc.trns[0], { acAdjs: [] });
+                _.assign(doc.trns[1], { acAdjs: [] });
+                _.assign(doc.acTrns[0], { acAdjs: [], bwd: false });
+                _.assign(doc.acTrns[1], { acAdjs: [], bwd: false });
               }
               docs.push(doc);
             }
@@ -549,7 +581,20 @@ export class Patch11Service {
               credit: trn.credit,
             }
           });
+
+          const acTrns = voucher.transactions.map((trn) => {
+            return {
+              _id: new Types.ObjectId(),
+              accountId: trn.account.id,
+              accountName: trn.account.displayName,
+              branchId: voucher.branch.id,
+              branchName: voucher.branch.displayName,
+              debit: trn.debit,
+              credit: trn.credit,
+            }
+          });
           _.assign(doc, { trns });
+          _.assign(doc, { acTrns });
           docs.push(doc);
         }
         await connection.db().collection('vouchers').insertMany(docs);
@@ -570,38 +615,43 @@ export class Patch11Service {
         console.log(collectionName, 'START');
         const start = new Date().getTime();
         const limit = 1000;
-        const count = await connection.db().collection(collectionName).find({ purchaseType: 'credit' }).count();
+        const count = await connection.db().collection(collectionName).countDocuments();
         if (count > 0) {
           for (let skip = 0; skip <= count; skip = skip + limit) {
             const start = new Date().getTime();
             const bulkOperation: any = connection.db().collection(collectionName).initializeOrderedBulkOp();
             const vouchers: any = await connection.db().collection(collectionName)
-              .find({ purchaseType: 'credit' }, { projection: { acTrns: 1, vendorPending: 1, vendor: 1 }, sort: { _id: 1 }, skip, limit }).toArray();
+              .find({}, { projection: { acTrns: 1, vendorPending: 1, vendor: 1 }, sort: { _id: 1 }, skip, limit }).toArray();
             for (const voucher of vouchers) {
               const partyAcc = accounts.find(acc => voucher.vendor.id === acc.party);
               for (const item of voucher.acTrns) {
-                if (item.account.defaultName === 'TRADE_PAYABLE') {
-                  const acAdjs = pendings
-                    .filter((pending) => (pending.byPending === voucher.vendorPending) && (pending.byPending > pending.toPending))
-                    .map((p) => {
-                      return { _id: new Types.ObjectId(), accountId: partyAcc.id, pendingId: item._id.toString(), amount: p.amount };
-                    });
-                  const acTrnsobj = {
-                    updateOne: {
-                      filter: { _id: voucher._id, acTrns: { $elemMatch: { 'account.defaultName': 'TRADE_PAYABLE' } } },
-                      update: {
-                        $set: {
-                          acAdjs,
-                          'acTrns.$[elm].account.id': partyAcc.id,
-                          'acTrns.$[elm].account.name': partyAcc.name,
-                          'acTrns.$[elm].account.displayName': partyAcc.displayName,
-                        },
+                const account = accounts.find(acc => {
+                  if (item.defaultName === 'TRADE_PAYABLE') {
+                    return partyAcc;
+                  } else {
+                    return acc;
+                  }
+                });
+                const acAdjs = pendings
+                  .filter((pending) => (pending.byPending === voucher.vendorPending) && (pending.byPending > pending.toPending))
+                  .map((p) => {
+                    return { _id: new Types.ObjectId(), accountId: partyAcc.id, pendingId: p.toPending, amount: p.amount };
+                  });
+                const acTrnsobj = {
+                  updateOne: {
+                    filter: { _id: voucher._id, acTrns: { $elemMatch: { _id: item._id } } },
+                    update: {
+                      $set: {
+                        'acTrns.$.': acAdjs,
+                        'acTrns.$[elm].accountId': partyAcc.id,
+                        'acTrns.$[elm].accountName': partyAcc.name,
+                        'acTrns.$[elm].accountType': partyAcc.type,
                       },
-                      arrayFilters: [{ 'elm.account.defaultName': 'TRADE_PAYABLE' }],
                     },
-                  };
-                  bulkOperation.raw(acTrnsobj);
-                }
+                    arrayFilters: [{ 'elm._id': item._id }],
+                  },
+                };
+                bulkOperation.raw(acTrnsobj);
               };
             }
             await bulkOperation.execute();
@@ -739,15 +789,15 @@ export class Patch11Service {
             transactionId: {
               $toString: '$invTrns._id',
             },
-            existBatchId: '$batchArr._id',
+            existBatchId: { $toString: '$batchArr._id' },
             singleton: '$batchArr.singleton',
-            allowNegativeStock: '$batchArr.allowNegativeStock',
-            netLandingCost: '$batchArr.netLandingCost',
+            allowNegativeStock: false,
+            nlc: '$batchArr.netLandingCost',
             voucherName: 'PURCHASE',
           },
         },
         {
-          $project: { _id: 0, transactionId: 1, existBatchId: 1, singleton: 1, allowNegativeStock: 1, netLandingCost: 1, voucherName: 1 }
+          $project: { _id: 0, transactionId: 1, existBatchId: 1, singleton: 1, allowNegativeStock: 1, nlc: 1, voucherName: 1 }
         },
         { $merge: { into: 'batches1234' } }
       ];
@@ -775,15 +825,15 @@ export class Patch11Service {
             transactionId: {
               $toString: '$trns._id',
             },
-            existBatchId: '$batchArr._id',
+            existBatchId: { $toString: '$batchArr._id' },
             singleton: '$batchArr.singleton',
             allowNegativeStock: '$batchArr.allowNegativeStock',
-            netLandingCost: '$batchArr.netLandingCost',
-            voucherName: 'OPENING'
+            nlc: '$batchArr.netLandingCost',
+            voucherName: 'OPENING',
           },
         },
         {
-          $project: { _id: 0, transactionId: 1, existBatchId: 1, singleton: 1, allowNegativeStock: 1, netLandingCost: 1, voucherName: 1 }
+          $project: { _id: 0, transactionId: 1, existBatchId: 1, singleton: 1, allowNegativeStock: 1, nlc: 1, voucherName: 1 }
         },
         { $merge: { into: 'batches1234' } }
       ];
@@ -823,15 +873,15 @@ export class Patch11Service {
             transactionId: {
               $toString: '$invTrns._id',
             },
-            existBatchId: '$batchArr._id',
+            existBatchId: { $toString: '$batchArr._id' },
             singleton: '$batchArr.singleton',
-            allowNegativeStock: '$batchArr.allowNegativeStock',
-            netLandingCost: '$batchArr.netLandingCost',
+            allowNegativeStock: false,
+            nlc: '$batchArr.netLandingCost',
             voucherName: 'TRANSFER',
           },
         },
         {
-          $project: { _id: 0, transactionId: 1, existBatchId: 1, singleton: 1, allowNegativeStock: 1, netLandingCost: 1, voucherName: 1 }
+          $project: { _id: 0, transactionId: 1, existBatchId: 1, singleton: 1, allowNegativeStock: 1, nlc: 1, voucherName: 1 }
         },
         { $merge: { into: 'batches1234' } }
       ];
@@ -841,16 +891,71 @@ export class Patch11Service {
       const arr = await connection.db().collection('batches').find({ _id: { $nin: batches } }).toArray();
       console.log(arr.length, arr);
       const newBatchStart = new Date().getTime();
-      // await connection.db().collection('purchases').aggregate(purchasePipe).toArray();
-      // await connection.db().collection('inventory_openings').aggregate(openingPipe).toArray();
-      // await connection.db().collection('stock_transfers').aggregate(stockTransferPipe).toArray();
-      console.log(`DURATION for new Batch ${new Date().getTime() - newBatchStart}`)
+      await connection.db().collection('purchases').aggregate(purchasePipe).toArray();
+      await connection.db().collection('inventory_openings').aggregate(openingPipe).toArray();
+      await connection.db().collection('stock_transfers').aggregate(stockTransferPipe).toArray();
+      console.log(`DURATION for new Batch ${new Date().getTime() - newBatchStart}`);
       const before = process.memoryUsage().heapUsed / 1024 / 1024;
       console.log(`The script uses approximately before get batch table ${Math.round(before * 100) / 100} MB`);
 
       const after = process.memoryUsage().heapUsed / 1024 / 1024;
       console.log(`The script uses approximately after get batch table ${Math.round(after * 100) / 100} MB`);
-
+      const pipe = [
+        {
+          $unwind: '$invTrns',
+        },
+        {
+          $lookup: {
+            from: 'batches1234',
+            localField: 'invTrns.batch',
+            foreignField: 'existBatchId',
+            as: 'batchArr',
+          }
+        },
+        {
+          $unwind: '$batchArr'
+        },
+        {
+          $group: {
+            _id: '$_id',
+            date: { $last: '$date' },
+            branchId: { $last: '$branch.id' },
+            branchName: { $last: '$branch.displayName' },
+            voucherNo: { $last: '$voucherNo' },
+            voucherName: { $last: '$voucherName' },
+            createdAt: { $last: '$createdAt' },
+            updatedAt: { $last: '$updatedAt' },
+            createdBy: { $last: '$createdBy' },
+            updatedBy: { $last: '$updatedBy' },
+            amount: { $last: '$amount' },
+            bankAmount: { $last: '$bankAmount' },
+            billDate: { $last: '$billDate' },
+            vendorId: { $last: '$vendor.id' },
+            vendorName: { $last: '$vendor.displayName' },
+            cashAmount: { $last: '$cashAmount' },
+            creditAmount: { $last: '$creditAmount' },
+            purchaseType: { $last: '$purchaseType' },
+            invTrns: {
+              $push: {
+                _id: { $toObjectId: '$batchArr.transactionId' },
+                inventoryId: '$invTrns.inventory.id',
+                inventoryName: '$invTrns.inventory.displayName',
+                bwd: '$batchArr.singleton',
+                freeQty: '$invTrns.freeQty',
+                unitId: '$invTrns.unit.id',
+                unitName: '$invTrns.unit.displayName',
+                unitConv: '$invTrns.unit.conversion',
+                batchNo: '$invTrns.batchNo',
+                rate: '$invTrns.rate',
+                sRate: '$invTrns.sRate',
+              },
+            },
+          },
+        },
+        {
+          $merge: { into: 'test-purchase1' }
+        }
+      ];
       const limit = 1000;
       async function sales(collectionName: string) {
         const count = await connection.db().collection(collectionName).countDocuments();
