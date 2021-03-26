@@ -4,6 +4,9 @@ import { Types } from 'mongoose';
 import * as _ from 'lodash';
 
 import { URI } from './config';
+import { GST_TAXES } from './fixtures/gst-tax';
+import { round } from './utils/utils';
+import moment = require('moment');
 
 @Injectable()
 export class Patch11Service {
@@ -13,6 +16,7 @@ export class Patch11Service {
         useUnifiedTopology: true,
         useNewUrlParser: true,
       }).connect();
+
       console.log('---connected---');
       console.log('1.account creation started');
       const connectdb = connection.db().databaseName;
@@ -34,7 +38,7 @@ export class Patch11Service {
       console.log(`${vendorIds.length} - Credit Vendor found`);
       const vendors: any = await connection.db().collection('vendors').find({ _id: { $in: vendorIds } }, { projection: { name: 1, contactInfo: 1 } }).toArray();
       console.log(`${vendors.length} === ${vendorIds.length}` ? 'get credit customer only' : 'Miss matched');
-      const newAccounts = [];
+      const bulkAccount = connection.db().collection('accounts').initializeOrderedBulkOp();
       const obj = {
         hide: false,
         aliasName: '',
@@ -55,7 +59,7 @@ export class Patch11Service {
             name: 'Trade Receivable',
             defaultName: 'TRADE_RECEIVABLE',
           },
-          party: item._id.toString(),
+          party: item._id,
         });
         if (item.contactInfo?.mobile) {
           _.assign(cust,
@@ -75,7 +79,7 @@ export class Patch11Service {
           );
         }
         _.assign(cust, obj);
-        newAccounts.push(cust);
+        bulkAccount.insert(cust);
       }
       for (const item of vendors) {
         const ven = {};
@@ -84,7 +88,7 @@ export class Patch11Service {
             name: 'Trade Payable',
             defaultName: 'TRADE_PAYABLE',
           },
-          party: item._id.toString(),
+          party: item._id,
         });
         if (item.contactInfo.mobile) {
           _.assign(ven,
@@ -104,79 +108,44 @@ export class Patch11Service {
           );
         }
         _.assign(ven, obj);
-        newAccounts.push(ven);
+        bulkAccount.insert(ven);
       }
-      const createAccount = await connection.db().collection('accounts').insertMany(newAccounts);
+      const createAccount = await bulkAccount.execute();
       console.log(
-        createAccount.insertedCount === vendors.length + customers.length ?
+        createAccount.nInserted === vendors.length + customers.length ?
           'All Credit Account created sucessfully' :
           'Credit account createion Something error'
       );
       console.log('1.account creation end....');
       const accOpeningPipeLine = [
         {
-          $addFields: {
-            accountId: {
-              $toObjectId: '$account.id',
-            },
-          },
-        },
-        {
-          $lookup: {
-            from: 'accounts',
-            localField: 'accountId',
-            foreignField: '_id',
-            as: 'accs',
-          },
-        },
-        {
-          $unwind: '$accs',
-        },
-        {
-          $addFields: {
-            accountId: { $toString: '$accs._id' },
-            accountName: '$accs.displayName',
-            branchId: '$branch.id',
+          $project: {
+            _id: 0,
+            accountId: { $toObjectId: '$account.id' },
+            accountName: '$account.displayName',
+            branchId: { $toObjectId: '$branch.id' },
             branchName: '$branch.displayName',
-            updatedBy: '$updatedBy',
-          },
-        },
-        {
-          $group: {
-            _id: {
-              accountId: '$accountId',
-              branchId: '$branchId',
-            },
-            branchName: { $last: '$branchName' },
-            accountName: { $last: '$accountName' },
-            updatedBy: { $last: '$updatedBy' },
-            trns: {
-              $push: {
+            date,
+            trns: [
+              {
                 _id: '$_id',
                 credit: '$credit',
                 debit: '$debit',
-              },
-            },
-          },
-        },
-        {
-          $addFields: {
-            accountId: '$_id.accountId',
-            branchId: '$_id.branchId',
-            date,
+              }
+            ],
             voucherName: 'Account Opening',
             voucherType: 'ACCOUNT_OPENING',
+            updatedBy: { $toObjectId: '$updatedBy' },
             updatedAt: new Date(),
           }
         },
-        { $project: { _id: 0 } },
         { $merge: 'accountopenings_new' },
       ];
       const customerOpeningPipeLine = [
         {
           $addFields: {
-            accountId: {
-              $toObjectId: '$account.id',
+            customer: {
+              $toObjectId: '$customer',
             },
             branch: {
               $toObjectId: '$branch',
@@ -207,9 +176,9 @@ export class Patch11Service {
         },
         {
           $addFields: {
-            accountId: { $toString: '$accs._id' },
+            accountId: '$accs._id',
             accountName: '$accs.displayName',
-            branchId: { $toString: '$brs._id' },
+            branchId: '$brs._id',
             branchName: '$brs.displayName',
           },
         },
@@ -239,7 +208,7 @@ export class Patch11Service {
             date,
             voucherName: 'Account Opening',
             voucherType: 'ACCOUNT_OPENING',
-            updatedBy: user._id.toString(),
+            updatedBy: user._id,
             updatedAt: new Date(),
           }
         },
@@ -249,6 +218,9 @@ export class Patch11Service {
       const vendorOpeningPipeLine = [
         {
           $addFields: {
+            vendor: {
+              $toObjectId: '$vendor',
+            },
             branch: {
               $toObjectId: '$branch',
             },
@@ -278,9 +250,9 @@ export class Patch11Service {
         },
         {
           $addFields: {
-            accountId: { $toString: '$accs._id' },
+            accountId: '$accs._id',
             accountName: '$accs.displayName',
-            branchId: { $toString: '$brs._id' },
+            branchId: '$brs._id',
             branchName: '$brs.displayName',
           },
         },
@@ -310,7 +282,7 @@ export class Patch11Service {
             date,
             voucherName: 'Account Opening',
             voucherType: 'ACCOUNT_OPENING',
-            updatedBy: user._id.toString(),
+            updatedBy: user._id,
             updatedAt: new Date(),
           }
         },
@@ -343,7 +315,6 @@ export class Patch11Service {
       await accOpening.createIndex({ accountId: 1 });
       await accOpening.createIndex({ branchId: 1 });
       console.log('Account opening merge Sucess');
-
       await connection.db().collection('customerpendingadjustments')
         .aggregate([
           { $merge: 'accountpendingadjustments' }
@@ -358,14 +329,13 @@ export class Patch11Service {
         .find({}, { projection: { party: 1, name: 1, displayName: 1, type: 1 } }).toArray();
       const accounts = accountcoll.map((acc) => {
         return {
-          id: acc._id.toString(),
+          id: acc._id,
           name: acc.name,
           displayName: acc.displayName,
           party: acc?.party,
           type: acc.type.defaultName,
         }
       });
-
       async function accVoucher(collectionName: string) {
         const count = await connection.db().collection(collectionName).countDocuments();
         if (count > 0) {
@@ -414,29 +384,30 @@ export class Patch11Service {
                 //voucherName = 'Contra';
               }
               if (creditCollections.includes(collectionName)) {
-                partyAcc = accounts.find((party) => party.party === voucher.toAccount.id);
+                //accounts.find(a => console.log(a.party == voucher.toAccount.id))
+                partyAcc = accounts.find((party) => party.party == voucher.toAccount.id);
               }
               if (accCollections.includes(collectionName)) {
-                partyAcc = accounts.find((party) => party.id === voucher.toAccount.id);
+                partyAcc = accounts.find((party) => party.id == voucher.toAccount.id);
               }
-              let cashAcc = accounts.find((cash) => cash.id === voucher.byAccount.id);
+              let cashAcc = accounts.find((cash) => cash.id == voucher.byAccount.id);
+
               if (contraCollection.includes(collectionName)) {
-                cashAcc = accounts.find((party) => party.id === voucher.toAccount.id);
-                partyAcc = accounts.find((cash) => cash.id === voucher.byAccount.id);
+                cashAcc = accounts.find((party) => party.id == voucher.toAccount.id);
+                partyAcc = accounts.find((cash) => cash.id == voucher.byAccount.id);
               }
               const doc: any = {
                 _id: voucher._id,
-                branchId: voucher.branch.id,
+                branchId: Types.ObjectId(voucher.branch.id),
                 branchName: voucher.branch.displayName,
                 date: voucher.date,
                 refNo: voucher.refNo,
-                fNo: 1,
                 description: voucher.description,
                 voucherNo: voucher.voucherNo,
                 voucherName: voucher.voucherName,
                 voucherType: voucher.voucherType,
-                createdBy: voucher.createdBy,
-                updatedBy: voucher.updatedBy,
+                createdBy: Types.ObjectId(voucher.createdBy),
+                updatedBy: Types.ObjectId(voucher.updatedBy),
                 createdAt: voucher.createdAt,
                 updatedAt: voucher.updatedAt,
               };
@@ -457,7 +428,7 @@ export class Patch11Service {
               } else {
                 _id = new Types.ObjectId();
               }
-              const trns = [
+              const acItems = [
                 {
                   _id: new Types.ObjectId(),
                   accountId: partyAcc.id,
@@ -482,7 +453,7 @@ export class Patch11Service {
                   _id,
                   accountId: partyAcc.id,
                   accountName: partyAcc.displayName,
-                  branchId: voucher.branch.id,
+                  branchId: Types.ObjectId(voucher.branch.id),
                   branchName: voucher.branch.displayName,
                   isAlt: true,
                   debit,
@@ -492,14 +463,14 @@ export class Patch11Service {
                   _id: new Types.ObjectId(),
                   accountId: cashAcc.id,
                   accountName: cashAcc.displayName,
-                  branchId: voucher.branch.id,
+                  branchId: Types.ObjectId(voucher.branch.id),
                   branchName: voucher.branch.displayName,
                   isAlt: true,
                   debit: credit,
                   credit: debit,
                 },
               ];
-              _.assign(doc, { trns });
+              _.assign(doc, { acItems });
               _.assign(doc, { acTrns });
               if (creditCollections.includes(collectionName)) {
                 const acAdjs = pendings
@@ -508,17 +479,17 @@ export class Patch11Service {
                     return {
                       _id: new Types.ObjectId(),
                       accountId: partyAcc.id,
-                      pendingId: p.toPending,
+                      pendingId: Types.ObjectId(p.toPending),
                       amount: p.amount,
                     };
                   });
-                _.assign(doc.trns[0], { acAdjs });
-                _.assign(doc.trns[1], { acAdjs: [] });
+                _.assign(doc.acItems[0], { acAdjs });
+                _.assign(doc.acItems[1], { acAdjs: [] });
                 _.assign(doc.acTrns[0], { acAdjs, bwd: true });
                 _.assign(doc.acTrns[1], { acAdjs: [], bwd: false });
               } else {
-                _.assign(doc.trns[0], { acAdjs: [] });
-                _.assign(doc.trns[1], { acAdjs: [] });
+                _.assign(doc.acItems[0], { acAdjs: [] });
+                _.assign(doc.acItems[1], { acAdjs: [] });
                 _.assign(doc.acTrns[0], { acAdjs: [], bwd: false });
                 _.assign(doc.acTrns[1], { acAdjs: [], bwd: false });
               }
@@ -555,28 +526,27 @@ export class Patch11Service {
         for (const voucher of vouchers) {
           const doc = {
             _id: voucher._id,
-            branchId: voucher.branch.id,
+            branchId: Types.ObjectId(voucher.branch.id),
             branchName: voucher.branch.displayName,
             date: voucher.date,
             refNo: voucher.refNo,
-            fNo: 1,
             description: voucher.description,
             voucherNo: voucher.voucherNo,
             voucherName: 'Journal',
             voucherType: 'JOURNAL',
-            createdBy: voucher.createdBy,
-            updatedBy: voucher.updatedBy,
+            createdBy: Types.ObjectId(voucher.createdBy),
+            updatedBy: Types.ObjectId(voucher.updatedBy),
             createdAt: voucher.createdAt,
             updatedAt: voucher.updatedAt,
           };
 
-          const trns = voucher.transactions.map((trn) => {
-            const type = accounts.find(acc => trn.account.id === acc.id);
+          const acItems = voucher.transactions.map((trn) => {
+            const acc = accounts.find(acc => trn.account.id == acc.id);
             return {
               _id: new Types.ObjectId(),
-              accountId: trn.account.id,
-              accountName: trn.account.displayName,
-              accountType: type.type,
+              accountId: acc.id,
+              accountName: acc.displayName,
+              accountType: acc.type,
               debit: trn.debit,
               credit: trn.credit,
             }
@@ -585,15 +555,15 @@ export class Patch11Service {
           const acTrns = voucher.transactions.map((trn) => {
             return {
               _id: new Types.ObjectId(),
-              accountId: trn.account.id,
+              accountId: Types.ObjectId(trn.account.id),
               accountName: trn.account.displayName,
-              branchId: voucher.branch.id,
+              branchId: Types.ObjectId(voucher.branch.id),
               branchName: voucher.branch.displayName,
               debit: trn.debit,
               credit: trn.credit,
             }
           });
-          _.assign(doc, { trns });
+          _.assign(doc, { acItems });
           _.assign(doc, { acTrns });
           docs.push(doc);
         }
@@ -602,124 +572,406 @@ export class Patch11Service {
         console.log('No journals Found');
       }
       console.log('journals END');
-      console.log('Account book collection name set as vouchers Start');
+      const purchasePipe = [
+        {
+          $unwind: '$invTrns'
+        },
+        { $project: { invTrns: 1, branch: 1 } },
+        {
+          $addFields: { batch: { $toObjectId: '$invTrns.batch' } }
+        },
+        {
+          $lookup: {
+            from: 'batches',
+            localField: 'batch',
+            foreignField: '_id',
+            as: 'batchArr'
+          }
+        },
+        {
+          $unwind: '$batchArr',
+        },
+        {
+          $addFields: {
+            transactionId: '$invTrns._id',
+            batch: { $toObjectId: '$invTrns.batch' },
+            branch: { $toObjectId: '$branch.id' },
+            inventory: { $toObjectId: '$invTrns.inventory.id' },
+            singleton: '$batchArr.singleton',
+            allowNegativeStock: false,
+            batchNo: { $ifNull: [{ $toUpper: '$invTrns.batchNo' }, 'N.A'] },
+            voucherName: 'PURCHASE',
+          },
+        },
+        {
+          $project: {
+            _id: 0, transactionId: 1, batch: 1, branch: 1, inventory: 1,
+            singleton: 1, allowNegativeStock: 1, batchNo: 1, voucherName: 1
+          }
+        },
+        { $merge: { into: 'batches_rearrange' } }
+      ];
+      const openingPipe = [
+        { $project: { trns: 1, branchId: 1, inventoryId: 1 } },
+        {
+          $unwind: '$trns',
+        },
+        {
+          $addFields: { batch: { $toObjectId: '$trns.batch' } }
+        },
+        {
+          $lookup: {
+            from: 'batches',
+            localField: 'batch',
+            foreignField: '_id',
+            as: 'batchArr'
+          }
+        },
+        {
+          $unwind: '$batchArr',
+        },
+        {
+          $addFields: {
+            transactionId: '$trns._id',
+            batch: { $toObjectId: '$trns.batch' },
+            singleton: '$batchArr.singleton',
+            allowNegativeStock: '$batchArr.allowNegativeStock',
+            batchNo: { $ifNull: [{ $toUpper: '$trns.batchNo' }, 'N.A'] },
+            voucherName: 'OPENING',
+            branch: { $toObjectId: '$branchId' },
+            inventory: { $toObjectId: '$inventoryId' },
+          },
+        },
+        {
+          $project: {
+            _id: 0, transactionId: 1, batch: 1, branch: 1, inventory: 1,
+            singleton: 1, allowNegativeStock: 1, batchNo: 1, voucherName: 1
+          }
+        },
+        { $merge: { into: 'batches_rearrange' } }
+      ];
+      const stockTransferPipe = [
+        {
+          $unwind: '$invTrns'
+        },
+        { $project: { invTrns: 1, targetBranch: 1 } },
+        {
+          $addFields:
+          {
+            targetBatch:
+            {
+              $cond: { if: { $eq: ["$targetBranch.id", '$invTrns.branch'] }, then: true, else: false }
+            }
+          }
+        },
+        {
+          $match: { targetBatch: true }
+        },
+        {
+          $addFields: { batch: { $toObjectId: '$invTrns.batch' } }
+        },
+        {
+          $lookup: {
+            from: 'batches',
+            localField: 'batch',
+            foreignField: '_id',
+            as: 'batchArr',
+          }
+        },
+        {
+          $unwind: '$batchArr',
+        },
+        {
+          $addFields: {
+            transactionId: '$invTrns._id',
+            batch: { $toObjectId: '$invTrns.batch' },
+            singleton: '$batchArr.singleton',
+            allowNegativeStock: false,
+            voucherName: 'TRANSFER',
+            batchNo: { $ifNull: [{ $toUpper: '$invTrns.batchNo' }, 'N.A'] },
+            branch: { $toObjectId: '$invTrns.branch' },
+            inventory: { $toObjectId: '$invTrns.inventory.id' },
+          },
+        },
+        {
+          $project: {
+            _id: 0, transactionId: 1, batch: 1, branch: 1, inventory: 1,
+            singleton: 1, allowNegativeStock: 1, batchNo: 1, voucherName: 1
+          }
+        },
+        { $merge: { into: 'batches_rearrange' } }
+      ];
+      console.log(`new collection Batch_rearrage started...`);
+      const newBatchStart = new Date().getTime();
+      await connection.db().collection('purchases').aggregate(purchasePipe).toArray();
+      await connection.db().collection('inventory_openings').aggregate(openingPipe).toArray();
+      await connection.db().collection('stock_transfers').aggregate(stockTransferPipe).toArray();
+      console.log(`DURATION for new Batch ${(new Date().getTime() - newBatchStart) / 1000}-sec`);
+      const reBatches: any = await connection.db().collection('batches_rearrange')
+        .aggregate([
+          {
+            $group: {
+              _id: { inventory: '$inventory', batchNo: '$batchNo', branch: '$branch' },
+              count: { $sum: 1 },
+              docIds: {
+                $push: '$_id',
+              }
+            }
+          },
+          {
+            $match: { count: { $gt: 1 } }
+          },
+          {
+            $project: {
+              _id: 0,
+              batchNo: '$_id.batchNo',
+              docIds: 1,
+            }
+          },
+        ]).toArray();
+      console.log(reBatches.length);
+      if (reBatches.length > 0) {
+        const bulk = connection.db().collection('batches_rearrange').initializeOrderedBulkOp();
+        for (const item of reBatches) {
+          for (let i = 1; i < item.docIds.length; i++) {
+            bulk.find({ _id: item.docIds[i] })
+              .update({ $set: { batchNo: `${item.batchNo}-${Math.random().toString(36).substring(2, 6).toUpperCase()}` } });
+          }
+        }
+        await bulk.execute();
+      } else {
+        console.log('There is no same batcNo');
+      }
+      const batches: any = await connection.db().collection('batches_rearrange'
+      ).find({}, { projection: { transactionId: 1, batch: 1, allowNegativeStock: 1, batchNo: 1 } }).toArray();
 
-      console.log('Account book set collectionName field value set as vouchers START...');
-      const accBookstart = new Date().getTime();
-      // collectionNames.push('journals');
-      // await connection.db().collection('accountbooks')
-      //   .updateMany({ collectionName: { $in: collectionNames } }, { $set: { collectionName: 'vouchers' } });
-      // console.log(`Account book collection name set as vouchers END, DURATION ${new Date().getTime() - accBookstart}-ms`);
-
-      async function purchaseVoucher(collectionName: string) {
-        console.log(collectionName, 'START');
-        const start = new Date().getTime();
-        const limit = 1000;
+      async function purchases(collectionName: string) {
         const count = await connection.db().collection(collectionName).countDocuments();
         if (count > 0) {
+          const limit = 500;
+          const begin = new Date().getTime();
           for (let skip = 0; skip <= count; skip = skip + limit) {
             const start = new Date().getTime();
-            const bulkOperation: any = connection.db().collection(collectionName).initializeOrderedBulkOp();
+            const bulkOperation = connection.db().collection('purchases_new').initializeOrderedBulkOp();
+            const sttt = new Date().getTime();
+            console.log(`bulkOperation initialzed Duration ${start - sttt}`);
             const vouchers: any = await connection.db().collection(collectionName)
-              .find({}, { projection: { acTrns: 1, vendorPending: 1, vendor: 1 }, sort: { _id: 1 }, skip, limit }).toArray();
+              .find({}, { projection: { cashRegister: 0, warehouse: 0, fNo: 0 }, sort: { _id: 1 }, skip, limit }).toArray();
+            console.log(`get voucher duration ${new Date().getTime() - sttt}`);
             for (const voucher of vouchers) {
-              const partyAcc = accounts.find(acc => voucher.vendor.id === acc.party);
-              for (const item of voucher.acTrns) {
-                const account = accounts.find(acc => {
-                  if (item.defaultName === 'TRADE_PAYABLE') {
-                    return partyAcc;
-                  } else {
-                    return acc;
-                  }
-                });
-                const acAdjs = pendings
-                  .filter((pending) => (pending.byPending === voucher.vendorPending) && (pending.byPending > pending.toPending))
-                  .map((p) => {
-                    return { _id: new Types.ObjectId(), accountId: partyAcc.id, pendingId: p.toPending, amount: p.amount };
-                  });
-                const acTrnsobj = {
-                  updateOne: {
-                    filter: { _id: voucher._id, acTrns: { $elemMatch: { _id: item._id } } },
-                    update: {
-                      $set: {
-                        'acTrns.$.': acAdjs,
-                        'acTrns.$[elm].accountId': partyAcc.id,
-                        'acTrns.$[elm].accountName': partyAcc.name,
-                        'acTrns.$[elm].accountType': partyAcc.type,
-                      },
-                    },
-                    arrayFilters: [{ 'elm._id': item._id }],
-                  },
-                };
-                bulkOperation.raw(acTrnsobj);
+              const singleVoucher = new Date().getTime();
+              const doc: any = {
+                _id: voucher._id,
+                date: voucher.date,
+                billDate: voucher?.billDate ?? voucher.date,
+                vendorId: Types.ObjectId(voucher.vendor.id),
+                vendorName: voucher.vendor.displayName,
+                branchId: Types.ObjectId(voucher.branch.id),
+                branchName: voucher.branch.displayName,
+                warehouseId: null,
+                warehouseName: null,
+                voucherType: voucher.voucherType,
+                branchGst: {
+                  regType: voucher.gstInfo.destination.regType.defaultName,
+                  location: 33,
+                  gstNo: voucher.gstInfo.destination.gstNo,
+                },
+                partyGst: {
+                  regType: voucher.gstInfo.source.regType.defaultName,
+                  location: 'later',
+                  gstNo: voucher.gstInfo.source.gstNo,
+                },
+                refNo: voucher.refNo,
+                description: voucher.description,
+                rcm: false,
+                pRateTaxInc: false,
+                sRateTaxInc: true,
+                cashAmount: 'later',
+                bankAmount: 'later',
+                bankAccount: 'later',
+                creditAmount: 'later',
+                creditAccount: 'later',
+                voucherNo: voucher.voucherNo,
+                voucherName: voucher.voucherName,
+                createdBy: Types.ObjectId(voucher.createdBy),
+                updatedBy: Types.ObjectId(voucher.updatedBy),
+                createdAt: voucher.createdAt,
+                updatedAt: voucher.updatedAt,
+                transactionMode: voucher.purchaseType,
+                amount: round(voucher.amount),
+                act: false,
+                actHide: false,
               };
-            }
-            await bulkOperation.execute();
-            const end = new Date().getTime();
-            console.log(`Duration for ${collectionName}, ${skip} to ${limit + skip} was ${end - start}-ms`);
-          }
-        } else {
-          console.log(`Credit ${collectionName} Not found`);
-        }
-        const end = new Date().getTime();
-        console.log(`Total duration for ${collectionName} was  ${(end - start) / 1000}-sec`);
-      }
-
-      async function saleVoucher(collectionName: string) {
-        const start = new Date().getTime();
-        console.log(collectionName, 'START');
-        const limit = 1000;
-        const count = await connection.db().collection(collectionName).find({ saleType: 'credit' }).count();
-        if (count > 0) {
-          for (let skip = 0; skip <= count; skip = skip + limit) {
-            const start = new Date().getTime();
-            const bulkOperation: any = connection.db().collection(collectionName).initializeOrderedBulkOp();
-            const vouchers: any = await connection.db().collection(collectionName)
-              .find({ saleType: 'credit' }, { projection: { acTrns: 1, customerPending: 1, customer: 1 }, sort: { _id: 1 }, skip, limit }).toArray();
-            for (const voucher of vouchers) {
-              const partyAcc = accounts.find(acc => voucher.customer.id === acc.party);
-              for (const item of voucher.acTrns) {
-                if (item.account.defaultName === 'TRADE_RECEIVABLE') {
-                  const acAdjs = pendings
-                    .filter((pending) => (pending.byPending === voucher.customerPending) && (pending.byPending > pending.toPending))
-                    .map((p) => {
-                      return { _id: new Types.ObjectId(), accountId: partyAcc.id, pendingId: item._id.toString(), amount: p.amount };
-                    });
-                  const acTrnsobj = {
-                    updateOne: {
-                      filter: { _id: voucher._id, acTrns: { $elemMatch: { 'account.defaultName': 'TRADE_RECEIVABLE' } } },
-                      update: {
-                        $set: {
-                          acAdjs,
-                          'acTrns.$[elm].account.id': partyAcc.id,
-                          'acTrns.$[elm].account.name': partyAcc.name,
-                          'acTrns.$[elm].account.displayName': partyAcc.displayName,
-                        },
-                      },
-                      arrayFilters: [{ 'elm.account.defaultName': 'TRADE_RECEIVABLE' }],
-                    },
-                  };
-                  bulkOperation.raw(acTrnsobj);
+              // console.log(doc)
+              const invItems = [];
+              const invTrns = [];
+              for (const item of voucher.invTrns) {
+                const tax = GST_TAXES.find(tax => tax.ratio.igst === item.tax.gstRatio.igst).code;
+                const batch = batches.find((bat: any) => bat.batch.toString() === item.batch);
+                let expiry: any;
+                if (item.expMonth && item.expMonth < 10) {
+                  expiry = new Date(new Date(`${item.expYear}-${0}${item.expMonth}-01`).setUTCHours(0, 0, 0, 0));
+                } else if (item.expMonth && item.expMonth > 9) {
+                  expiry = new Date(new Date(`${item.expYear}-${item.expMonth}-01`).setUTCHours(0, 0, 0, 0));
+                } else {
+                  expiry = null;
                 }
-              };
+                const freeQty = (item?.freeQty > 0) ? item.freeQty : 0;
+                const invItemObj = {
+                  _id: new Types.ObjectId(),
+                  batchNo: item.batchNo,
+                  inventoryId: Types.ObjectId(item.inventory.id),
+                  inventoryName: item.inventory.displayName,
+                  qty: item.qty,
+                  mrp: round(item.mrp),
+                  rate: round(item.rate),
+                  sRate: round(item.sRate),
+                  disc: round(item.discount),
+                  unitPrecision: item.unitPrecision,
+                  expiry,
+                  hsnSac: item.hsnCode,
+                  unitId: Types.ObjectId(item.unit.id),
+                  unitName: item.unit.displayName,
+                  unitConv: item.unit.conversion,
+                  tax,
+                  freeQty,
+                  pRate: round(item.rate),
+                };
+                invItems.push(invItemObj);
+                const invTrnObj = {
+                  _id: batch.transactionId,
+                  batch: batch.transactionId,
+                  inventoryId: Types.ObjectId(item.inventory.id),
+                  inventoryName: item.inventory.displayName,
+                  inward: (item.qty + freeQty) * item.unit.conversion,
+                  outward: 0,
+                  taxableAmount: round(item.taxableAmount),
+                  sgstAmount: round(item.cgstAmount),
+                  cgstAmount: round(item.sgstAmount),
+                  igstAmount: round(item.igstAmount),
+                  cessAmount: round(item.cessAmount),
+                  assetAmount: round(item.assetAmount),
+                  mrp: round(item.mrp),
+                  nlc: round(item.taxableAmount / (item.qty + (item?.freeQty || 0)) / item.unit.conversion),
+                  batchNo: batch.singleton ? undefined : item.batchNo,
+                  tax,
+                  pRate: round(item.rate),
+                  sRate: round(item.sRate),
+                  profitAmount: 0,
+                  profitPercent: 0,
+                  expiry,
+                  hsnSac: item.hsnCode,
+                  warehouseId: voucher.warehouse?.id ?? null,
+                  warehouseName: voucher.warehouse?.displayName ?? null,
+                  branchId: voucher.branch.id,
+                  branchName: voucher.branch.displayName,
+                };
+                if (batch.singleton) {
+                  _.assign(invTrnObj, { batch: Types.ObjectId(item.inventory.id) });
+                }
+                if (!batch.singleton) {
+                  _.assign(invTrnObj, { batch: batch.transactionId, batchNo: item.batchNo });
+                }
+                invTrns.push(invTrnObj);
+              }
+              const roundOff = voucher.acTrns.find((acc: any) => (acc.account.defaultName === 'ROUNDED_OFF_SHORTAGE'));
+              const acAdjs = {
+                discount: voucher?.discount ?? 0,
+                roundedOff: roundOff ? (roundOff.credit > 0 ? roundOff.credit * -1 : roundOff.debit) : 0,
+              }
+              const acItems = [];
+              for (const item of voucher.acTrns) {
+                if (item.account.defaultName === 'ROUNDED_OFF_SHORTAGE' || item.account.defaultName === 'DISCOUNT_RECEIVED') {
+                  const account = accounts.find((acc: any) => acc.id == item.account.id);
+                  const acItemObj = {
+                    _id: new Types.ObjectId(),
+                    accountId: Types.ObjectId(account.id),
+                    accountName: account.displayName,
+                    accountType: account.type,
+                    amount: item.credit > 0 ? -item.credit : item.debit,
+                  }
+                  acItems.push(acItemObj);
+                }
+              }
+              const acTrns = [];
+              for (const item of voucher.acTrns) {
+                let account: any;
+                let _id: any;
+                let trnObj: any;
+                if (item.account.defaultName === 'TRADE_PAYABLE') {
+                  let adjs: any;
+                  account = accounts.find((party) => party.party == voucher.vendor.id);
+                  const getPending = pendings
+                    .find((pending: any) => (pending.byPending === voucher.vendorPending || pending.toPending === voucher.vendorPending));
+                  if (getPending) {
+                    if (getPending.byPending > getPending.toPending) {
+                      _id = Types.ObjectId(getPending.byPending);
+                    } else {
+                      _id = Types.ObjectId(getPending.toPending);
+                    }
+                    adjs = pendings
+                      .filter((pending) => (pending.byPending === voucher.vendorPending) && (pending.byPending > pending.toPending))
+                      .map((p) => {
+                        return {
+                          _id: new Types.ObjectId(),
+                          accountId: Types.ObjectId(account.id),
+                          pendingId: Types.ObjectId(p.toPending),
+                          amount: round(p.amount),
+                        };
+                      });
+                  } else if (!getPending) {
+                    _id = new Types.ObjectId();
+                    adjs = [];
+                  }
+                  trnObj = {
+                    _id,
+                    accountId: Types.ObjectId(account.id),
+                    accountName: account.displayName,
+                    branchId: Types.ObjectId(voucher.branch.id),
+                    branchName: voucher.branch.displayName,
+                    credit: round(item.credit),
+                    debit: round(item.debit),
+                    adjs,
+                  }
+                  _.assign(doc, { creditAdjs: adjs })
+                } else {
+                  account = accounts.find((acc) => acc.id === item.account.id);
+                  trnObj = {
+                    _id: item._id,
+                    accountId: Types.ObjectId(account.id),
+                    accountName: account.displayName,
+                    branchId: Types.ObjectId(voucher.branch.id),
+                    branchName: voucher.branch.displayName,
+                    credit: round(item.credit),
+                    debit: round(item.debit),
+                  }
+                }
+                acTrns.push(trnObj);
+              }
+              _.assign(doc, { invTrns, invItems, acAdjs, acItems, acTrns });
+              console.log(`${sttt - new Date().getTime()}`)
+              const start = new Date().getTime();
+              console.log(`Duuuuuuuu `, start - singleVoucher);
+              bulkOperation.insert(doc);
+              console.log(`iiiiiiii`, new Date().getTime() - singleVoucher)
+              const end = new Date().getTime();
+              console.log(`${skip} to ${limit + skip} Duration ${end - start}`);
+
             }
-            await bulkOperation.execute();
-            const end = new Date().getTime();
-            console.log(`Duration for ${collectionName}, ${skip} to ${limit + skip} was ${end - start}-ms`);
+            const start1 = new Date().getTime();
+            console.log(`${skip} to ${limit + skip} patch object initialized`);
+            console.log(`${skip} to ${limit + skip} bulk execution start....`);
+            const result = await bulkOperation.execute();
+            console.log(`DURATION for only insert execute  ${(new Date().getTime() - start1) / 1000}-sec`);
+            console.log(`results are` + JSON.stringify({ insert: result.nInserted, err: result.hasWriteErrors() }));
+            console.log(`Total DURATION for ${skip} to ${limit + skip}  ${(new Date().getTime() - start) / 1000}-sec`);
           }
+          console.log(`END ALL ${collectionName} and DURATION ${(new Date().getTime() - begin) / (1000 * 60)}-min`);
         } else {
-          console.log(`Credit ${collectionName} Not found`);
+          console.log(`${collectionName} Not Found`);
         }
-        const end = new Date().getTime();
-        console.log(`Total duration for ${collectionName} was  ${(end - start) / 1000}-sec`);
       }
-
-      // await purchaseVoucher('purchases');
-      // await purchaseVoucher('purchase_returns');
-
-      // await saleVoucher('sales');
-      // await saleVoucher('sale_returns');
-
+    //  await purchases('purchases');
       await connection.close();
       return 'OK';
     } catch (err) {
@@ -755,255 +1007,26 @@ export class Patch11Service {
       //     }
       //   };
       // }
-      // const invDatas = await connection.db().collection('inventories').find({} ).toArray();
-      // const invs = invDatas.map((inv: any) => {
-      //   return {
-      //     id: inv._id.toString(),
-      //     precision: inv.precision,
-      //     bwd: inv.bwd,
-      //   }
-      // });
-      //console.log(invs);
 
-      const purchasePipe = [
-        {
-          $unwind: '$invTrns'
-        },
-        { $project: { invTrns: 1 } },
-        {
-          $addFields: { batch: { $toObjectId: '$invTrns.batch' } }
-        },
-        {
-          $lookup: {
-            from: 'batches',
-            localField: 'batch',
-            foreignField: '_id',
-            as: 'batchArr'
-          }
-        },
-        {
-          $unwind: '$batchArr',
-        },
-        {
-          $addFields: {
-            transactionId: {
-              $toString: '$invTrns._id',
-            },
-            existBatchId: { $toString: '$batchArr._id' },
-            singleton: '$batchArr.singleton',
-            allowNegativeStock: false,
-            nlc: '$batchArr.netLandingCost',
-            voucherName: 'PURCHASE',
-          },
-        },
-        {
-          $project: { _id: 0, transactionId: 1, existBatchId: 1, singleton: 1, allowNegativeStock: 1, nlc: 1, voucherName: 1 }
-        },
-        { $merge: { into: 'batches1234' } }
-      ];
-      const openingPipe = [
-        {
-          $unwind: '$trns'
-        },
-        { $project: { trns: 1 } },
-        {
-          $addFields: { batch: { $toObjectId: '$trns.batch' } }
-        },
-        {
-          $lookup: {
-            from: 'batches',
-            localField: 'batch',
-            foreignField: '_id',
-            as: 'batchArr'
-          }
-        },
-        {
-          $unwind: '$batchArr',
-        },
-        {
-          $addFields: {
-            transactionId: {
-              $toString: '$trns._id',
-            },
-            existBatchId: { $toString: '$batchArr._id' },
-            singleton: '$batchArr.singleton',
-            allowNegativeStock: '$batchArr.allowNegativeStock',
-            nlc: '$batchArr.netLandingCost',
-            voucherName: 'OPENING',
-          },
-        },
-        {
-          $project: { _id: 0, transactionId: 1, existBatchId: 1, singleton: 1, allowNegativeStock: 1, nlc: 1, voucherName: 1 }
-        },
-        { $merge: { into: 'batches1234' } }
-      ];
-      const stockTransferPipe = [
-        {
-          $unwind: '$invTrns'
-        },
-        { $project: { invTrns: 1, targetBranch: 1 } },
-        {
-          $addFields:
-          {
-            targetBatch:
-            {
-              $cond: { if: { $eq: ["$targetBranch.id", '$invTrns.branch'] }, then: true, else: false }
-            }
-          }
-        },
-        {
-          $match: { targetBatch: true }
-        },
-        {
-          $addFields: { batch: { $toObjectId: '$invTrns.batch' } }
-        },
-        {
-          $lookup: {
-            from: 'batches',
-            localField: 'batch',
-            foreignField: '_id',
-            as: 'batchArr',
-          }
-        },
-        {
-          $unwind: '$batchArr',
-        },
-        {
-          $addFields: {
-            transactionId: {
-              $toString: '$invTrns._id',
-            },
-            existBatchId: { $toString: '$batchArr._id' },
-            singleton: '$batchArr.singleton',
-            allowNegativeStock: false,
-            nlc: '$batchArr.netLandingCost',
-            voucherName: 'TRANSFER',
-          },
-        },
-        {
-          $project: { _id: 0, transactionId: 1, existBatchId: 1, singleton: 1, allowNegativeStock: 1, nlc: 1, voucherName: 1 }
-        },
-        { $merge: { into: 'batches1234' } }
-      ];
-      const batches: any = await connection.db().collection('batches1234')
-        .find({}, { projection: { _id: 0, existBatchId: 1 } }).map(c => c.existBatchId).toArray();
-      //console.log(batches);
-      const arr = await connection.db().collection('batches').find({ _id: { $nin: batches } }).toArray();
-      console.log(arr.length, arr);
-      const newBatchStart = new Date().getTime();
-      await connection.db().collection('purchases').aggregate(purchasePipe).toArray();
-      await connection.db().collection('inventory_openings').aggregate(openingPipe).toArray();
-      await connection.db().collection('stock_transfers').aggregate(stockTransferPipe).toArray();
-      console.log(`DURATION for new Batch ${new Date().getTime() - newBatchStart}`);
-      const before = process.memoryUsage().heapUsed / 1024 / 1024;
-      console.log(`The script uses approximately before get batch table ${Math.round(before * 100) / 100} MB`);
+      const batches: any = await connection.db().collection('batches_rearrange')
+        .find({}, { projection: { _id: 0, batch: 1 } }).map((c: any) => c.batch.toString()).toArray();
+      // const arr = await connection.db().collection('batches').find({ _id: { $nin: batches } }).map((a: any) => {
+      //   return a._id.toString()
+      // }).toArray();
 
-      const after = process.memoryUsage().heapUsed / 1024 / 1024;
-      console.log(`The script uses approximately after get batch table ${Math.round(after * 100) / 100} MB`);
-      const pipe = [
-        {
-          $unwind: '$invTrns',
-        },
-        {
-          $lookup: {
-            from: 'batches1234',
-            localField: 'invTrns.batch',
-            foreignField: 'existBatchId',
-            as: 'batchArr',
-          }
-        },
-        {
-          $unwind: '$batchArr'
-        },
-        {
-          $group: {
-            _id: '$_id',
-            date: { $last: '$date' },
-            branchId: { $last: '$branch.id' },
-            branchName: { $last: '$branch.displayName' },
-            voucherNo: { $last: '$voucherNo' },
-            voucherName: { $last: '$voucherName' },
-            createdAt: { $last: '$createdAt' },
-            updatedAt: { $last: '$updatedAt' },
-            createdBy: { $last: '$createdBy' },
-            updatedBy: { $last: '$updatedBy' },
-            amount: { $last: '$amount' },
-            bankAmount: { $last: '$bankAmount' },
-            billDate: { $last: '$billDate' },
-            vendorId: { $last: '$vendor.id' },
-            vendorName: { $last: '$vendor.displayName' },
-            cashAmount: { $last: '$cashAmount' },
-            creditAmount: { $last: '$creditAmount' },
-            purchaseType: { $last: '$purchaseType' },
-            invTrns: {
-              $push: {
-                _id: { $toObjectId: '$batchArr.transactionId' },
-                inventoryId: '$invTrns.inventory.id',
-                inventoryName: '$invTrns.inventory.displayName',
-                bwd: '$batchArr.singleton',
-                freeQty: '$invTrns.freeQty',
-                unitId: '$invTrns.unit.id',
-                unitName: '$invTrns.unit.displayName',
-                unitConv: '$invTrns.unit.conversion',
-                batchNo: '$invTrns.batchNo',
-                rate: '$invTrns.rate',
-                sRate: '$invTrns.sRate',
-              },
-            },
-          },
-        },
-        {
-          $merge: { into: 'test-purchase1' }
-        }
-      ];
-      const limit = 1000;
-      async function sales(collectionName: string) {
-        const count = await connection.db().collection(collectionName).countDocuments();
-        if (count > 0) {
-          for (let skip = 0; skip <= count; skip = skip + limit) {
-            const start = new Date().getTime();
-            const bulkOperation: any = connection.db().collection(collectionName).initializeOrderedBulkOp();
-            const vouchers: any = await connection.db().collection(collectionName)
-              .find({}, { projection: { invTrns: 1, voucherNo: 1 }, sort: { _id: 1 }, skip, limit }).toArray();
+      // console.log(arr.length, arr);
+      // const before = process.memoryUsage().heapUsed / 1024 / 1024;
+      // console.log(`The script uses approximately before get batch table ${Math.round(before * 100) / 100} MB`);
 
-            for (const voucher of vouchers) {
-              console.log(voucher.voucherNo);
-              for (const item of voucher.invTrns) {
-                const batch = batches.find((bat: any) => bat.existBatchId === item.batch);
-                const updateObj = {
-                  updateOne: {
-                    filter: { _id: voucher._id, invTrns: { $elemMatch: { batch: batch.existBatchId } } },
-                    update: {
-                      $set: {
-                        'invTrns.$[elm].transactionId': batch.singleton ? null : batch.transactionId,
-                        'invTrns.$[elm].bwd': !batch.singleton,
-                      },
-                    },
-                    arrayFilters: [{ 'elm.batch': batch.existBatchId }],
-                  },
-                };
-                const start = new Date().getTime();
-                bulkOperation.raw(updateObj);
-                const end = new Date().getTime();
-                console.log(`${skip} to ${limit + skip} Duration ${end - start}`);
-              }
-            }
-            const start1 = new Date().getTime();
-            console.log(`${skip} to ${limit + skip} patch object initialized`);
-            console.log(`${skip} to ${limit + skip} bulk execution start....`);
-            const result = await bulkOperation.execute();
-            console.log(`DURATION ${new Date().getTime() - start1}`);
-            // var total = result.nModified
-            console.log(`results are` + JSON.stringify(result));
-            console.log('bulk execution end');
-          }
-        } else {
+      // const after = process.memoryUsage().heapUsed / 1024 / 1024;
+      // console.log(`The script uses approximately after get batch table ${Math.round(after * 100) / 100} MB`);
 
-        }
+      const vouchers: any = await connection.db().collection('sales')
+        .find({ invTrns: { $elemMatch: { batch: { $nin: batches } } } }, { projection: { invTrns: 1, voucherNo: 1 } }).toArray();
+      console.log(vouchers.length);
+      for (const item of vouchers) {
+        console.log(item.voucherNo);
       }
-
-      //await sales('sales');
-
       await connection.close();
       return 'unnecessary collection dropped successfully';
     } catch (err) {
@@ -1012,3 +1035,4 @@ export class Patch11Service {
     }
   }
 }
+
