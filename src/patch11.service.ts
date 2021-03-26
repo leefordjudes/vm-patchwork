@@ -5,8 +5,8 @@ import * as _ from 'lodash';
 
 import { URI } from './config';
 import { GST_TAXES } from './fixtures/gst-tax';
+import { STATE } from './fixtures/state/state';
 import { round } from './utils/utils';
-import moment = require('moment');
 
 @Injectable()
 export class Patch11Service {
@@ -757,9 +757,10 @@ export class Patch11Service {
             console.log(`bulkOperation initialzed Duration ${start - sttt}`);
             const vouchers: any = await connection.db().collection(collectionName)
               .find({}, { projection: { cashRegister: 0, warehouse: 0, fNo: 0 }, sort: { _id: 1 }, skip, limit }).toArray();
-            console.log(`get voucher duration ${new Date().getTime() - sttt}`);
+            console.log(`get ${skip} to ${limit} voucher duration ${new Date().getTime() - sttt}`);
             for (const voucher of vouchers) {
-              const singleVoucher = new Date().getTime();
+              const partyLoc = STATE.find((loc) => voucher.gstInfo.source.location.defaultName === loc.defaultName).code;
+              const singleVoucherTime = new Date().getTime();
               const doc: any = {
                 _id: voucher._id,
                 date: voucher.date,
@@ -778,7 +779,7 @@ export class Patch11Service {
                 },
                 partyGst: {
                   regType: voucher.gstInfo.source.regType.defaultName,
-                  location: 'later',
+                  location: partyLoc,
                   gstNo: voucher.gstInfo.source.gstNo,
                 },
                 refNo: voucher.refNo,
@@ -786,11 +787,11 @@ export class Patch11Service {
                 rcm: false,
                 pRateTaxInc: false,
                 sRateTaxInc: true,
-                cashAmount: 'later',
-                bankAmount: 'later',
-                bankAccount: 'later',
-                creditAmount: 'later',
-                creditAccount: 'later',
+                cashAmount: 0,
+                bankAmount: 0,
+                bankAccount: null,
+                creditAmount: 0,
+                creditAccount: null,
                 voucherNo: voucher.voucherNo,
                 voucherName: voucher.voucherName,
                 createdBy: Types.ObjectId(voucher.createdBy),
@@ -802,7 +803,6 @@ export class Patch11Service {
                 act: false,
                 actHide: false,
               };
-              // console.log(doc)
               const invItems = [];
               const invTrns = [];
               for (const item of voucher.invTrns) {
@@ -816,7 +816,7 @@ export class Patch11Service {
                 } else {
                   expiry = null;
                 }
-                const freeQty = (item?.freeQty > 0) ? item.freeQty : 0;
+
                 const invItemObj = {
                   _id: new Types.ObjectId(),
                   batchNo: item.batchNo,
@@ -825,7 +825,6 @@ export class Patch11Service {
                   qty: item.qty,
                   mrp: round(item.mrp),
                   rate: round(item.rate),
-                  sRate: round(item.sRate),
                   disc: round(item.discount),
                   unitPrecision: item.unitPrecision,
                   expiry,
@@ -834,16 +833,14 @@ export class Patch11Service {
                   unitName: item.unit.displayName,
                   unitConv: item.unit.conversion,
                   tax,
-                  freeQty,
                   pRate: round(item.rate),
                 };
-                invItems.push(invItemObj);
+
                 const invTrnObj = {
                   _id: batch.transactionId,
                   batch: batch.transactionId,
                   inventoryId: Types.ObjectId(item.inventory.id),
                   inventoryName: item.inventory.displayName,
-                  inward: (item.qty + freeQty) * item.unit.conversion,
                   outward: 0,
                   taxableAmount: round(item.taxableAmount),
                   sgstAmount: round(item.cgstAmount),
@@ -852,26 +849,29 @@ export class Patch11Service {
                   cessAmount: round(item.cessAmount),
                   assetAmount: round(item.assetAmount),
                   mrp: round(item.mrp),
-                  nlc: round(item.taxableAmount / (item.qty + (item?.freeQty || 0)) / item.unit.conversion),
-                  batchNo: batch.singleton ? undefined : item.batchNo,
+                  batchNo: item.batchNo,
                   tax,
                   pRate: round(item.rate),
-                  sRate: round(item.sRate),
                   profitAmount: 0,
                   profitPercent: 0,
                   expiry,
                   hsnSac: item.hsnCode,
                   warehouseId: voucher.warehouse?.id ?? null,
                   warehouseName: voucher.warehouse?.displayName ?? null,
-                  branchId: voucher.branch.id,
+                  branchId: Types.ObjectId(voucher.branch.id),
                   branchName: voucher.branch.displayName,
                 };
-                if (batch.singleton) {
-                  _.assign(invTrnObj, { batch: Types.ObjectId(item.inventory.id) });
+                if (collectionName === 'purchases') {
+                  const freeQty = (item?.freeQty > 0) ? item.freeQty : 0;
+                  const inward = (item.qty + freeQty) * item.unit.conversion;
+                  const nlc = round(item.taxableAmount / (item.qty + (item?.freeQty || 0)) / item.unit.conversion);
+                  _.assign(invItemObj, { freeQty, nlc, sRate: round(item.sRate) });
+                  _.assign(invTrnObj, { inward });
+                } else {
+                  const inward = item.qty * item.unit.conversion * -1;
+                  _.assign(invTrnObj, { inward });
                 }
-                if (!batch.singleton) {
-                  _.assign(invTrnObj, { batch: batch.transactionId, batchNo: item.batchNo });
-                }
+                invItems.push(invItemObj);
                 invTrns.push(invTrnObj);
               }
               const roundOff = voucher.acTrns.find((acc: any) => (acc.account.defaultName === 'ROUNDED_OFF_SHORTAGE'));
@@ -885,7 +885,7 @@ export class Patch11Service {
                   const account = accounts.find((acc: any) => acc.id == item.account.id);
                   const acItemObj = {
                     _id: new Types.ObjectId(),
-                    accountId: Types.ObjectId(account.id),
+                    accountId: account.id,
                     accountName: account.displayName,
                     accountType: account.type,
                     amount: item.credit > 0 ? -item.credit : item.debit,
@@ -933,9 +933,15 @@ export class Patch11Service {
                     debit: round(item.debit),
                     adjs,
                   }
-                  _.assign(doc, { creditAdjs: adjs })
+                  _.assign(doc, { creditAdjs: adjs, creditAccount: account.id, creditAmount: round(voucher.amount) });
                 } else {
-                  account = accounts.find((acc) => acc.id === item.account.id);
+                  account = accounts.find((acc) => acc.id == item.account.id);
+                  if (account.type === 'CASH') {
+                    _.assign(doc, { cashAmount: (item.credit > 0) ? round(item.credit) : round(item.debit) });
+                  }
+                  if (account.type === 'BANK_ACCOUNT' || account.type === 'BANK_OD_ACCOUNT') {
+                    _.assign(doc, { bankAmount: (item.credit > 0) ? round(item.credit) : round(item.debit), bankAccount: account.id });
+                  }
                   trnObj = {
                     _id: item._id,
                     accountId: Types.ObjectId(account.id),
@@ -949,11 +955,10 @@ export class Patch11Service {
                 acTrns.push(trnObj);
               }
               _.assign(doc, { invTrns, invItems, acAdjs, acItems, acTrns });
-              console.log(`${sttt - new Date().getTime()}`)
               const start = new Date().getTime();
-              console.log(`Duuuuuuuu `, start - singleVoucher);
+              console.log(`Single voucher obj Ready`, start - singleVoucherTime);
               bulkOperation.insert(doc);
-              console.log(`iiiiiiii`, new Date().getTime() - singleVoucher)
+              console.log(`Single voucher obj inserted`, new Date().getTime() - singleVoucherTime)
               const end = new Date().getTime();
               console.log(`${skip} to ${limit + skip} Duration ${end - start}`);
 
@@ -971,7 +976,8 @@ export class Patch11Service {
           console.log(`${collectionName} Not Found`);
         }
       }
-    //  await purchases('purchases');
+      await purchases('purchases');
+      await purchases('purchase_returns');
       await connection.close();
       return 'OK';
     } catch (err) {
