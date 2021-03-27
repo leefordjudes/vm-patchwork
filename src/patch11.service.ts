@@ -37,7 +37,7 @@ export class Patch11Service {
       const vendorIds = _.uniq(vendorPenddings.map((x) => x.vendor)).map((y: any) => Types.ObjectId(y));
       console.log(`${vendorIds.length} - Credit Vendor found`);
       const vendors: any = await connection.db().collection('vendors').find({ _id: { $in: vendorIds } }, { projection: { name: 1, contactInfo: 1 } }).toArray();
-      console.log(`${vendors.length} === ${vendorIds.length}` ? 'get credit customer only' : 'Miss matched');
+      console.log(`${vendors.length} === ${vendorIds.length}` ? 'get credit vendor only' : 'Miss matched');
       const bulkAccount = connection.db().collection('accounts').initializeOrderedBulkOp();
       const obj = {
         hide: false,
@@ -325,17 +325,17 @@ export class Patch11Service {
         ]).toArray();
 
       const pendings: any = await connection.db().collection('accountpendingadjustments').find({}, { projection: { _id: 0, __v: 0 } }).toArray();
-      const accountcoll: any = await connection.db().collection('accounts')
-        .find({}, { projection: { party: 1, name: 1, displayName: 1, type: 1 } }).toArray();
-      const accounts = accountcoll.map((acc) => {
-        return {
-          id: acc._id,
-          name: acc.name,
-          displayName: acc.displayName,
-          party: acc?.party,
-          type: acc.type.defaultName,
-        }
-      });
+      const accounts: any = await connection.db().collection('accounts')
+        .find({}, { projection: { party: 1, displayName: 1, type: 1 } })
+        .map((elm: any) => {
+          return {
+            id: elm._id.toString(),
+            displayName: elm.displayName,
+            party: elm?.party?.toString(),
+            type: elm.type.defaultName,
+          }
+        })
+        .toArray();
       async function accVoucher(collectionName: string) {
         const count = await connection.db().collection(collectionName).countDocuments();
         if (count > 0) {
@@ -384,17 +384,16 @@ export class Patch11Service {
                 //voucherName = 'Contra';
               }
               if (creditCollections.includes(collectionName)) {
-                //accounts.find(a => console.log(a.party == voucher.toAccount.id))
-                partyAcc = accounts.find((party) => party.party == voucher.toAccount.id);
+                partyAcc = accounts.find((party) => party.party === voucher.toAccount.id);
               }
               if (accCollections.includes(collectionName)) {
-                partyAcc = accounts.find((party) => party.id == voucher.toAccount.id);
+                partyAcc = accounts.find((party) => party.id === voucher.toAccount.id);
               }
-              let cashAcc = accounts.find((cash) => cash.id == voucher.byAccount.id);
+              let cashAcc = accounts.find((cash) => cash.id === voucher.byAccount.id);
 
               if (contraCollection.includes(collectionName)) {
-                cashAcc = accounts.find((party) => party.id == voucher.toAccount.id);
-                partyAcc = accounts.find((cash) => cash.id == voucher.byAccount.id);
+                cashAcc = accounts.find((party) => party.id === voucher.toAccount.id);
+                partyAcc = accounts.find((cash) => cash.id === voucher.byAccount.id);
               }
               const doc: any = {
                 _id: voucher._id,
@@ -431,7 +430,7 @@ export class Patch11Service {
               const acItems = [
                 {
                   _id: new Types.ObjectId(),
-                  accountId: partyAcc.id,
+                  accountId: Types.ObjectId(partyAcc.id),
                   accountName: partyAcc.displayName,
                   accountType: partyAcc.type,
                   debit,
@@ -439,7 +438,7 @@ export class Patch11Service {
                 },
                 {
                   _id: new Types.ObjectId(),
-                  accountId: cashAcc.id,
+                  accountId: Types.ObjectId(cashAcc.id),
                   accountName: cashAcc.displayName,
                   accountType: cashAcc.type,
                   instNo: voucher.instNo,
@@ -451,7 +450,7 @@ export class Patch11Service {
               const acTrns = [
                 {
                   _id,
-                  accountId: partyAcc.id,
+                  accountId: Types.ObjectId(partyAcc.id),
                   accountName: partyAcc.displayName,
                   branchId: Types.ObjectId(voucher.branch.id),
                   branchName: voucher.branch.displayName,
@@ -461,7 +460,7 @@ export class Patch11Service {
                 },
                 {
                   _id: new Types.ObjectId(),
-                  accountId: cashAcc.id,
+                  accountId: Types.ObjectId(cashAcc.id),
                   accountName: cashAcc.displayName,
                   branchId: Types.ObjectId(voucher.branch.id),
                   branchName: voucher.branch.displayName,
@@ -478,7 +477,7 @@ export class Patch11Service {
                   .map((p) => {
                     return {
                       _id: new Types.ObjectId(),
-                      accountId: partyAcc.id,
+                      accountId: Types.ObjectId(partyAcc.id),
                       pendingId: Types.ObjectId(p.toPending),
                       amount: p.amount,
                     };
@@ -541,10 +540,10 @@ export class Patch11Service {
           };
 
           const acItems = voucher.transactions.map((trn) => {
-            const acc = accounts.find(acc => trn.account.id == acc.id);
+            const acc = accounts.find(acc => trn.account.id === acc.id);
             return {
               _id: new Types.ObjectId(),
-              accountId: acc.id,
+              accountId: Types.ObjectId(acc.id),
               accountName: acc.displayName,
               accountType: acc.type,
               debit: trn.debit,
@@ -594,7 +593,7 @@ export class Patch11Service {
         {
           $addFields: {
             transactionId: '$invTrns._id',
-            batch: { $toObjectId: '$invTrns.batch' },
+            batch: '$invTrns.batch',
             branch: { $toObjectId: '$branch.id' },
             inventory: { $toObjectId: '$invTrns.inventory.id' },
             singleton: '$batchArr.singleton',
@@ -633,7 +632,7 @@ export class Patch11Service {
         {
           $addFields: {
             transactionId: '$trns._id',
-            batch: { $toObjectId: '$trns.batch' },
+            batch: '$trns.batch',
             singleton: '$batchArr.singleton',
             allowNegativeStock: '$batchArr.allowNegativeStock',
             batchNo: { $ifNull: [{ $toUpper: '$trns.batchNo' }, 'N.A'] },
@@ -684,7 +683,7 @@ export class Patch11Service {
         {
           $addFields: {
             transactionId: '$invTrns._id',
-            batch: { $toObjectId: '$invTrns.batch' },
+            batch: '$invTrns.batch',
             singleton: '$batchArr.singleton',
             allowNegativeStock: false,
             voucherName: 'TRANSFER',
@@ -701,12 +700,13 @@ export class Patch11Service {
         },
         { $merge: { into: 'batches_rearrange' } }
       ];
-      console.log(`new collection Batch_rearrage started...`);
+      console.log(`new collection batch_rearrage started...`);
       const newBatchStart = new Date().getTime();
       await connection.db().collection('purchases').aggregate(purchasePipe).toArray();
       await connection.db().collection('inventory_openings').aggregate(openingPipe).toArray();
       await connection.db().collection('stock_transfers').aggregate(stockTransferPipe).toArray();
       console.log(`DURATION for new Batch ${(new Date().getTime() - newBatchStart) / 1000}-sec`);
+      console.log(`Convert duplicate batchNo as Uniq batchNo started...`);
       const reBatches: any = await connection.db().collection('batches_rearrange')
         .aggregate([
           {
@@ -729,7 +729,7 @@ export class Patch11Service {
             }
           },
         ]).toArray();
-      console.log(reBatches.length);
+      console.log(`count of duplicate batchNo`, reBatches.length);
       if (reBatches.length > 0) {
         const bulk = connection.db().collection('batches_rearrange').initializeOrderedBulkOp();
         for (const item of reBatches) {
@@ -742,8 +742,15 @@ export class Patch11Service {
       } else {
         console.log('There is no same batcNo');
       }
-      const batches: any = await connection.db().collection('batches_rearrange'
-      ).find({}, { projection: { transactionId: 1, batch: 1, allowNegativeStock: 1, batchNo: 1 } }).toArray();
+      const batches: any = await connection.db().collection('batches_rearrange')
+        .find({}, { projection: { transactionId: 1, batch: 1, batchNo: 1, _id: 0 } })
+        .map((elm: any) => {
+          return {
+            batch: elm.batch.toString(),
+            transactionId: elm.transactionId,
+            batchNo: elm.batchNo,
+          }
+        }).toArray();
 
       async function purchases(collectionName: string) {
         const count = await connection.db().collection(collectionName).countDocuments();
@@ -756,11 +763,16 @@ export class Patch11Service {
             const sttt = new Date().getTime();
             console.log(`bulkOperation initialzed Duration ${start - sttt}`);
             const vouchers: any = await connection.db().collection(collectionName)
-              .find({}, { projection: { cashRegister: 0, warehouse: 0, fNo: 0 }, sort: { _id: 1 }, skip, limit }).toArray();
-            console.log(`get ${skip} to ${limit} voucher duration ${new Date().getTime() - sttt}`);
+              .find({},
+                {
+                  projection: { cashRegister: 0, warehouse: 0, fNo: 0, rcm: 0, taxInclusiveRate: 0 },
+                  sort: { _id: 1 }, skip, limit,
+                })
+              .toArray();
+            console.log(`get ${skip} to ${limit+skip} voucher duration ${new Date().getTime() - sttt}`);
+            const afterGetVoucher = new Date().getTime();
             for (const voucher of vouchers) {
               const partyLoc = STATE.find((loc) => voucher.gstInfo.source.location.defaultName === loc.defaultName).code;
-              const singleVoucherTime = new Date().getTime();
               const doc: any = {
                 _id: voucher._id,
                 date: voucher.date,
@@ -807,7 +819,9 @@ export class Patch11Service {
               const invTrns = [];
               for (const item of voucher.invTrns) {
                 const tax = GST_TAXES.find(tax => tax.ratio.igst === item.tax.gstRatio.igst).code;
-                const batch = batches.find((bat: any) => bat.batch.toString() === item.batch);
+                const a = new Date().getTime();
+                const batch = batches.find((bat: any) => bat.batch === item.batch);
+                // console.log(`Compare batch Duration ${new Date().getTime() - a}`);
                 let expiry: any;
                 if (item.expMonth && item.expMonth < 10) {
                   expiry = new Date(new Date(`${item.expYear}-${0}${item.expMonth}-01`).setUTCHours(0, 0, 0, 0));
@@ -880,9 +894,10 @@ export class Patch11Service {
                 roundedOff: roundOff ? (roundOff.credit > 0 ? roundOff.credit * -1 : roundOff.debit) : 0,
               }
               const acItems = [];
+              const ac = new Date().getTime();
               for (const item of voucher.acTrns) {
                 if (item.account.defaultName === 'ROUNDED_OFF_SHORTAGE' || item.account.defaultName === 'DISCOUNT_RECEIVED') {
-                  const account = accounts.find((acc: any) => acc.id == item.account.id);
+                  const account = accounts.find((acc: any) => acc.id === item.account.id);
                   const acItemObj = {
                     _id: new Types.ObjectId(),
                     accountId: account.id,
@@ -900,7 +915,7 @@ export class Patch11Service {
                 let trnObj: any;
                 if (item.account.defaultName === 'TRADE_PAYABLE') {
                   let adjs: any;
-                  account = accounts.find((party) => party.party == voucher.vendor.id);
+                  account = accounts.find((party) => party.party === voucher.vendor.id);
                   const getPending = pendings
                     .find((pending: any) => (pending.byPending === voucher.vendorPending || pending.toPending === voucher.vendorPending));
                   if (getPending) {
@@ -933,14 +948,14 @@ export class Patch11Service {
                     debit: round(item.debit),
                     adjs,
                   }
-                  _.assign(doc, { creditAdjs: adjs, creditAccount: account.id, creditAmount: round(voucher.amount) });
+                  _.assign(doc, { creditAdjs: adjs, creditAccount: Types.ObjectId(account.id), creditAmount: round(voucher.amount) });
                 } else {
-                  account = accounts.find((acc) => acc.id == item.account.id);
+                  account = accounts.find((acc) => acc.id === item.account.id);
                   if (account.type === 'CASH') {
                     _.assign(doc, { cashAmount: (item.credit > 0) ? round(item.credit) : round(item.debit) });
                   }
                   if (account.type === 'BANK_ACCOUNT' || account.type === 'BANK_OD_ACCOUNT') {
-                    _.assign(doc, { bankAmount: (item.credit > 0) ? round(item.credit) : round(item.debit), bankAccount: account.id });
+                    _.assign(doc, { bankAmount: (item.credit > 0) ? round(item.credit) : round(item.debit), bankAccount: Types.ObjectId(account.id) });
                   }
                   trnObj = {
                     _id: item._id,
@@ -955,15 +970,10 @@ export class Patch11Service {
                 acTrns.push(trnObj);
               }
               _.assign(doc, { invTrns, invItems, acAdjs, acItems, acTrns });
-              const start = new Date().getTime();
-              console.log(`Single voucher obj Ready`, start - singleVoucherTime);
               bulkOperation.insert(doc);
-              console.log(`Single voucher obj inserted`, new Date().getTime() - singleVoucherTime)
-              const end = new Date().getTime();
-              console.log(`${skip} to ${limit + skip} Duration ${end - start}`);
-
             }
             const start1 = new Date().getTime();
+            console.log(`${skip} to ${limit + skip} object initialized DURATION ${(start1 - afterGetVoucher) / 1000}-sec`);
             console.log(`${skip} to ${limit + skip} patch object initialized`);
             console.log(`${skip} to ${limit + skip} bulk execution start....`);
             const result = await bulkOperation.execute();
