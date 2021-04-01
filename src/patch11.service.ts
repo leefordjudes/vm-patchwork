@@ -1436,6 +1436,168 @@ export class Patch11Service {
         }
       }
 
+      async function stockTransfer(collectionName: string, accounts: any, batches: any) {
+        const accId = accounts.find(x => x.type === 'STOCK').id;
+        const count = await connection.db().collection(collectionName).countDocuments();
+        console.log(`Total ${collectionName} count was ${count}`);
+        if (count > 0) {
+          const limit = 500;
+          const begin = new Date().getTime();
+          for (let skip = 0; skip <= count; skip = skip + limit) {
+            const start = new Date().getTime();
+            const bulkOperation = connection.db().collection('stock_transfers_new').initializeOrderedBulkOp();
+            const sttt = new Date().getTime();
+            console.log(`bulkOperation initialzed Duration ${start - sttt}`);
+            const vouchers: any = await connection.db().collection(collectionName)
+              .find({},
+                {
+                  projection: { __v: 0, fNo: 0 },
+                  sort: { _id: 1 }, skip, limit,
+                })
+              .toArray();
+            console.log(`get ${skip} to ${limit + skip} voucher duration ${new Date().getTime() - sttt}`);
+            const afterGetVoucher = new Date().getTime();
+            for (const voucher of vouchers) {
+              const amount = round(voucher.amount);
+              const doc: any = {
+                _id: voucher._id,
+                date: voucher.date,
+                branch: Types.ObjectId(voucher.branch.id),
+                targetBranch: Types.ObjectId(voucher.targetBranch.id),
+                approved: voucher.approved,
+                warehouse: null,
+                voucherType: voucher.voucherType,
+                refNo: voucher.refNo,
+                description: voucher.description,
+                voucherNo: voucher.voucherNo,
+                voucherName: voucher.voucherName,
+                createdBy: Types.ObjectId(voucher.createdBy),
+                updatedBy: Types.ObjectId(voucher.updatedBy),
+                createdAt: voucher.createdAt,
+                updatedAt: voucher.updatedAt,
+                amount,
+                act: false,
+                actHide: false,
+              };
+              const invTrns = [];
+              const invItems = [];
+              for (const item of voucher.invTrns) {
+                const batch = batches.find((bat: any) => bat.batch === item.batch);
+                if (item.branch === voucher.branch.id) {
+                  invTrns.push({
+                    _id: item._id,
+                    assetAmount: round(item.amount),
+                    batch: batch.transactionId,
+                    branch: Types.ObjectId(voucher.branch.id),
+                    inventory: Types.ObjectId(item.inventory.id),
+                    inward: 0,
+                    mrp: round(item.mrp),
+                    profitAmount: 0,
+                    profitPercent: 0,
+                    rate: round(item.cost),
+                    outward: item.qty * item.unit.conversion,
+                    warehouse: voucher.warehouse?.id ?? null,
+                  });
+                  invItems.push({
+                    _id: new Types.ObjectId(),
+                    batch: batch.transactionId,
+                    inventory: Types.ObjectId(item.inventory.id),
+                    mrp: round(item.mrp),
+                    qty: item.qty,
+                    rate: round(item.cost),
+                    unit: Types.ObjectId(item.unit.id),
+                    unitConv: item.unit.conversion,
+                    unitPrecision: item.unitPrecision,
+                  });
+                }
+                if (item.branch === voucher.targetBranch.id) {
+                  let expiry: any;
+                  if (item.expMonth && item.expMonth < 10) {
+                    expiry = new Date(new Date(`${item.expYear}-${0}${item.expMonth}-01`).setUTCHours(0, 0, 0, 0));
+                  } else if (item.expMonth && item.expMonth > 9) {
+                    expiry = new Date(new Date(`${item.expYear}-${item.expMonth}-01`).setUTCHours(0, 0, 0, 0));
+                  } else {
+                    expiry = null;
+                  }
+                  invTrns.push({
+                    _id: batch.transactionId,
+                    assetAmount: round(item.amount),
+                    batchNo: batch.batchNo,
+                    branch: Types.ObjectId(voucher.targetBranch.id),
+                    inventory: Types.ObjectId(item.inventory.id),
+                    inward: item.qty * item.unit.conversion,
+                    expiry,
+                    mrp: round(item.mrp),
+                    profitAmount: 0,
+                    profitPercent: 0,
+                    rate: round(item.cost),
+                    sRate: round(item.mrp), // No sRate that's why get MRP
+                    outward: 0,
+                    warehouse: voucher.warehouse?.id ?? null,
+                  });
+                  invItems.push({
+                    _id: new Types.ObjectId(),
+                    batchNo: batch.batchNo,
+                    inventory: Types.ObjectId(item.inventory.id),
+                    expiry,
+                    mrp: round(item.mrp),
+                    qty: item.qty,
+                    rate: round(item.cost),
+                    unit: Types.ObjectId(item.unit.id),
+                    unitConv: item.unit.conversion,
+                    unitPrecision: item.unitPrecision,
+                  });
+                }
+              }
+              const acTrns = [];
+              if (voucher.approved) {
+                acTrns.push(
+                  {
+                    _id: new Types.ObjectId(),
+                    account: Types.ObjectId(accId),
+                    branch: Types.ObjectId(voucher.branch.id),
+                    credit: round(voucher.amount),
+                    debit: 0,
+                  },
+                  {
+                    _id: new Types.ObjectId(),
+                    account: Types.ObjectId(accId),
+                    branch: Types.ObjectId(voucher.targetBranch.id),
+                    credit: 0,
+                    debit: round(voucher.amount),
+                  },
+                );
+              } else {
+                acTrns.push(
+                  {
+                    _id: new Types.ObjectId(),
+                    account: Types.ObjectId(accId),
+                    branch: Types.ObjectId(voucher.branch.id),
+                    credit: round(voucher.amount),
+                    debit: 0,
+                  },
+                );
+              }
+              _.assign(doc, { acTrns, invTrns, invItems });
+              let orderedDoc = {};
+              _(doc).keys().sort().each((key) => { orderedDoc[key] = doc[key] });
+              bulkOperation.insert(orderedDoc);
+            }
+            const start1 = new Date().getTime();
+            console.log(`${skip} to ${limit + skip} object initialized DURATION ${(start1 - afterGetVoucher) / 1000}-sec`);
+            console.log(`${skip} to ${limit + skip} patch object initialized`);
+            console.log(`${skip} to ${limit + skip} bulk execution start....`);
+            const result = await bulkOperation.execute();
+            console.log(`DURATION for only insert execute  ${(new Date().getTime() - start1) / 1000}-sec`);
+            console.log(`results are` + JSON.stringify({ insert: result.nInserted, err: result.hasWriteErrors() }));
+            console.log(`Total DURATION for ${skip} to ${limit + skip}  ${(new Date().getTime() - start) / 1000}-sec`);
+          }
+          console.log(`END ALL ${collectionName} and DURATION ${(new Date().getTime() - begin) / (1000 * 60)}-min`);
+        } else {
+          console.log(`${collectionName} Not Found`);
+        }
+      }
+
       await customerMaster();
       await accountMaster();
       await accountOpeningMerge();
@@ -1490,6 +1652,7 @@ export class Patch11Service {
       await saleVoucher('sales', accounts, pendings, batches);
       await saleVoucher('sale_returns', accounts, pendings, batches);
       await stockAdjustments('stock_adjustments', accounts, batches);
+      await stockTransfer('stock_transfers', accounts, batches);
       await connection.close();
       return 'OK';
     } catch (err) {
