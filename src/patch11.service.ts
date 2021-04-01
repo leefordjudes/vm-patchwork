@@ -36,7 +36,6 @@ export class Patch11Service {
         for (const cus of custs) {
           const gstCode = cus.gstInfo.gstNo.substring(0, 2);
           const loc = STATE.find((loc) => loc.code == gstCode);
-          console.log(loc);
           const obj = {
             updateOne: {
               filter: { _id: cus._id },
@@ -418,21 +417,21 @@ export class Patch11Service {
               }
               if (paymentCollections.includes(collectionName)) {
                 //voucherName = 'Payment';
-                debit = voucher.amount;
+                debit = round(voucher.amount);
                 credit = 0;
               }
               if (receiptCollections.includes(collectionName)) {
                 //voucherName = 'Receipt';
-                credit = voucher.amount;
+                credit = round(voucher.amount);
                 debit = 0;
               }
               if (collectionName === 'cashdeposits') {
-                credit = voucher.amount;
+                credit = round(voucher.amount);
                 debit = 0;
                 //voucherName = 'Contra';
               }
               if (collectionName === 'cashwithdrawals') {
-                debit = voucher.amount;
+                debit = round(voucher.amount);
                 credit = 0;
                 //voucherName = 'Contra';
               }
@@ -450,8 +449,7 @@ export class Patch11Service {
               }
               const doc: any = {
                 _id: voucher._id,
-                branchId: Types.ObjectId(voucher.branch.id),
-                branchName: voucher.branch.displayName,
+                branch: Types.ObjectId(voucher.branch.id),
                 date: voucher.date,
                 refNo: voucher.refNo,
                 description: voucher.description,
@@ -483,16 +481,14 @@ export class Patch11Service {
               const acItems = [
                 {
                   _id: new Types.ObjectId(),
-                  accountId: Types.ObjectId(partyAcc.id),
-                  accountName: partyAcc.displayName,
+                  account: Types.ObjectId(partyAcc.id),
                   accountType: partyAcc.type,
                   debit,
                   credit,
                 },
                 {
                   _id: new Types.ObjectId(),
-                  accountId: Types.ObjectId(cashAcc.id),
-                  accountName: cashAcc.displayName,
+                  account: Types.ObjectId(cashAcc.id),
                   accountType: cashAcc.type,
                   instNo: voucher.instNo,
                   instDate: voucher.instDate ? new Date(new Date(voucher.instDate).setUTCHours(0, 0, 0, 0)) : null,
@@ -503,21 +499,15 @@ export class Patch11Service {
               const acTrns = [
                 {
                   _id,
-                  accountId: Types.ObjectId(partyAcc.id),
-                  accountName: partyAcc.displayName,
-                  branchId: Types.ObjectId(voucher.branch.id),
-                  branchName: voucher.branch.displayName,
-                  isAlt: true,
+                  account: Types.ObjectId(partyAcc.id),
+                  branch: Types.ObjectId(voucher.branch.id),
                   debit,
                   credit,
                 },
                 {
                   _id: new Types.ObjectId(),
-                  accountId: Types.ObjectId(cashAcc.id),
-                  accountName: cashAcc.displayName,
-                  branchId: Types.ObjectId(voucher.branch.id),
-                  branchName: voucher.branch.displayName,
-                  isAlt: true,
+                  account: Types.ObjectId(cashAcc.id),
+                  branch: Types.ObjectId(voucher.branch.id),
                   debit: credit,
                   credit: debit,
                 },
@@ -530,9 +520,9 @@ export class Patch11Service {
                   .map((p) => {
                     return {
                       _id: new Types.ObjectId(),
-                      accountId: Types.ObjectId(partyAcc.id),
-                      pendingId: Types.ObjectId(p.toPending),
-                      amount: p.amount,
+                      account: Types.ObjectId(partyAcc.id),
+                      pending: Types.ObjectId(p.toPending),
+                      amount: round(p.amount),
                     };
                   });
                 _.assign(doc.acItems[0], { acAdjs });
@@ -567,41 +557,37 @@ export class Patch11Service {
           for (const voucher of vouchers) {
             const doc = {
               _id: voucher._id,
-              branchId: Types.ObjectId(voucher.branch.id),
-              branchName: voucher.branch.displayName,
+              branch: Types.ObjectId(voucher.branch.id),
               date: voucher.date,
               refNo: voucher.refNo,
               description: voucher.description,
-              voucherNo: voucher.voucherNo,
-              voucherName: 'Journal',
-              voucherType: 'JOURNAL',
               createdBy: Types.ObjectId(voucher.createdBy),
               updatedBy: Types.ObjectId(voucher.updatedBy),
               createdAt: voucher.createdAt,
               updatedAt: voucher.updatedAt,
+              voucherNo: voucher.voucherNo,
+              voucherName: 'Journal',
+              voucherType: 'JOURNAL',
             };
 
             const acItems = voucher.transactions.map((trn) => {
               const acc = accounts.find(acc => trn.account.id === acc.id);
               return {
                 _id: new Types.ObjectId(),
-                accountId: Types.ObjectId(acc.id),
-                accountName: acc.displayName,
+                account: Types.ObjectId(acc.id),
                 accountType: acc.type,
-                debit: trn.debit,
-                credit: trn.credit,
+                credit: round(trn.credit),
+                debit: round(trn.debit),
               }
             });
 
             const acTrns = voucher.transactions.map((trn) => {
               return {
                 _id: new Types.ObjectId(),
-                accountId: Types.ObjectId(trn.account.id),
-                accountName: trn.account.displayName,
-                branchId: Types.ObjectId(voucher.branch.id),
-                branchName: voucher.branch.displayName,
-                debit: trn.debit,
-                credit: trn.credit,
+                account: Types.ObjectId(trn.account.id),
+                branch: Types.ObjectId(voucher.branch.id),
+                credit: round(trn.credit),
+                debit: round(trn.debit),
               }
             });
             _.assign(doc, { acItems });
@@ -810,23 +796,20 @@ export class Patch11Service {
             console.log(`get ${skip} to ${limit + skip} voucher duration ${new Date().getTime() - sttt}`);
             const afterGetVoucher = new Date().getTime();
             for (const voucher of vouchers) {
-              const partyLoc = STATE.find((loc) => voucher.gstInfo.source.location.defaultName === loc.defaultName).code;
+              const partyLoc = STATE.find((loc) => voucher.gstInfo.source.location.defaultName === loc.defaultName).code.toString();
               const doc: any = {
                 _id: voucher._id,
                 date: voucher.date,
                 billDate: voucher?.billDate ?? voucher.date,
-                vendorId: Types.ObjectId(voucher.vendor.id),
-                vendorName: voucher.vendor.displayName,
-                branchId: Types.ObjectId(voucher.branch.id),
-                branchName: voucher.branch.displayName,
-                warehouseId: null,
-                warehouseName: null,
+                vendor: Types.ObjectId(voucher.vendor.id),
+                branch: Types.ObjectId(voucher.branch.id),
+                warehouse: null,
                 transactionMode: voucher.purchaseType,
                 voucherType: voucher.voucherType,
                 purchaseType: voucher.voucherType,
                 branchGst: {
                   regType: voucher.gstInfo.destination.regType.defaultName,
-                  location: 33,
+                  location: '33',
                   gstNo: voucher.gstInfo.destination.gstNo,
                 },
                 partyGst: {
@@ -870,9 +853,7 @@ export class Patch11Service {
 
                 const invItemObj = {
                   _id: new Types.ObjectId(),
-                  batchNo: batch.batchNo,
-                  inventoryId: Types.ObjectId(item.inventory.id),
-                  inventoryName: item.inventory.displayName,
+                  inventory: Types.ObjectId(item.inventory.id),
                   qty: item.qty,
                   mrp: round(item.mrp),
                   rate: round(item.rate),
@@ -880,50 +861,59 @@ export class Patch11Service {
                   unitPrecision: item.unitPrecision,
                   expiry,
                   hsnSac: item.hsnCode,
-                  unitId: Types.ObjectId(item.unit.id),
-                  unitName: item.unit.displayName,
+                  unit: Types.ObjectId(item.unit.id),
                   unitConv: item.unit.conversion,
                   tax,
-                  pRate: round(item.rate),
                 };
 
                 const invTrnObj = {
-                  _id: batch.transactionId,
-                  batch: batch.transactionId,
-                  inventoryId: Types.ObjectId(item.inventory.id),
-                  inventoryName: item.inventory.displayName,
-                  outward: 0,
+                  inventory: Types.ObjectId(item.inventory.id),
                   taxableAmount: round(item.taxableAmount),
-                  sgstAmount: round(item.cgstAmount),
-                  cgstAmount: round(item.sgstAmount),
-                  igstAmount: round(item.igstAmount),
-                  cessAmount: round(item.cessAmount),
                   assetAmount: round(item.assetAmount),
                   mrp: round(item.mrp),
-                  batchNo: batch.batchNo,
                   tax,
-                  pRate: round(item.rate),
+                  rate: round(item.rate),
                   profitAmount: 0,
                   profitPercent: 0,
                   expiry,
                   hsnSac: item.hsnCode,
-                  warehouseId: voucher.warehouse?.id ?? null,
-                  warehouseName: voucher.warehouse?.displayName ?? null,
-                  branchId: Types.ObjectId(voucher.branch.id),
-                  branchName: voucher.branch.displayName,
+                  warehouse: voucher.warehouse?.id ?? null,
+                  branch: Types.ObjectId(voucher.branch.id),
+                  outward: 0,
                 };
+                if (item.cgstAmount > 0) {
+                  _.assign(invTrnObj, { cgstAmount: round(item.igstAmount) });
+                }
+                if (item.sgstAmount > 0) {
+                  _.assign(invTrnObj, { sgstAmount: round(item.igstAmount) });
+                }
+                if (item.igstAmount > 0) {
+                  _.assign(invTrnObj, { igstAmount: round(item.igstAmount) });
+                }
+                if (item.cessAmount > 0) {
+                  _.assign(invTrnObj, { cessAmount: round(item.cessAmount) });
+                }
                 if (collectionName === 'purchases') {
                   const freeQty = (item?.freeQty > 0) ? item.freeQty : 0;
                   const inward = (item.qty + freeQty) * item.unit.conversion;
                   const nlc = round(item.taxableAmount / (item.qty + (item?.freeQty || 0)) / item.unit.conversion);
-                  _.assign(invItemObj, { freeQty, nlc, sRate: round(item.sRate) });
-                  _.assign(invTrnObj, { inward, sRate: round(item.sRate) });
+                  _.assign(invItemObj, { batchNo: batch.batchNo, freeQty, sRate: round(item.sRate) });
+                  _.assign(invTrnObj, { _id: batch.transactionId, nlc, batchNo: batch.batchNo, inward, sRate: round(item.sRate) });
                 } else {
                   const inward = item.qty * item.unit.conversion * -1;
-                  _.assign(invTrnObj, { inward });
+                  _.assign(invItemObj, { batch: batch.transactionId });
+                  _.assign(invTrnObj, { inward, batch: batch.transactionId, _id: new Types.ObjectId() });
                 }
-                invItems.push(invItemObj);
-                invTrns.push(invTrnObj);
+                let orderedInvItem = {};
+                _(invItemObj).keys().sort().each((key) => {
+                  orderedInvItem[key] = invItemObj[key];
+                });
+                let orderedInvTrn = {};
+                _(invTrnObj).keys().sort().each((key) => {
+                  orderedInvTrn[key] = invTrnObj[key];
+                });
+                invItems.push(orderedInvItem);
+                invTrns.push(orderedInvTrn);
               }
               const roundOff = voucher.acTrns.find((acc: any) => (acc.account.defaultName === 'ROUNDED_OFF_SHORTAGE'));
               const acAdjs = {
@@ -931,14 +921,12 @@ export class Patch11Service {
                 roundedOff: roundOff ? (roundOff.credit > 0 ? roundOff.credit * -1 : roundOff.debit) : 0,
               }
               const acItems = [];
-              const ac = new Date().getTime();
               for (const item of voucher.acTrns) {
                 if (['ROUNDED_OFF_SHORTAGE', 'DISCOUNT_RECEIVED'].includes(item.account?.defaultName)) {
                   const account = accounts.find((acc: any) => acc.id === item.account.id);
                   const acItemObj = {
                     _id: new Types.ObjectId(),
-                    accountId: Types.ObjectId(account.id),
-                    accountName: account.displayName,
+                    account: Types.ObjectId(account.id),
                     accountType: account.type,
                     amount: item.credit > 0 ? -item.credit : item.debit,
                   }
@@ -966,9 +954,9 @@ export class Patch11Service {
                       .map((p) => {
                         return {
                           _id: new Types.ObjectId(),
-                          accountId: Types.ObjectId(account.id),
-                          pendingId: Types.ObjectId(p.toPending),
+                          account: Types.ObjectId(account.id),
                           amount: round(p.amount),
+                          pending: Types.ObjectId(p.toPending),
                         };
                       });
                   } else if (!getPending) {
@@ -977,13 +965,11 @@ export class Patch11Service {
                   }
                   trnObj = {
                     _id,
-                    accountId: Types.ObjectId(account.id),
-                    accountName: account.displayName,
-                    branchId: Types.ObjectId(voucher.branch.id),
-                    branchName: voucher.branch.displayName,
+                    account: Types.ObjectId(account.id),
+                    adjs,
+                    branch: Types.ObjectId(voucher.branch.id),
                     credit: round(item.credit),
                     debit: round(item.debit),
-                    adjs,
                   }
                   _.assign(doc, { creditAdjs: adjs, creditAccount: Types.ObjectId(account.id), creditAmount: round(voucher.amount) });
                 } else {
@@ -996,18 +982,20 @@ export class Patch11Service {
                   }
                   trnObj = {
                     _id: item._id,
-                    accountId: Types.ObjectId(account.id),
-                    accountName: account.displayName,
-                    branchId: Types.ObjectId(voucher.branch.id),
-                    branchName: voucher.branch.displayName,
+                    account: Types.ObjectId(account.id),
+                    branch: Types.ObjectId(voucher.branch.id),
                     credit: round(item.credit),
                     debit: round(item.debit),
                   }
                 }
                 acTrns.push(trnObj);
               }
-              _.assign(doc, { invTrns, invItems, acAdjs, acItems, acTrns });
-              bulkOperation.insert(doc);
+              _.assign(doc, { acAdjs, acItems, acTrns, invTrns, invItems });
+              let orderedDoc = {};
+              _(doc).keys().sort().each((key) => {
+                orderedDoc[key] = doc[key];
+              });
+              bulkOperation.insert(orderedDoc);
             }
             const start1 = new Date().getTime();
             console.log(`${skip} to ${limit + skip} object initialized DURATION ${(start1 - afterGetVoucher) / 1000}-sec`);
@@ -1048,11 +1036,9 @@ export class Patch11Service {
             const afterGetVoucher = new Date().getTime();
             for (const voucher of vouchers) {
               let partyGst = {};
-              let customerId: any;
-              let customerName: any;
+              let customer: any;
               if (voucher.customer) {
-                customerId = Types.ObjectId(voucher.customer.id);
-                customerName = voucher.customer.displayName;
+                customer = Types.ObjectId(voucher.customer.id);
                 if (voucher.gstInfo.destination) {
                   const regType = voucher.gstInfo.destination.regType.defaultName;
                   partyGst = { regType };
@@ -1080,18 +1066,14 @@ export class Patch11Service {
                 }
               } else {
                 partyGst = null;
-                customerId = null;
-                customerName = null;
+                customer = null;
               }
               const doc: any = {
                 _id: voucher._id,
                 date: voucher.date,
-                customerId,
-                customerName,
-                branchId: Types.ObjectId(voucher.branch.id),
-                branchName: voucher.branch.displayName,
-                warehouseId: null,
-                warehouseName: null,
+                customer,
+                branch: Types.ObjectId(voucher.branch.id),
+                warehouse: null,
                 voucherType: voucher.voucherType,
                 branchGst: {
                   regType: 'REGULAR',
@@ -1106,7 +1088,7 @@ export class Patch11Service {
                 // sRateTaxInc: true, later
                 cashAmount: 0,
                 bankAmount: 0,
-                bankAccount: undefined,
+                bankAccount: null,
                 creditAmount: 0,
                 creditAccount: null,
                 voucherNo: voucher.voucherNo,
@@ -1132,7 +1114,6 @@ export class Patch11Service {
                 if (!batch) {
                   batch = {
                     voucherNo: voucher.voucherNo,
-                    inventoryName: item.inventory.displayName,
                     batch: item.batch,
                     batchNo: item.batchNo,
                     transactionId: item.batch,
@@ -1146,6 +1127,7 @@ export class Patch11Service {
                     branch: voucher.branch.id,
                     branchName: voucher.branch.name,
                     qty: item.qty * item.unit.conversion,
+                    rowNo: item.serialNo + 1,
                   };
                   await connection.db().collection('missing_batch').insertOne(doc123);
                 }
@@ -1160,28 +1142,24 @@ export class Patch11Service {
                 const invItemObj = {
                   _id: new Types.ObjectId(),
                   batch: batch.transactionId,
-                  inventoryId: Types.ObjectId(item.inventory.id),
-                  inventoryName: item.inventory.displayName,
+                  inventory: Types.ObjectId(item.inventory.id),
                   qty: item.qty,
                   mrp: round(item.mrp),
                   rate: round(item.rate),
                   disc: round(item.discount),
-                  unitPrecision: item.unitPrecision,
                   expiry,
                   hsnSac: item.hsnCode,
-                  unitId: Types.ObjectId(item.unit.id),
-                  unitName: item.unit.displayName,
+                  unit: Types.ObjectId(item.unit.id),
                   unitConv: item.unit.conversion,
+                  unitPrecision: item.unitPrecision,
                   tax,
-                  sInc: item.sInc ? Types.ObjectId(item.sInc) : undefined,
                 };
 
                 const invTrnObj = {
                   _id: new Types.ObjectId(),
                   batch: batch.transactionId,
-                  inventoryId: Types.ObjectId(item.inventory.id),
-                  inventoryName: item.inventory.displayName,
-                  imward: 0,
+                  inventory: Types.ObjectId(item.inventory.id),
+                  inward: 0,
                   taxableAmount: round(item.taxableAmount),
                   sgstAmount: round(item.cgstAmount),
                   cgstAmount: round(item.sgstAmount),
@@ -1195,10 +1173,8 @@ export class Patch11Service {
                   profitPercent: round((item.taxableAmount - item.assetAmount) / item.taxableAmount * 100),
                   expiry,
                   hsnSac: item.hsnCode,
-                  warehouseId: voucher.warehouse?.id ?? null,
-                  warehouseName: voucher.warehouse?.displayName ?? null,
-                  branchId: Types.ObjectId(voucher.branch.id),
-                  branchName: voucher.branch.displayName,
+                  warehouse: voucher.warehouse?.id ?? null,
+                  branch: Types.ObjectId(voucher.branch.id),
                 };
                 if (item.sInc) {
                   _.assign(invItemObj, { sInc: Types.ObjectId(item.sInc) });
@@ -1209,8 +1185,13 @@ export class Patch11Service {
                 } else {
                   _.assign(invTrnObj, { outward: item.qty * item.unit.conversion * -1 });
                 }
-                invItems.push(invItemObj);
-                invTrns.push(invTrnObj);
+
+                let orderedInvTrn = {};
+                _(invTrnObj).keys().sort().each((key) => { orderedInvTrn[key] = invTrnObj[key] });
+                let orderedInvItem = {};
+                _(invItemObj).keys().sort().each((key) => { orderedInvItem[key] = invItemObj[key] });
+                invItems.push(orderedInvItem);
+                invTrns.push(orderedInvTrn);
               }
               const roundOff = voucher.acTrns.find((acc: any) => (acc.account.defaultName === 'ROUNDED_OFF_SURPLUS'));
               const acAdjs = {
@@ -1223,8 +1204,7 @@ export class Patch11Service {
                   const account = accounts.find((acc: any) => acc.id === item.account.id);
                   const acItemObj = {
                     _id: new Types.ObjectId(),
-                    accountId: Types.ObjectId(account.id),
-                    accountName: account.displayName,
+                    account: Types.ObjectId(account.id),
                     accountType: account.type,
                     amount: item.credit > 0 ? -item.credit : item.debit,
                   }
@@ -1252,9 +1232,9 @@ export class Patch11Service {
                       .map((p) => {
                         return {
                           _id: new Types.ObjectId(),
-                          accountId: Types.ObjectId(account.id),
-                          pendingId: Types.ObjectId(p.toPending),
+                          account: Types.ObjectId(account.id),
                           amount: round(p.amount),
+                          pending: Types.ObjectId(p.toPending),
                         };
                       });
                   } else if (!getPending) {
@@ -1263,10 +1243,8 @@ export class Patch11Service {
                   }
                   trnObj = {
                     _id,
-                    accountId: Types.ObjectId(account.id),
-                    accountName: account.displayName,
-                    branchId: Types.ObjectId(voucher.branch.id),
-                    branchName: voucher.branch.displayName,
+                    account: Types.ObjectId(account.id),
+                    branch: Types.ObjectId(voucher.branch.id),
                     credit: round(item.credit),
                     debit: round(item.debit),
                     adjs,
@@ -1284,18 +1262,18 @@ export class Patch11Service {
                   }
                   trnObj = {
                     _id: item._id,
-                    accountId: Types.ObjectId(account.id),
-                    accountName: account.displayName,
-                    branchId: Types.ObjectId(voucher.branch.id),
-                    branchName: voucher.branch.displayName,
+                    account: Types.ObjectId(account.id),
+                    branch: Types.ObjectId(voucher.branch.id),
                     credit: round(item.credit),
                     debit: round(item.debit),
                   }
                 }
                 acTrns.push(trnObj);
               }
-              _.assign(doc, { invTrns, invItems, acAdjs, acItems, acTrns });
-              bulkOperation.insert(doc);
+              _.assign(doc, { acAdjs, acItems, acTrns, invTrns, invItems });
+              let orderedDoc = {};
+              _(doc).keys().sort().each((key) => { orderedDoc[key] = doc[key] });
+              bulkOperation.insert(orderedDoc);
             }
 
             const start1 = new Date().getTime();
@@ -1318,7 +1296,7 @@ export class Patch11Service {
         const count = await connection.db().collection(collectionName).countDocuments();
         console.log(`Total ${collectionName} count was ${count}`);
         if (count > 0) {
-          const limit = 1;
+          const limit = 500;
           const begin = new Date().getTime();
           for (let skip = 0; skip <= count; skip = skip + limit) {
             const start = new Date().getTime();
@@ -1339,10 +1317,8 @@ export class Patch11Service {
               const doc: any = {
                 _id: voucher._id,
                 date: voucher.date,
-                branchId: Types.ObjectId(voucher.branch.id),
-                branchName: voucher.branch.displayName,
-                warehouseId: null,
-                warehouseName: null,
+                branch: Types.ObjectId(voucher.branch.id),
+                warehouse: null,
                 voucherType: voucher.voucherType,
                 refNo: voucher.refNo,
                 description: voucher.description,
@@ -1358,7 +1334,7 @@ export class Patch11Service {
                 acItems: [
                   {
                     _id: new Types.ObjectId(),
-                    accountId: Types.ObjectId(accId),
+                    account: Types.ObjectId(accId),
                     accountType: 'STOCK',
                     amount,
                   }
@@ -1366,8 +1342,8 @@ export class Patch11Service {
                 acTrns: [
                   {
                     _id: new Types.ObjectId(),
-                    accountId: Types.ObjectId(accId),
-                    branchId: Types.ObjectId(voucher.branch.id),
+                    account: Types.ObjectId(accId),
+                    branch: Types.ObjectId(voucher.branch.id),
                     credit: amount < 0 ? Math.abs(amount) : 0,
                     debit: amount > 0 ? amount : 0,
                     bwd: false,
@@ -1411,42 +1387,39 @@ export class Patch11Service {
                 const invItemObj = {
                   _id: new Types.ObjectId(),
                   batch: batch.transactionId,
-                  inventoryId: Types.ObjectId(item.inventory.id),
-                  inventoryName: item.inventory.displayName,
-                  qty: item.qty,
-                  mrp: round(item.mrp),
-                  rate: round(item.cost),
-                  unitPrecision: item.unitPrecision,
                   expiry,
-                  unitId: Types.ObjectId(item.unit.id),
-                  unitName: item.unit.displayName,
+                  inventory: Types.ObjectId(item.inventory.id),
+                  mrp: round(item.mrp),
+                  qty: item.qty,
+                  rate: round(item.cost),
+                  unit: Types.ObjectId(item.unit.id),
                   unitConv: item.unit.conversion,
+                  unitPrecision: item.unitPrecision,
                 };
                 const value = item.qty * item.unit.conversion;
 
                 const invTrnObj = {
                   _id: item._id,
-                  batch: batch.transactionId,
-                  inventoryId: Types.ObjectId(item.inventory.id),
-                  inventoryName: item.inventory.displayName,
-                  outward: value < 0 ? Math.abs(value) : 0,
-                  inward: value > 0 ? value : 0,
                   assetAmount: round(item.amount),
+                  batch: batch.transactionId,
+                  branch: Types.ObjectId(voucher.branch.id),
+                  expiry,
+                  inventory: Types.ObjectId(item.inventory.id),
+                  inward: value > 0 ? value : 0,
                   mrp: round(item.mrp),
-                  rate: round(item.cost),
                   profitAmount: 0,
                   profitPercent: 0,
-                  expiry,
-                  warehouseId: voucher.warehouse?.id ?? null,
-                  warehouseName: voucher.warehouse?.displayName ?? null,
-                  branchId: Types.ObjectId(voucher.branch.id),
-                  branchName: voucher.branch.displayName,
+                  rate: round(item.cost),
+                  outward: value < 0 ? Math.abs(value) : 0,
+                  warehouse: voucher.warehouse?.id ?? null,
                 };
                 invItems.push(invItemObj);
                 invTrns.push(invTrnObj);
               }
               _.assign(doc, { invTrns, invItems });
-              bulkOperation.insert(doc);
+              let orderedDoc = {};
+              _(doc).keys().sort().each((key) => { orderedDoc[key] = doc[key] });
+              bulkOperation.insert(orderedDoc);
             }
             const start1 = new Date().getTime();
             console.log(`${skip} to ${limit + skip} object initialized DURATION ${(start1 - afterGetVoucher) / 1000}-sec`);
@@ -1463,10 +1436,10 @@ export class Patch11Service {
         }
       }
 
-      // await customerMaster();
-      // await accountMaster();
-      // await accountOpeningMerge();
-      // await mergePendingAdjustment();
+      await customerMaster();
+      await accountMaster();
+      await accountOpeningMerge();
+      await mergePendingAdjustment();
 
       const pendings: any = await connection.db().collection('accountpendingadjustments')
         .find({}, { projection: { _id: 0, __v: 0 } }).toArray();
@@ -1490,19 +1463,19 @@ export class Patch11Service {
         'journals'
       ];
 
-      // for (const coll of collectionNames) {
-      //   if (['customerpayments', 'customerreceipts', 'vendorpayments', 'vendorreceipts'].includes(coll)) {
-      //     await accVoucher(coll, accounts, pendings);
-      //   }
-      //   if (['accountreceipts', 'accountpayments', 'expenses', 'incomes', 'cashdeposits', 'cashwithdrawals'].includes(coll)) {
-      //     await accVoucher(coll, accounts);
-      //   }
-      //   if (coll === 'journals') {
-      //     await journalVoucher(coll, accounts);
-      //   }
-      // }
+      for (const coll of collectionNames) {
+        if (['customerpayments', 'customerreceipts', 'vendorpayments', 'vendorreceipts'].includes(coll)) {
+          await accVoucher(coll, accounts, pendings);
+        }
+        if (['accountreceipts', 'accountpayments', 'expenses', 'incomes', 'cashdeposits', 'cashwithdrawals'].includes(coll)) {
+          await accVoucher(coll, accounts);
+        }
+        if (coll === 'journals') {
+          await journalVoucher(coll, accounts);
+        }
+      }
 
-      // await reArrangeBatch();
+      await reArrangeBatch();
       const batches: any = await connection.db().collection('batches_rearrange')
         .find({}, { projection: { transactionId: 1, batch: 1, batchNo: 1, _id: 0 } })
         .map((elm: any) => {
@@ -1512,9 +1485,10 @@ export class Patch11Service {
             batchNo: elm.batchNo,
           }
         }).toArray();
-      // await purchaseVoucher('purchases', accounts, pendings, batches);
-      // await purchaseVoucher('purchase_returns', accounts, pendings, batches);
-      //await saleVoucher('sales1', accounts, pendings, batches);
+      await purchaseVoucher('purchases', accounts, pendings, batches);
+      await purchaseVoucher('purchase_returns', accounts, pendings, batches);
+      await saleVoucher('sales', accounts, pendings, batches);
+      await saleVoucher('sale_returns', accounts, pendings, batches);
       await stockAdjustments('stock_adjustments', accounts, batches);
       await connection.close();
       return 'OK';
@@ -1530,17 +1504,21 @@ export class Patch11Service {
         useUnifiedTopology: true,
         useNewUrlParser: true,
       }).connect();
+      const dropIndexCollections = ['sales', 'purchases', 'test'];
+
       const deleteCollectionList = [
         'accountopenings_old', 'accountpayments', 'accountpendingadjustments', 'accountreceipts',
         'act_account_map', 'act_account_openings', 'act_accountbooks', 'act_accounts',
         'act_gst_registrations', 'act_import_field_map', 'act_import_sessions', 'act_inventories',
         'act_inventory_details', 'act_inventory_openings', 'act_inventorybooks', 'act_vouchers',
+        'batches', 'batches_rearrange',
         'cashdeposits', 'cashregisterbooks', 'cashwithdrawals', 'configurations',
         'currentpreferences', 'customerbooks', 'customeropenings', 'customerpayments',
         'customerpendingadjustments', 'customerpendings', 'customerreceipts', 'expenses',
         'gstoutwards', 'gsttransactions', 'incomes', 'inventory_openings_old',
         'journals', 'reviews', 'vendorbooks', 'vendoropenings',
         'vendorpayments', 'vendorpendingadjustments', 'vendorpendings', 'vendorreceipts',
+        'purchase_returns', 'sale_returns', 'purchases_old', 'sales_old',
       ];
       console.log('---connected---');
       // const list = await connection.db().listCollections().toArray();
@@ -1549,6 +1527,16 @@ export class Patch11Service {
       //     if (item.name === x) {
       //       console.log(`${item.name} collection deleted`);
       //       await connection.db().dropCollection(x);
+      //     }
+      //   };
+      // }
+
+      // for (const item of list) {
+      //   for (const coll of dropIndexCollections) {
+      //     if (item.name === coll) {
+      //       await connection.db().collection(coll).dropIndexes();
+      //       console.log(`${item.name} index dropped`);
+      //       //await connection.db().dropCollection(x);
       //     }
       //   };
       // }
