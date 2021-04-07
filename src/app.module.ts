@@ -25,6 +25,8 @@ import { Patch10Controller } from './patch10.controller';
 import { Patch10Service } from './patch10.service';
 import { Patch11Service } from './patch11.service';
 import { Patch11Controller } from './patch11.controller';
+import { TestService } from './test.service';
+import { TestController } from './test.controller';
 
 // const URI = 'mongodb+srv://username:password@host/database?retryWrites=true&w=majority';
 // const URI =  `mongodb://admin:12345678@192.168.1.20:27017/velavanmedical1?authSource=admin`;
@@ -50,6 +52,7 @@ import { Patch11Controller } from './patch11.controller';
     // Patch8Controller,
     // Patch10Controller,
     Patch11Controller,
+    TestController,
   ],
   providers: [
     // AppService,
@@ -63,6 +66,7 @@ import { Patch11Controller } from './patch11.controller';
     // Patch8Service,
     // Patch10Service,
     Patch11Service,
+    TestService,
   ],
 })
 export class AppModule {}

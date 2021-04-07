@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { MongoClient } from 'mongodb';
-import { Schema, Types } from 'mongoose';
+import { Types } from 'mongoose';
 import * as _ from 'lodash';
 
 import { URI } from './config';
@@ -9,27 +9,18 @@ import { STATE } from './fixtures/state/state';
 import { round } from './utils/utils';
 
 @Injectable()
-export class Patch11Service {
-  async patch11() {
+export class TestService {
+  async test() {
     try {
-      var connection = await new MongoClient(URI, {
+      const connection = await new MongoClient(URI, {
         useUnifiedTopology: true,
         useNewUrlParser: true,
       }).connect();
-
-      console.log('---connected---');
-      const connectdb = connection.db().databaseName;
-      console.log(connectdb);
-      const auditplusDB = await connection
-        .db('auditplusdb')
-        .collection('organizations')
-        .findOne({ name: connectdb });
-      const date = auditplusDB.bookBegin;
-      date.setDate(date.getDate() - 1);
-      const user = await connection.db().collection('users').findOne({ isAdmin: true });
-      async function customerMaster() {
+      console.log(connection.isConnected ? `Connected successfully` : `Connection Error`);
+      async function customerMaster(db: string) {
+        console.log({ organization: db, collectionName: 'customers' });
         const arr = [];
-        const custs: any = await connection.db().collection('customers')
+        const custs: any = await connection.db(db).collection('customers')
           .find(
             { 'gstInfo.regType.defaultName': 'SPECIAL_ECONOMIC_ZONE' },
             { projection: { gstInfo: 1 } }).toArray();
@@ -45,21 +36,22 @@ export class Patch11Service {
           arr.push(obj);
         }
         if (arr.length > 0) {
-          await connection.db().collection('customers').bulkWrite(arr);
+          await connection.db(db).collection('customers').bulkWrite(arr);
         } else {
           console.log('SPECIAL_ECONOMIC_ZONE customers N.A');
         }
       }
-      async function accountMaster() {
+      async function accountMaster(db: string) {
+        console.log({ organization: db, collectionName: 'accounts' });
         console.log('1.account updatation start....');
-        await connection.db().collection('accounts')
+        await connection.db(db).collection('accounts')
           .deleteMany({ defaultName: { $in: ['TRADE_RECEIVABLE', 'TRADE_PAYABLE', 'COST_OF_GOODS_SOLD'] } });
-        await connection.db().collection('accounts').updateOne({ defaultName: 'Postage' }, {
+        await connection.db(db).collection('accounts').updateOne({ defaultName: 'Postage' }, {
           $set: {
             defaultName: 'POSTAGE',
           }
         });
-        await connection.db().collection('accounts').updateOne({ defaultName: 'REPAIRS_AND_MAINTANANCE' }, {
+        await connection.db(db).collection('accounts').updateOne({ defaultName: 'REPAIRS_AND_MAINTANANCE' }, {
           $set: {
             name: 'Repairs And Maintenance',
             validateName: 'repairsandmaintenance',
@@ -67,7 +59,7 @@ export class Patch11Service {
             defaultName: 'REPAIRS_AND_MAINTENANCE',
           }
         });
-        await connection.db().collection('accounts').updateOne({ defaultName: 'PRINTING_AND_STATIONARY' }, {
+        await connection.db(db).collection('accounts').updateOne({ defaultName: 'PRINTING_AND_STATIONARY' }, {
           $set: {
             name: 'Printing And Stationery',
             validateName: 'printingandstationery',
@@ -75,25 +67,26 @@ export class Patch11Service {
             defaultName: 'PRINTING_AND_STATIONERY',
           }
         });
-        await connection.db().collection('accounts').updateOne({ defaultName: 'FURNITUREANDEQUIPMENT' }, {
+        await connection.db(db).collection('accounts').updateOne({ defaultName: 'FURNITUREANDEQUIPMENT' }, {
           $set: {
             defaultName: 'FURNITURE_AND_EQUIPMENT',
           }
         });
-
+        await connection.db(db).collection('costcategories').updateOne({defaultName: 'PRIMARY'}, {$set: {validateName: 'primary'}});
         console.log('1.account updatation end....');
         console.log('1.account creation started....');
-        const customerPenddings: any = await connection.db().collection('customerpendings').find({}, { projection: { customer: 1 } }).toArray();
+        const user = await connection.db(db).collection('users').findOne({ isAdmin: true });
+        const customerPenddings: any = await connection.db(db).collection('customerpendings').find({}, { projection: { customer: 1 } }).toArray();
         const customerIds = _.uniq(customerPenddings.map((x) => x.customer)).map((y: any) => Types.ObjectId(y));
         console.log(`${customerIds.length} - Credit Customer found`);
-        const customers: any = await connection.db().collection('customers').find({ _id: { $in: customerIds } }, { projection: { name: 1, contactInfo: 1 } }).toArray();
+        const customers: any = await connection.db(db).collection('customers').find({ _id: { $in: customerIds } }, { projection: { name: 1, contactInfo: 1 } }).toArray();
         console.log(`${customers.length} === ${customerIds.length}` ? 'get credit customer only' : 'Miss matched');
-        const vendorPenddings: any = await connection.db().collection('vendorpendings').find({}, { projection: { vendor: 1 } }).toArray();
+        const vendorPenddings: any = await connection.db(db).collection('vendorpendings').find({}, { projection: { vendor: 1 } }).toArray();
         const vendorIds = _.uniq(vendorPenddings.map((x) => x.vendor)).map((y: any) => Types.ObjectId(y));
         console.log(`${vendorIds.length} - Credit Vendor found`);
-        const vendors: any = await connection.db().collection('vendors').find({ _id: { $in: vendorIds } }, { projection: { name: 1, contactInfo: 1 } }).toArray();
+        const vendors: any = await connection.db(db).collection('vendors').find({ _id: { $in: vendorIds } }, { projection: { name: 1, contactInfo: 1 } }).toArray();
         console.log(`${vendors.length} === ${vendorIds.length}` ? 'get credit vendor only' : 'Miss matched');
-        const bulkAccount = connection.db().collection('accounts').initializeOrderedBulkOp();
+        const bulkAccount = connection.db(db).collection('accounts').initializeOrderedBulkOp();
         const obj = {
           hide: false,
           aliasName: '',
@@ -174,7 +167,12 @@ export class Patch11Service {
         console.log('1.account creation end....');
       }
 
-      async function accountOpeningMerge() {
+      async function accountOpeningMerge(db: string) {
+        console.log({ organization: db, collectionName: 'account_openings' });
+        const auditplusDB = await connection.db('auditplusdb').collection('organizations').findOne({ name: db });
+        const date = auditplusDB.bookBegin;
+        date.setDate(date.getDate() - 1);
+        const user = await connection.db(db).collection('users').findOne({ isAdmin: true });
         const accOpeningPipeLine = [
           {
             $project: {
@@ -348,54 +346,52 @@ export class Patch11Service {
           { $merge: 'accountopenings_new' },
         ];
 
-        const accOpCount = await connection.db().collection('accountopenings').countDocuments();
-        const cusOpCount = await connection.db().collection('customeropenings').countDocuments();
-        const venOpCount = await connection.db().collection('vendoropenings').countDocuments();
+        const accOpCount = await connection.db(db).collection('accountopenings').countDocuments();
+        const cusOpCount = await connection.db(db).collection('customeropenings').countDocuments();
+        const venOpCount = await connection.db(db).collection('vendoropenings').countDocuments();
         console.log({ accOpCount, cusOpCount, venOpCount });
         if (accOpCount > 0) {
-          await connection.db().collection('accountopenings').aggregate(accOpeningPipeLine).toArray();
+          await connection.db(db).collection('accountopenings').aggregate(accOpeningPipeLine).toArray();
         } else {
-          await connection.db().dropCollection('accountopenings');
-          await connection.db().createCollection('accountopenings');
+          await connection.db(db).dropCollection('accountopenings');
+          await connection.db(db).createCollection('accountopenings');
           console.log('No Account Openings Found');
         }
         if (cusOpCount > 0) {
-          await connection.db().collection('customeropenings').aggregate(customerOpeningPipeLine).toArray();
+          await connection.db(db).collection('customeropenings').aggregate(customerOpeningPipeLine).toArray();
         } else {
           console.log('No Customer Openings Found');
         }
         if (venOpCount > 0) {
-          await connection.db().collection('vendoropenings').aggregate(vendorOpeningPipeLine).toArray();
+          await connection.db(db).collection('vendoropenings').aggregate(vendorOpeningPipeLine).toArray();
         } else {
           console.log('No Vendoropenings Found');
         }
-        await connection.db().collection('accountopenings').rename('accountopenings_old');
-        const accOpening = await connection.db().collection('accountopenings_new').rename('accountopenings');
-        await accOpening.createIndex({ accountId: 1 });
-        await accOpening.createIndex({ branchId: 1 });
         console.log('Account opening merge Sucess');
       }
 
-      async function mergePendingAdjustment() {
-        await connection.db().collection('customerpendingadjustments')
+      async function mergePendingAdjustment(db: string) {
+        console.log({ organization: db, collectionName: 'accountpendingadjustments' });
+        await connection.db(db).collection('customerpendingadjustments')
           .aggregate([
             { $merge: 'accountpendingadjustments' }
           ]).toArray();
-        await connection.db().collection('vendorpendingadjustments')
+        await connection.db(db).collection('vendorpendingadjustments')
           .aggregate([
             { $merge: 'accountpendingadjustments' }
           ]).toArray();
       }
 
-      async function accVoucher(collectionName: string, accounts: any, pendings?: any) {
-        const count = await connection.db().collection(collectionName).countDocuments();
+      async function accVoucher(db: string, collectionName: string, accounts: any, pendings?: any) {
+        const count = await connection.db(db).collection(collectionName).countDocuments();
         if (count > 0) {
           console.log(`Total count of ${collectionName} was ${count}`);
           const limit = 1000;
           console.log(`${collectionName} START`);
           for (let skip = 0; skip <= count; skip = skip + limit) {
+            console.log({ organization: db, collectionName });
             const docs = [];
-            const vouchers: any = await connection.db().collection(collectionName)
+            const vouchers: any = await connection.db(db).collection(collectionName)
               .find({}, { projection: { cashRegister: 0 }, sort: { _id: 1 }, skip, limit }).toArray();
             for (const voucher of vouchers) {
               let voucherPending: string;
@@ -538,7 +534,7 @@ export class Patch11Service {
             }
             console.log(`${skip} to ${limit + skip} new documents generated for ${collectionName}`);
             console.log(`${skip} to ${limit + skip} bulk insert started....`);
-            await connection.db().collection('vouchers').insertMany(docs);
+            await connection.db(db).collection('vouchers').insertMany(docs);
             console.log(`${skip} to ${limit + skip} bulk insert end for ${collectionName}....`);
           }
           console.log(`${collectionName} END`);
@@ -547,12 +543,13 @@ export class Patch11Service {
         }
       }
 
-      async function journalVoucher(collectionName: string, accounts: any) {
+      async function journalVoucher(db: string, collectionName: string, accounts: any) {
+        console.log({ organization: db, collectionName });
         console.log(`${collectionName} Start`);
-        const journalsCount = await connection.db().collection(collectionName).countDocuments();
+        const journalsCount = await connection.db(db).collection(collectionName).countDocuments();
         if (journalsCount > 0) {
           const docs = [];
-          const vouchers: any = await connection.db().collection(collectionName).find({}, { projection: { cashRegister: 0 } }).toArray();
+          const vouchers: any = await connection.db(db).collection(collectionName).find({}, { projection: { cashRegister: 0 } }).toArray();
           for (const voucher of vouchers) {
             const doc = {
               _id: voucher._id,
@@ -593,14 +590,15 @@ export class Patch11Service {
             _.assign(doc, { acTrns });
             docs.push(doc);
           }
-          await connection.db().collection('vouchers').insertMany(docs);
+          await connection.db(db).collection('vouchers').insertMany(docs);
         } else {
           console.log('No journals Found');
         }
         console.log('journals END');
       }
 
-      async function reArrangeBatch() {
+      async function reArrangeBatch(db: string) {
+        console.log({ organization: db, collectionName: 'create new batches_rearrange' });
         const purchasePipe = [
           {
             $unwind: '$invTrns'
@@ -732,12 +730,12 @@ export class Patch11Service {
         ];
         console.log(`new collection batch_rearrage started...`);
         const newBatchStart = new Date().getTime();
-        await connection.db().collection('purchases').aggregate(purchasePipe).toArray();
-        await connection.db().collection('inventory_openings').aggregate(openingPipe).toArray();
-        await connection.db().collection('stock_transfers').aggregate(stockTransferPipe).toArray();
+        await connection.db(db).collection('purchases').aggregate(purchasePipe).toArray();
+        await connection.db(db).collection('inventory_openings').aggregate(openingPipe).toArray();
+        await connection.db(db).collection('stock_transfers').aggregate(stockTransferPipe).toArray();
         console.log(`DURATION for new Batch ${(new Date().getTime() - newBatchStart) / 1000}-sec`);
         console.log(`Convert duplicate batchNo as Uniq batchNo started...`);
-        const reBatches: any = await connection.db().collection('batches_rearrange')
+        const reBatches: any = await connection.db(db).collection('batches_rearrange')
           .aggregate([
             {
               $group: {
@@ -761,7 +759,7 @@ export class Patch11Service {
           ]).toArray();
         console.log(`count of duplicate batchNo`, reBatches.length);
         if (reBatches.length > 0) {
-          const bulk = connection.db().collection('batches_rearrange').initializeOrderedBulkOp();
+          const bulk = connection.db(db).collection('batches_rearrange').initializeOrderedBulkOp();
           for (const item of reBatches) {
             for (let i = 1; i < item.docIds.length; i++) {
               bulk.find({ _id: item.docIds[i] })
@@ -774,18 +772,19 @@ export class Patch11Service {
         }
       }
 
-      async function purchaseVoucher(collectionName: string, accounts: any, pendings: any, batches: any) {
-        const count = await connection.db().collection(collectionName).countDocuments();
+      async function purchaseVoucher(db: string, collectionName: string, accounts: any, pendings: any, batches: any) {
+        const count = await connection.db(db).collection(collectionName).countDocuments();
         console.log(`Total ${collectionName} count was ${count}`);
         if (count > 0) {
           const limit = 500;
           const begin = new Date().getTime();
           for (let skip = 0; skip <= count; skip = skip + limit) {
+            console.log({ organization: db, collectionName });
             const start = new Date().getTime();
-            const bulkOperation = connection.db().collection('purchases_new').initializeOrderedBulkOp();
+            const bulkOperation = connection.db(db).collection('purchases_new').initializeOrderedBulkOp();
             const sttt = new Date().getTime();
             console.log(`bulkOperation initialzed Duration ${start - sttt}`);
-            const vouchers: any = await connection.db().collection(collectionName)
+            const vouchers: any = await connection.db(db).collection(collectionName)
               .find({},
                 {
                   projection: { cashRegister: 0, warehouse: 0, fNo: 0, rcm: 0, taxInclusiveRate: 0 },
@@ -1007,21 +1006,24 @@ export class Patch11Service {
           }
           console.log(`END ALL ${collectionName} and DURATION ${(new Date().getTime() - begin) / (1000 * 60)}-min`);
         } else {
+          await connection.db(db).dropCollection(collectionName);
+          await connection.db(db).createCollection(collectionName);
           console.log(`${collectionName} Not Found`);
         }
       }
 
-      async function saleVoucher(collectionName: string, accounts: any, pendings: any, batches: any) {
-        const count = await connection.db().collection(collectionName).countDocuments();
+      async function saleVoucher(db: string, collectionName: string, accounts: any, pendings: any, batches: any) {
+        const count = await connection.db(db).collection(collectionName).countDocuments();
         if (count > 0) {
           const limit = 500;
           const begin = new Date().getTime();
           for (let skip = 0; skip <= count; skip = skip + limit) {
+            console.log({ organization: db, collectionName });
             const start = new Date().getTime();
-            const bulkOperation = connection.db().collection('sales_new').initializeOrderedBulkOp();
+            const bulkOperation = connection.db(db).collection('sales_new').initializeOrderedBulkOp();
             const sttt = new Date().getTime();
             console.log(`bulkOperation initialzed Duration ${start - sttt}`);
-            const vouchers: any = await connection.db().collection(collectionName)
+            const vouchers: any = await connection.db(db).collection(collectionName)
               .find({},
                 {
                   projection: {
@@ -1038,7 +1040,7 @@ export class Patch11Service {
               let customer: any;
               if (voucher.customer) {
                 customer = Types.ObjectId(voucher.customer.id);
-                if (voucher.gstInfo.destination) {
+                if (voucher.gstInfo.destination?.defaultName) {
                   const regType = voucher.gstInfo.destination.regType.defaultName;
                   partyGst = { regType };
                   if (regType != 'OVERSEAS') {
@@ -1050,7 +1052,7 @@ export class Patch11Service {
                     _.assign(partyGst, { gstNo });
                   }
                 } else {
-                  const custInfo = await connection.db().collection('customers').findOne({ _id: Types.ObjectId(voucher.customer.id) });
+                  const custInfo = await connection.db(db).collection('customers').findOne({ _id: Types.ObjectId(voucher.customer.id) });
                   partyGst = {
                     regType: custInfo.gstInfo.regType.defaultName,
                   }
@@ -1128,7 +1130,7 @@ export class Patch11Service {
                     qty: item.qty * item.unit.conversion,
                     rowNo: item.serialNo + 1,
                   };
-                  await connection.db().collection('missing_batch').insertOne(doc123);
+                  await connection.db(db).collection('missing_batch').insertOne(doc123);
                 }
                 let expiry: any;
                 if (item.expMonth && item.expMonth < 10) {
@@ -1286,23 +1288,26 @@ export class Patch11Service {
           }
           console.log(`END ALL ${collectionName} and DURATION ${(new Date().getTime() - begin) / (1000 * 60)}-min`);
         } else {
+          await connection.db(db).dropCollection(collectionName);
+          await connection.db(db).createCollection(collectionName);
           console.log(`${collectionName} Not Found`);
         }
       }
 
-      async function stockAdjustments(collectionName: string, accounts: any, batches: any) {
+      async function stockAdjustments(db: string, collectionName: string, accounts: any, batches: any) {
         const accId = accounts.find(x => x.type === 'STOCK').id;
-        const count = await connection.db().collection(collectionName).countDocuments();
+        const count = await connection.db(db).collection(collectionName).countDocuments();
         console.log(`Total ${collectionName} count was ${count}`);
         if (count > 0) {
           const limit = 500;
           const begin = new Date().getTime();
           for (let skip = 0; skip <= count; skip = skip + limit) {
+            console.log({ organization: db, collectionName });
             const start = new Date().getTime();
-            const bulkOperation = connection.db().collection('stock_adjustments_new2').initializeOrderedBulkOp();
+            const bulkOperation = connection.db(db).collection('stock_adjustments_new').initializeOrderedBulkOp();
             const sttt = new Date().getTime();
             console.log(`bulkOperation initialzed Duration ${start - sttt}`);
-            const vouchers: any = await connection.db().collection(collectionName)
+            const vouchers: any = await connection.db(db).collection(collectionName)
               .find({},
                 {
                   projection: { __v: 0, fNo: 0 },
@@ -1373,7 +1378,7 @@ export class Patch11Service {
                     qty: item.qty * item.unit.conversion,
                     voucherName: voucher.voucherName,
                   };
-                  await connection.db().collection('missing_batch').insertOne(doc123);
+                  await connection.db(db).collection('missing_batch').insertOne(doc123);
                 }
                 let expiry: any;
                 if (item.expMonth && item.expMonth < 10) {
@@ -1431,23 +1436,26 @@ export class Patch11Service {
           }
           console.log(`END ALL ${collectionName} and DURATION ${(new Date().getTime() - begin) / (1000 * 60)}-min`);
         } else {
+          await connection.db(db).dropCollection(collectionName);
+          await connection.db(db).createCollection(collectionName);
           console.log(`${collectionName} Not Found`);
         }
       }
 
-      async function stockTransfer(collectionName: string, accounts: any, batches: any) {
+      async function stockTransfer(db: string, collectionName: string, accounts: any, batches: any) {
         const accId = accounts.find(x => x.type === 'STOCK').id;
-        const count = await connection.db().collection(collectionName).countDocuments();
+        const count = await connection.db(db).collection(collectionName).countDocuments();
         console.log(`Total ${collectionName} count was ${count}`);
         if (count > 0) {
           const limit = 500;
           const begin = new Date().getTime();
           for (let skip = 0; skip <= count; skip = skip + limit) {
+            console.log({ organization: db, collectionName });
             const start = new Date().getTime();
-            const bulkOperation = connection.db().collection('stock_transfers_new').initializeOrderedBulkOp();
+            const bulkOperation = connection.db(db).collection('stock_transfers_new').initializeOrderedBulkOp();
             const sttt = new Date().getTime();
             console.log(`bulkOperation initialzed Duration ${start - sttt}`);
-            const vouchers: any = await connection.db().collection(collectionName)
+            const vouchers: any = await connection.db(db).collection(collectionName)
               .find({},
                 {
                   projection: { __v: 0, fNo: 0 },
@@ -1593,65 +1601,148 @@ export class Patch11Service {
           }
           console.log(`END ALL ${collectionName} and DURATION ${(new Date().getTime() - begin) / (1000 * 60)}-min`);
         } else {
+          await connection.db(db).dropCollection(collectionName);
+          await connection.db(db).createCollection(collectionName);
           console.log(`${collectionName} Not Found`);
         }
       }
 
-      await customerMaster();
-      await accountMaster();
-      await accountOpeningMerge();
-      await mergePendingAdjustment();
-
-      const pendings: any = await connection.db().collection('accountpendingadjustments')
-        .find({}, { projection: { _id: 0, __v: 0 } }).toArray();
-      const accounts: any = await connection.db().collection('accounts')
-        .find({}, { projection: { party: 1, displayName: 1, type: 1 } })
-        .map((elm: any) => {
-          return {
-            id: elm._id.toString(),
-            displayName: elm.displayName,
-            party: elm?.party?.toString(),
-            type: elm.type.defaultName,
+      async function voucherNumberings(db: string) {
+        const arr = [];
+        const voucherNumberings = await connection.db(db).collection('vouchernumberings').find({}).toArray();
+        for (const item of voucherNumberings) {
+          const obj = {
+            updateOne: {
+              filter: { _id: item._id },
+              update: {
+                $set: {
+                  branch: Types.ObjectId(item.branch.id),
+                  fYear: Types.ObjectId(item.fYear),
+                  voucherType: item.voucherType.defaultName,
+                },
+                $unset: { createdAt: 1 },
+              },
+            }
           }
-        })
-        .toArray();
-      const collectionNames = [
-        'customerpayments', 'customerreceipts',
-        'vendorpayments', 'vendorreceipts',
-        'accountreceipts', 'accountpayments',
-        'expenses', 'incomes',
-        'cashdeposits', 'cashwithdrawals',
-        'journals'
-      ];
+          arr.push(obj);
+        }
+        await connection.db(db).collection('vouchernumberings').bulkWrite(arr);
+      }
 
-      for (const coll of collectionNames) {
-        if (['customerpayments', 'customerreceipts', 'vendorpayments', 'vendorreceipts'].includes(coll)) {
-          await accVoucher(coll, accounts, pendings);
-        }
-        if (['accountreceipts', 'accountpayments', 'expenses', 'incomes', 'cashdeposits', 'cashwithdrawals'].includes(coll)) {
-          await accVoucher(coll, accounts);
-        }
-        if (coll === 'journals') {
-          await journalVoucher(coll, accounts);
+      async function renameCollections(db: string) {
+        await connection.db(db).collection('accountbooks').drop();
+        await connection.db(db).collection('inventorybooks').drop();
+        await connection.db(db).createCollection('accountbooks');
+        await connection.db(db).createCollection('inventorybooks');
+        const renameCollections = ['sales', 'purchases', 'stock_transfers', 'stock_adjustments', 'accountopenings'];
+        for (const item of renameCollections) {
+          await connection.db(db).collection(item).rename(`${item}_old`);
+          await connection.db(db).collection(`${item}_new`).rename(item);
         }
       }
 
-      await reArrangeBatch();
-      const batches: any = await connection.db().collection('batches_rearrange')
-        .find({}, { projection: { transactionId: 1, batch: 1, batchNo: 1, _id: 0 } })
-        .map((elm: any) => {
-          return {
-            batch: elm.batch.toString(),
-            transactionId: elm.transactionId,
-            batchNo: elm.batchNo,
+      const startTime = new Date();
+      console.log('.........START...........');
+      console.log({ startTime });
+
+      const dbs = ['velavanmedical', 'velavanstationery', 'velavanhm'];
+      for (const db of dbs) {
+        console.log(db);
+        await customerMaster(db);
+        await accountMaster(db);
+        await accountOpeningMerge(db);
+        await mergePendingAdjustment(db);
+        const pendings: any = await connection.db(db).collection('accountpendingadjustments')
+          .find({}, { projection: { _id: 0, __v: 0 } }).toArray();
+        const accounts: any = await connection.db(db).collection('accounts')
+          .find({}, { projection: { party: 1, displayName: 1, type: 1 } })
+          .map((elm: any) => {
+            return {
+              id: elm._id.toString(),
+              displayName: elm.displayName,
+              party: elm?.party?.toString(),
+              type: elm.type.defaultName,
+            }
+          })
+          .toArray();
+        const collectionNames = [
+          'customerpayments', 'customerreceipts',
+          'vendorpayments', 'vendorreceipts',
+          'accountreceipts', 'accountpayments',
+          'expenses', 'incomes',
+          'cashdeposits', 'cashwithdrawals',
+          'journals'
+        ];
+
+        for (const coll of collectionNames) {
+          if (['customerpayments', 'customerreceipts', 'vendorpayments', 'vendorreceipts'].includes(coll)) {
+            await accVoucher(db, coll, accounts, pendings);
           }
-        }).toArray();
-      await purchaseVoucher('purchases', accounts, pendings, batches);
-      await purchaseVoucher('purchase_returns', accounts, pendings, batches);
-      await saleVoucher('sales', accounts, pendings, batches);
-      await saleVoucher('sale_returns', accounts, pendings, batches);
-      await stockAdjustments('stock_adjustments', accounts, batches);
-      await stockTransfer('stock_transfers', accounts, batches);
+          if (['accountreceipts', 'accountpayments', 'expenses', 'incomes', 'cashdeposits', 'cashwithdrawals'].includes(coll)) {
+            await accVoucher(db, coll, accounts);
+          }
+          if (coll === 'journals') {
+            await journalVoucher(db, coll, accounts);
+          }
+        }
+
+        await reArrangeBatch(db);
+        const batches: any = await connection.db(db).collection('batches_rearrange')
+          .find({}, { projection: { transactionId: 1, batch: 1, batchNo: 1, _id: 0 } })
+          .map((elm: any) => {
+            return {
+              batch: elm.batch.toString(),
+              transactionId: elm.transactionId,
+              batchNo: elm.batchNo,
+            }
+          }).toArray();
+        await purchaseVoucher(db, 'purchases', accounts, pendings, batches);
+        await purchaseVoucher(db, 'purchase_returns', accounts, pendings, batches);
+        await saleVoucher(db, 'sales', accounts, pendings, batches);
+        await saleVoucher(db, 'sale_returns', accounts, pendings, batches);
+        await stockAdjustments(db, 'stock_adjustments', accounts, batches);
+        await stockTransfer(db, 'stock_transfers', accounts, batches);
+        await voucherNumberings(db);
+        await renameCollections(db);
+      }
+
+      async function mainDb(db: string) {
+        console.log(`${db} account updatation start....`);
+        await connection.db(db).collection('accounts')
+          .deleteMany({ defaultName: { $in: ['TRADE_RECEIVABLE', 'TRADE_PAYABLE', 'COST_OF_GOODS_SOLD'] } });
+        await connection.db(db).collection('accounts').updateOne({ defaultName: 'Postage' }, {
+          $set: {
+            defaultName: 'POSTAGE',
+          }
+        });
+        await connection.db(db).collection('accounts').updateOne({ defaultName: 'REPAIRS_AND_MAINTANANCE' }, {
+          $set: {
+            name: 'Repairs And Maintenance',
+            validateName: 'repairsandmaintenance',
+            displayName: 'Repairs And Maintenance',
+            defaultName: 'REPAIRS_AND_MAINTENANCE',
+          }
+        });
+        await connection.db(db).collection('accounts').updateOne({ defaultName: 'PRINTING_AND_STATIONARY' }, {
+          $set: {
+            name: 'Printing And Stationery',
+            validateName: 'printingandstationery',
+            displayName: 'Printing And Stationery',
+            defaultName: 'PRINTING_AND_STATIONERY',
+          }
+        });
+        await connection.db(db).collection('accounts').updateOne({ defaultName: 'FURNITUREANDEQUIPMENT' }, {
+          $set: {
+            defaultName: 'FURNITURE_AND_EQUIPMENT',
+          }
+        });
+        console.log(`${db} account updatation end*****`);
+      }
+      await mainDb('auditplusdb');
+      const endTime = new Date();
+      console.log('.........END...........');
+      console.log({ endTime });
+      console.log({ totalDuration: `${(endTime.getTime() - startTime.getTime()) / (1000 * 60)}-min` });
       await connection.close();
       return 'OK';
     } catch (err) {
@@ -1662,72 +1753,48 @@ export class Patch11Service {
 
   async delete() {
     try {
-      var connection = await new MongoClient(URI, {
+      const connection = await new MongoClient(URI, {
         useUnifiedTopology: true,
         useNewUrlParser: true,
       }).connect();
-      const dropIndexCollections = ['sales', 'purchases', 'test'];
 
-      const deleteCollectionList = [
-        'accountopenings_old', 'accountpayments', 'accountpendingadjustments', 'accountreceipts',
-        'act_account_map', 'act_account_openings', 'act_accountbooks', 'act_accounts',
-        'act_gst_registrations', 'act_import_field_map', 'act_import_sessions', 'act_inventories',
-        'act_inventory_details', 'act_inventory_openings', 'act_inventorybooks', 'act_vouchers',
-        'batches', 'batches_rearrange',
-        'cashdeposits', 'cashregisterbooks', 'cashwithdrawals', 'configurations',
-        'currentpreferences', 'customerbooks', 'customeropenings', 'customerpayments',
-        'customerpendingadjustments', 'customerpendings', 'customerreceipts', 'expenses',
-        'gstoutwards', 'gsttransactions', 'incomes', 'inventory_openings_old',
-        'journals', 'reviews', 'vendorbooks', 'vendoropenings',
-        'vendorpayments', 'vendorpendingadjustments', 'vendorpendings', 'vendorreceipts',
-        'purchase_returns', 'sale_returns', 'purchases_old', 'sales_old',
-      ];
-      console.log('---connected---');
-      // const list = await connection.db().listCollections().toArray();
-      // for (const item of list) {
-      //   for (const x of deleteCollectionList) {
-      //     if (item.name === x) {
-      //       console.log(`${item.name} collection deleted`);
-      //       await connection.db().dropCollection(x);
-      //     }
-      //   };
-      // }
+      async function deleteCollections(db: string) {  // drop collection and drop Indexes
+        const collections = [
+          'accountopenings_old', 'accountpayments', 'accountpendingadjustments', 'accountreceipts',
+          'act_account_map', 'act_account_openings', 'act_accountbooks', 'act_accounts',
+          'act_gst_registrations', 'act_import_field_map', 'act_import_sessions', 'act_inventories',
+          'act_inventory_details', 'act_inventory_openings', 'act_inventorybooks', 'act_vouchers',
+          'batches', 'batches_rearrange',
+          'cashdeposits', 'cashregisterbooks', 'cashwithdrawals', 'configurations',
+          'currentpreferences', 'customerbooks', 'customeropenings', 'customerpayments',
+          'customerpendingadjustments', 'customerpendings', 'customerreceipts', 'expenses',
+          'gstoutwards', 'gsttransactions', 'incomes', 'inventory_openings_old',
+          'journals', 'reviews', 'vendorbooks', 'vendoropenings',
+          'vendorpayments', 'vendorpendingadjustments', 'vendorpendings', 'vendorreceipts',
+          'purchase_returns', 'sale_returns', 'purchases_old', 'sales_old',
+        ];
 
-      // for (const item of list) {
-      //   for (const coll of dropIndexCollections) {
-      //     if (item.name === coll) {
-      //       await connection.db().collection(coll).dropIndexes();
-      //       console.log(`${item.name} index dropped`);
-      //       //await connection.db().dropCollection(x);
-      //     }
-      //   };
-      // }
-
-      const batches: any = await connection.db().collection('batches_rearrange')
-        .find({}, { projection: { _id: 0, batch: 1 } }).map((c: any) => c.batch.toString()).toArray();
-      // const arr = await connection.db().collection('batches').find({ _id: { $nin: batches } }).map((a: any) => {
-      //   return a._id.toString()
-      // }).toArray();
-
-      // console.log(arr.length, arr);
-      // const before = process.memoryUsage().heapUsed / 1024 / 1024;
-      // console.log(`The script uses approximately before get batch table ${Math.round(before * 100) / 100} MB`);
-
-      // const after = process.memoryUsage().heapUsed / 1024 / 1024;
-      // console.log(`The script uses approximately after get batch table ${Math.round(after * 100) / 100} MB`);
-
-      const vouchers: any = await connection.db().collection('sales')
-        .find({ invTrns: { $elemMatch: { batch: { $nin: batches } } } }, { projection: { invTrns: 1, voucherNo: 1 } }).toArray();
-      console.log(vouchers.length);
-      for (const item of vouchers) {
-        console.log(item.voucherNo);
+        const lists = (await connection.db(db).listCollections().toArray()).map(col => col.name);
+        const dropColls = lists.filter(item => collections.includes(item));
+        const dropIndexes = lists.filter(item => !collections.includes(item));
+        for (const coll of dropColls) {
+          await connection.db(db).collection(coll).drop();
+          console.log(`${coll} collection drop`);
+        };
+        for (const coll of dropIndexes) {
+          await connection.db(db).collection(coll).dropIndexes();
+          console.log(`${coll} indexes drop`);
+        };
+      }
+      const dbs = ['velavanmedical', 'velavanstationery', 'velavanhm'];
+      for (const db of dbs) {
+        await deleteCollections(db);
       }
       await connection.close();
-      return 'unnecessary collection dropped successfully';
+      return 'unnecessary collections dropped and index drop for all collection successfully';
     } catch (err) {
       console.log(err)
       return err.message;
     }
   }
 }
-
