@@ -19,63 +19,244 @@ export class TestService {
       console.log(connection.isConnected ? `Connected successfully` : `Connection Error`);
       async function customerMaster(db: string) {
         console.log({ organization: db, collectionName: 'customers' });
-        const arr = [];
+        const bulkCustomer = connection.db(db).collection('customers').initializeOrderedBulkOp();
         const custs: any = await connection.db(db).collection('customers')
-          .find(
-            { 'gstInfo.regType.defaultName': 'SPECIAL_ECONOMIC_ZONE' },
-            { projection: { gstInfo: 1 } }).toArray();
+          .find({}, { projection: { gstInfo: 1, createdBy: 1, updatedBy: 1, addressInfo: 1, contactInfo: 1, otherInfo: 1, deliveryAddress: 1 } }).toArray();
         for (const cus of custs) {
-          const gstCode = cus.gstInfo.gstNo.substring(0, 2);
-          const loc = STATE.find((loc) => loc.code == gstCode);
-          const obj = {
-            updateOne: {
-              filter: { _id: cus._id },
-              update: { $set: { 'gstInfo.location': { name: loc.name, defaultName: loc.defaultName } } },
-            }
+          const locationDefaultName = cus.gstInfo.location?.defaultName || 'TAMILNADU';
+          const location = STATE.find((loc) => loc.defaultName === locationDefaultName).code;
+          const gstInfo = {
+            regType: cus.gstInfo.regType.defaultName,
+            location,
           };
-          arr.push(obj);
+          if (cus.gstInfo.gstNo) {
+            _.assign(gstInfo, { gstNo: cus.gstInfo.gstNo });
+          }
+          const $set = {
+            gstInfo,
+            createdBy: Types.ObjectId(cus.createdBy),
+            updatedBy: Types.ObjectId(cus.updatedBy),
+          };
+          const $unset = {};
+          if (cus.deliveryAddress?.length < 1) {
+            _.assign($unset, { deliveryAddress: 1 });
+          }
+          if (cus.addressInfo) {
+            if (!cus.addressInfo.address && !cus.addressInfo.city && !cus.addressInfo.contactPerson && !cus.addressInfo.pincode) {
+              _.assign($unset, { addressInfo: 1 });
+            } else {
+              if (!cus.addressInfo.address) {
+                _.assign($unset, { 'addressInfo.address': 1 });
+              }
+              if (!cus.addressInfo.city) {
+                _.assign($unset, { 'addressInfo.city': 1 });
+              }
+              if (!cus.addressInfo.contactPerson) {
+                _.assign($unset, { 'addressInfo.contactPerson': 1 });
+              }
+              if (!cus.addressInfo.pincode) {
+                _.assign($unset, { 'addressInfo.pincode': 1 });
+              }
+              if (cus.addressInfo.state) {
+                _.assign($set, { 'addressInfo.state': cus.addressInfo.state.defaultName });
+              } else {
+                _.assign($unset, { 'addressInfo.state': 1 });
+              }
+              if (cus.addressInfo.country) {
+                _.assign($set, { 'addressInfo.country': cus.addressInfo.country.defaultName });
+              } else {
+                _.assign($unset, { 'addressInfo.country': 1 });
+              }
+            }
+          }
+
+          if (!cus.contactInfo.mobile && !cus.contactInfo.alternateMobile && !cus.contactInfo.telephone && !cus.contactInfo.contactPerson && !cus.contactInfo.email) {
+            _.assign($unset, { contactInfo: 1 });
+          } else {
+            if (!cus.contactInfo.mobile) {
+              _.assign($unset, { 'contactInfo.mobile': 1 });
+            }
+            if (!cus.contactInfo.alternateMobile) {
+              _.assign($unset, { 'contactInfo.alternateMobile': 1 });
+            }
+            if (!cus.contactInfo.telephone) {
+              _.assign($unset, { 'contactInfo.telephone': 1 });
+            }
+            if (!cus.contactInfo.contactPerson) {
+              _.assign($unset, { 'contactInfo.contactPerson': 1 });
+            }
+            if (!cus.contactInfo.email) {
+              _.assign($unset, { 'contactInfo.email': 1 });
+            }
+          }
+          if (cus.otherInfo) {
+            if (!cus.otherInfo.aadharNo && !cus.otherInfo.panNo) {
+              _.assign($unset, { otherInfo: 1 });
+            } else {
+              if (!cus.otherInfo.aadharNo) {
+                _.assign($unset, { 'otherInfo.aadharNo': 1 });
+              }
+              if (!cus.otherInfo.panNo) {
+                _.assign($unset, { 'otherInfo.panNo': 1 });
+              }
+            }
+          }
+          bulkCustomer.find({ _id: cus._id }).updateOne({ $set, $unset });
         }
-        if (arr.length > 0) {
-          await connection.db(db).collection('customers').bulkWrite(arr);
-        } else {
-          console.log('SPECIAL_ECONOMIC_ZONE customers N.A');
-        }
+        bulkCustomer.find({ $or: [{ 'customerGroup': null }, { 'customerGroup': '' }] }).update({ $unset: { customerGroup: 1 } });
+        bulkCustomer.find({}).update({ $unset: { __v: 1, aliasName: 1, validateAliasName: 1 } });
+        await bulkCustomer.execute();
+        console.log('Customer End');
       }
-      async function accountMaster(db: string) {
+
+      async function vendorMaster(db: string) {
+        console.log({ organization: db, collectionName: 'vendors' });
+        const custs: any = await connection.db(db).collection('vendors')
+          .find({}, { projection: { gstInfo: 1, createdBy: 1, updatedBy: 1, addressInfo: 1, contactInfo: 1, otherInfo: 1 } }).toArray();
+        const bulkCustomer = connection.db(db).collection('vendors').initializeOrderedBulkOp();
+        for (const cus of custs) {
+          const location = STATE.find((loc) => loc.defaultName === cus.gstInfo.location.defaultName).code;
+          const gstInfo = {
+            regType: 'REGULAR',
+            location,
+            gstNo: cus.gstInfo.gstNo
+          };
+          const $set = {
+            gstInfo,
+            createdBy: Types.ObjectId(cus.createdBy),
+            updatedBy: Types.ObjectId(cus.updatedBy),
+          };
+          const $unset = {};
+          if (cus.addressInfo) {
+            if (!cus.addressInfo.address && !cus.addressInfo.city && !cus.addressInfo.contactPerson && !cus.addressInfo.pincode) {
+              _.assign($unset, { addressInfo: 1 });
+            } else {
+              if (!cus.addressInfo.address) {
+                _.assign($unset, { 'addressInfo.address': 1 });
+              }
+              if (!cus.addressInfo.city) {
+                _.assign($unset, { 'addressInfo.city': 1 });
+              }
+              if (!cus.addressInfo.contactPerson) {
+                _.assign($unset, { 'addressInfo.contactPerson': 1 });
+              }
+              if (!cus.addressInfo.pincode) {
+                _.assign($unset, { 'addressInfo.pincode': 1 });
+              }
+              if (cus.addressInfo.state) {
+                _.assign($set, { 'addressInfo.state': cus.addressInfo.state.defaultName });
+              } else {
+                _.assign($unset, { 'addressInfo.state': 1 });
+              }
+              if (cus.addressInfo.country) {
+                _.assign($set, { 'addressInfo.country': cus.addressInfo.country.defaultName });
+              } else {
+                _.assign($unset, { 'addressInfo.country': 1 });
+              }
+            }
+          }
+          if (!cus.contactInfo.mobile && !cus.contactInfo.alternateMobile && !cus.contactInfo.telephone && !cus.contactInfo.contactPerson && !cus.contactInfo.email) {
+            _.assign($unset, { contactInfo: 1 });
+          } else {
+            if (!cus.contactInfo.mobile) {
+              _.assign($unset, { 'contactInfo.mobile': 1 });
+            }
+            if (!cus.contactInfo.alternateMobile) {
+              _.assign($unset, { 'contactInfo.alternateMobile': 1 });
+            }
+            if (!cus.contactInfo.telephone) {
+              _.assign($unset, { 'contactInfo.telephone': 1 });
+            }
+            if (!cus.contactInfo.contactPerson) {
+              _.assign($unset, { 'contactInfo.contactPerson': 1 });
+            }
+            if (!cus.contactInfo.email) {
+              _.assign($unset, { 'contactInfo.email': 1 });
+            }
+          }
+          if (cus.otherInfo) {
+            if (!cus.otherInfo.aadharNo && !cus.otherInfo.panNo) {
+              _.assign($unset, { otherInfo: 1 });
+            } else {
+              if (!cus.otherInfo.aadharNo) {
+                _.assign($unset, { 'otherInfo.aadharNo': 1 });
+              }
+              if (!cus.otherInfo.panNo) {
+                _.assign($unset, { 'otherInfo.panNo': 1 });
+              }
+            }
+          }
+          bulkCustomer.find({ _id: cus._id }).updateOne({ $set, $unset });
+        }
+        bulkCustomer.find({}).update({ $unset: { __v: 1, aliasName: 1, validateAliasName: 1 } });
+        await bulkCustomer.execute();
+        console.log('Vendor End');
+      }
+
+      async function accountMaster(db: string, user: Types.ObjectId) {
         console.log({ organization: db, collectionName: 'accounts' });
         console.log('1.account updatation start....');
         await connection.db(db).collection('accounts')
           .deleteMany({ defaultName: { $in: ['TRADE_RECEIVABLE', 'TRADE_PAYABLE', 'COST_OF_GOODS_SOLD'] } });
-        await connection.db(db).collection('accounts').updateOne({ defaultName: 'Postage' }, {
-          $set: {
-            defaultName: 'POSTAGE',
+        const lists: any = await connection.db(db).collection('accounts').find({}, { projection: { createdAt: 0, updatedAt: 0, hide: 0 } }).toArray();
+        const bulkAccountUpdate = connection.db(db).collection('accounts').initializeOrderedBulkOp();
+        for (const acc of lists) {
+          const $set = {
+            createdBy: Types.ObjectId(acc.createdBy),
+            updatedBy: Types.ObjectId(acc.updatedBy),
+            accountType: acc.type.defaultName,
+          };
+          if (acc.defaultName === 'REPAIRS_AND_MAINTANANCE') {
+            _.assign($set, {
+              name: 'Repairs And Maintenance',
+              validateName: 'repairsandmaintenance',
+              displayName: 'Repairs And Maintenance',
+              defaultName: 'REPAIRS_AND_MAINTENANCE',
+            });
           }
-        });
-        await connection.db(db).collection('accounts').updateOne({ defaultName: 'REPAIRS_AND_MAINTANANCE' }, {
-          $set: {
-            name: 'Repairs And Maintenance',
-            validateName: 'repairsandmaintenance',
-            displayName: 'Repairs And Maintenance',
-            defaultName: 'REPAIRS_AND_MAINTENANCE',
+          if (acc.defaultName === 'PRINTING_AND_STATIONARY') {
+            _.assign($set, {
+              name: 'Printing And Stationery',
+              validateName: 'printingandstationery',
+              displayName: 'Printing And Stationery',
+              defaultName: 'PRINTING_AND_STATIONERY',
+            });
           }
-        });
-        await connection.db(db).collection('accounts').updateOne({ defaultName: 'PRINTING_AND_STATIONARY' }, {
-          $set: {
-            name: 'Printing And Stationery',
-            validateName: 'printingandstationery',
-            displayName: 'Printing And Stationery',
-            defaultName: 'PRINTING_AND_STATIONERY',
+          if (acc.defaultName === 'FURNITUREANDEQUIPMENT') {
+            _.assign($set, {
+              defaultName: 'FURNITURE_AND_EQUIPMENT',
+            });
           }
-        });
-        await connection.db(db).collection('accounts').updateOne({ defaultName: 'FURNITUREANDEQUIPMENT' }, {
-          $set: {
-            defaultName: 'FURNITURE_AND_EQUIPMENT',
+          if (acc.defaultName === 'Postage') {
+            _.assign($set, {
+              defaultName: 'POSTAGE',
+            });
           }
-        });
-        await connection.db(db).collection('costcategories').updateOne({defaultName: 'PRIMARY'}, {$set: {validateName: 'primary'}});
+          if (acc.parentIds?.length > 0) {
+            _.assign($set, { parentIds: acc.parentIds.map((a) => Types.ObjectId(a)) });
+            bulkAccountUpdate.find({ _id: acc._id }).updateOne({ $set });
+          } else {
+            bulkAccountUpdate.find({ _id: acc._id })
+              .updateOne({
+                $set,
+                $unset: { parentAccount: 1, parentIds: 1 },
+              });
+          }
+        }
+        bulkAccountUpdate.find({ $or: [{ description: null }, { description: '' }] }).update({ $unset: { description: 1 } });
+        const $unset = {
+          aliasName: 1,
+          validateAliasName: 1,
+          tdsApplicable: 1,
+          tdsRatio: 1,
+          type: 1,
+          __v: 1,
+        }
+        bulkAccountUpdate.find({}).update({ $unset });
+        bulkAccountUpdate.execute();
         console.log('1.account updatation end....');
         console.log('1.account creation started....');
-        const user = await connection.db(db).collection('users').findOne({ isAdmin: true });
+
         const customerPenddings: any = await connection.db(db).collection('customerpendings').find({}, { projection: { customer: 1 } }).toArray();
         const customerIds = _.uniq(customerPenddings.map((x) => x.customer)).map((y: any) => Types.ObjectId(y));
         console.log(`${customerIds.length} - Credit Customer found`);
@@ -86,27 +267,18 @@ export class TestService {
         console.log(`${vendorIds.length} - Credit Vendor found`);
         const vendors: any = await connection.db(db).collection('vendors').find({ _id: { $in: vendorIds } }, { projection: { name: 1, contactInfo: 1 } }).toArray();
         console.log(`${vendors.length} === ${vendorIds.length}` ? 'get credit vendor only' : 'Miss matched');
-        const bulkAccount = connection.db(db).collection('accounts').initializeOrderedBulkOp();
+        const bulkAccountInsert = connection.db(db).collection('accounts').initializeOrderedBulkOp();
         const obj = {
           hide: false,
-          aliasName: '',
-          validateAliasName: '',
-          parentAccount: null,
-          parentIds: [],
-          description: '',
-          tdsApplicable: false,
-          createdBy: user._id.toString(),
-          updatedBy: user._id.toString(),
+          createdBy: user,
+          updatedBy: user,
           createdAt: new Date(),
           updatedAt: new Date(),
         };
         for (const item of customers) {
           const cust = {};
           _.assign(cust, {
-            type: {
-              name: 'Trade Receivable',
-              defaultName: 'TRADE_RECEIVABLE',
-            },
+            accountType: 'TRADE_RECEIVABLE',
             party: item._id,
           });
           if (item.contactInfo?.mobile) {
@@ -127,15 +299,12 @@ export class TestService {
             );
           }
           _.assign(cust, obj);
-          bulkAccount.insert(cust);
+          bulkAccountInsert.insert(cust);
         }
         for (const item of vendors) {
           const ven = {};
           _.assign(ven, {
-            type: {
-              name: 'Trade Payable',
-              defaultName: 'TRADE_PAYABLE',
-            },
+            accountType: 'TRADE_PAYABLE',
             party: item._id,
           });
           if (item.contactInfo.mobile) {
@@ -156,9 +325,9 @@ export class TestService {
             );
           }
           _.assign(ven, obj);
-          bulkAccount.insert(ven);
+          bulkAccountInsert.insert(ven);
         }
-        const createAccount = await bulkAccount.execute();
+        const createAccount = await bulkAccountInsert.execute();
         console.log(
           createAccount.nInserted === vendors.length + customers.length ?
             'All Credit Account created sucessfully' :
@@ -167,44 +336,286 @@ export class TestService {
         console.log('1.account creation end....');
       }
 
-      async function accountOpeningMerge(db: string) {
+      async function costCategoryMaster(db: string, user: Types.ObjectId) {
+        await connection.db(db).collection('costcategories').updateOne({ defaultName: 'PRIMARY' }, { $set: { validateName: 'primary' } });
+        await connection.db(db).collection('costcategories').updateMany({}, { $set: { updatedBy: user, createdBy: user }, $unset: { __v: 1, aliasName: 1, validateAliasName: 1 } });
+      }
+
+      async function costCentreMaster(db: string, user: Types.ObjectId) {
+        await connection.db(db).collection('costcentres').updateMany({}, { $set: { updatedBy: user, createdBy: user }, $unset: { __v: 1, aliasName: 1, validateAliasName: 1 } });
+      }
+
+      async function branchMaster(db: string) {
+        const branches: any = await connection.db(db).collection('branches')
+          .find({}, { projection: { gstInfo: 1, otherInfo: 1, addressInfo: 1, contactInfo: 1 } }).toArray();
+        const arr = [];
+        for (const branch of branches) {
+          const $unset = { __v: 1, aliasName: 1, validateAliasName: 1 };
+          const $set = {
+            gstInfo: {
+              regType: 'REGULAR',
+              location: '33',
+              gstNo: branch.gstInfo.gstNo,
+            }
+          };
+          if (branch.addressInfo) {
+            if (!branch.addressInfo.address && !branch.addressInfo.city && !branch.addressInfo.pincode) {
+              _.assign($unset, { addressInfo: 1 });
+            } else {
+              if (!branch.addressInfo.address) {
+                _.assign($unset, { 'addressInfo.address': 1 });
+              }
+              if (!branch.addressInfo.city) {
+                _.assign($unset, { 'addressInfo.city': 1 });
+              }
+              if (!branch.addressInfo.pincode) {
+                _.assign($unset, { 'addressInfo.pincode': 1 });
+              }
+              if (branch.addressInfo.state) {
+                _.assign($set, { 'addressInfo.state': branch.addressInfo.state.defaultName });
+              } else {
+                _.assign($unset, { 'addressInfo.state': 1 });
+              }
+            }
+          }
+          if (!branch.contactInfo.mobile && !branch.contactInfo.alternateMobile && !branch.contactInfo.telephone && !branch.contactInfo.email) {
+            _.assign($unset, { contactInfo: 1 });
+          } else {
+            if (!branch.contactInfo.mobile) {
+              _.assign($unset, { 'contactInfo.mobile': 1 });
+            }
+            if (!branch.contactInfo.alternateMobile) {
+              _.assign($unset, { 'contactInfo.alternateMobile': 1 });
+            }
+            if (!branch.contactInfo.telephone) {
+              _.assign($unset, { 'contactInfo.telephone': 1 });
+            }
+            if (!branch.contactInfo.email) {
+              _.assign($unset, { 'contactInfo.email': 1 });
+            }
+          }
+          if (!branch.otherInfo?.licenseNo) {
+            _.assign($unset, { otherInfo: 1 });
+          }
+          const obj = {
+            updateOne: {
+              filter: { _id: branch._id },
+              update: {
+                $set,
+                $unset,
+              },
+            },
+          };
+          arr.push(obj);
+        }
+        await connection.db(db).collection('branches').bulkWrite(arr);
+      }
+
+      async function cashRegisterMaster(db: string) {
+        await connection.db(db).collection('cashregisters').updateMany({}, { $unset: { enabledFor: 1, __v: 1 } });
+      }
+
+      async function doctorMaster(db: string) {
+        await connection.db(db).collection('doctors').updateMany({}, { $unset: { aliasName: 1, validateAliasName: 1, __v: 1 } });
+      }
+
+      async function financialYear(db: string) {
+        await connection.db(db).collection('financialyears').updateMany({}, { $unset: { fSync: 1, fNo: 1, __v: 1 } });
+      }
+
+      async function manufacturerMaster(db: string, user: Types.ObjectId) {
+        await connection.db(db).collection('manufacturers').updateMany({}, { $set: { createdBy: user, updatedBy: user }, $unset: { __v: 1 } });
+      }
+
+      async function sectionMaster(db: string, user: Types.ObjectId) {
+        await connection.db(db).collection('sections').updateMany({}, { $set: { createdBy: user, updatedBy: user }, $unset: { __v: 1, aliasName: 1, validateAliasName: 1 } });
+        await connection.db(db).collection('sections')
+          .updateMany({ $or: [{ parentSection: null }, { parentSection: '' }] }, { $unset: { parentIds: 1, parentSection: 1 } });
+      }
+
+      async function unitMaster(db: string, user: Types.ObjectId) {
+        await connection.db(db).collection('units').updateMany({}, { $set: { createdBy: user, updatedBy: user }, $unset: { __v: 1, aliasName: 1, validateAliasName: 1 } });
+      }
+
+      async function pharmaSaltMaster(db: string, user: Types.ObjectId) {
+        await connection.db(db).collection('pharmasalts').updateMany({}, { $set: { createdBy: user, updatedBy: user }, $unset: { __v: 1, aliasName: 1, validateAliasName: 1 } });
+      }
+
+      async function rackMaster(db: string, user: Types.ObjectId) {
+        await connection.db(db).collection('racks').updateMany({}, { $set: { createdBy: user, updatedBy: user }, $unset: { __v: 1, aliasName: 1, validateAliasName: 1 } });
+      }
+
+      async function roleMaster(db: string) {
+        await connection.db(db).collection('roles').deleteOne({ name: 'Admin' });
+        await connection.db(db).collection('roles').updateMany({}, { $unset: { isDefault: 1, __v: 1 } });
+      }
+
+      async function inventoryMaster(db: string, user: Types.ObjectId) {
+        const count = await connection.db(db).collection('inventories').countDocuments();
+        if (count > 0) {
+          const st = new Date().getTime();
+          const branches = await connection.db(db).collection('branches').find({}, { projection: { _id: 1 } }).toArray();
+          console.log(`Total count of ${'inventories'} was ${count}`);
+          const limit = 1000;
+          console.log(`${'inventories'} START`);
+          for (let skip = 0; skip <= count; skip = skip + limit) {
+            const invBranchDetailBulk = connection.db(db).collection('inventory_branch_details').initializeOrderedBulkOp();
+            const invBulk = connection.db(db).collection('inventories').initializeOrderedBulkOp();
+            const inventories: any = await connection.db(db).collection('inventories')
+              .find({}, { sort: { _id: 1 }, skip, limit }).toArray();
+            const manufacturerIds = [];
+            const taxIds = [];
+            const sectionIds = [];
+
+            for (const inventory of inventories) {
+              taxIds.push(inventory.tax);
+              if (inventory.manufacturer) {
+                manufacturerIds.push(inventory.manufacturer);
+              }
+              if (inventory.section) {
+                sectionIds.push(inventory.section);
+              }
+            }
+            const taxes: any = await connection.db(db).collection('taxes').find({ _id: { $in: taxIds } }, { projection: { gstRatio: 1 } }).toArray();
+            const sections: any = await connection.db(db).collection('sections').find({ _id: { $in: sectionIds } }, { projection: { displayName: 1 } }).toArray();
+            const manufacturers: any = await connection.db(db).collection('manufacturers').find({ _id: { $in: manufacturerIds } }, { projection: { displayName: 1 } }).toArray();
+            for (const inventory of inventories) {
+              const exTax = taxes.find((a) => inventory.tax.toString() === a._id.toString()).gstRatio.igst;
+              const tax = GST_TAXES.find((t) => t.ratio.igst === exTax).code;
+              const units = [{
+                unit: inventory.unit,
+                conversion: 1,
+                preferredForPurchase: false,
+                preferredForSale: false,
+              }];
+              if (inventory.unitConversion.length > 0) {
+                for (const item of inventory.unitConversion) {
+                  if (!item.primary) {
+                    units.push({
+                      unit: item.unit, conversion: item.conversion,
+                      preferredForPurchase: item.preferredForPurchase, preferredForSale: item.preferredForSale
+                    });
+                  }
+                }
+              }
+              const $set = {
+                tax,
+                units,
+                createdBy: user,
+                updatedBy: user,
+              };
+              if (inventory.manufacturer) {
+                const manufacturer = manufacturers.find((m) => m._id.toString() === inventory.manufacturer.toString());
+                _.assign($set, { manufacturerId: manufacturer._id, manufacturerName: manufacturer.displayName });
+              }
+              if (inventory.section) {
+                const section = sections.find((s) => s._id.toString() === inventory.section.toString());
+                _.assign($set, { sectionId: section._id, sectionName: section.displayName });
+              }
+              const $unset = {
+                section: 1,
+                manufacturer: 1,
+                unitConversion: 1,
+                racks: 1,
+                unit: 1,
+                sDiscount: 1,
+                sMargin: 1,
+                __v: 1,
+              };
+              if (db === 'velavanmedical') {
+                if (inventory.salts.length < 1) {
+                  _.assign($unset, { salts: 1 });
+                }
+              } else {
+                _.assign($unset, { scheduleH: 1, scheduleH1: 1, salts: 1, narcotics: 1 });
+              }
+              if (!inventory.barCode) {
+                _.assign($unset, { barcode: 1 });
+              }
+              if (!inventory.aliasName) {
+                _.assign($unset, { aliasName: 1, validateAliasName: 1 });
+              }
+              if (!inventory.hsnCode) {
+                _.assign($unset, { hsnCode: 1 });
+              }
+              invBulk.find({ _id: inventory._id }).updateOne({ $set, $unset });
+              for (const br of branches) {
+                const obj = {
+                  inventory: inventory._id,
+                  branch: br._id,
+                };
+                if (inventory.sDiscount) {
+                  for (const key of Object.keys(inventory.sDiscount)) {
+                    if (br._id.toString() === key) {
+                      _.assign(obj, { sDiscount: inventory.sDiscount[key].ratio });
+                    }
+                  }
+                }
+                if (inventory.sMargin) {
+                  for (const key of Object.keys(inventory.sMargin)) {
+                    if (br._id.toString() === key) {
+                      _.assign(obj, { sMargin: inventory.sMargin[key] });
+                    }
+                  }
+                }
+                const racks = inventory.racks.find((b) => b.branch === br._id.toString());
+                if (racks) {
+                  const rack = _.pick(racks, 'rack1', 'rack2', 'rack3', 'rack4');
+                  _.assign(obj, rack);
+                }
+                const doc = _.pickBy(obj, _.identity);
+                invBranchDetailBulk.insert(doc);
+              }
+            }
+            await invBulk.execute();
+            await invBranchDetailBulk.execute();
+          }
+          console.log(`Duration for inventory update & inventory_branch_details ${new Date().getTime() - st}`);
+        } else {
+          console.log('Inventory Not found');
+        }
+      }
+
+      async function accountOpeningMerge(db: string, user: Types.ObjectId) {
         console.log({ organization: db, collectionName: 'account_openings' });
         const auditplusDB = await connection.db('auditplusdb').collection('organizations').findOne({ name: db });
         const date = auditplusDB.bookBegin;
         date.setDate(date.getDate() - 1);
-        const user = await connection.db(db).collection('users').findOne({ isAdmin: true });
         const accOpeningPipeLine = [
           {
             $project: {
               _id: 0,
-              accountId: { $toObjectId: '$account.id' },
-              accountName: '$account.displayName',
-              branchId: { $toObjectId: '$branch.id' },
-              branchName: '$branch.displayName',
+              account: { $toObjectId: '$account.id' },
+              branch: { $toObjectId: '$branch.id' },
               date,
-              trns: [
+              items: [
                 {
                   _id: '$_id',
                   credit: '$credit',
                   debit: '$debit',
                 }
               ],
-              voucherName: 'Account Opening',
-              voucherType: 'ACCOUNT_OPENING',
+              acTrns: [
+                {
+                  _id: '$_id',
+                  account: { $toObjectId: '$account.id' },
+                  branch: { $toObjectId: '$branch.id' },
+                  bwd: false,
+                  credit: '$credit',
+                  debit: '$debit',
+                }
+              ],
               updatedBy: { $toObjectId: '$updatedBy' },
               updatedAt: new Date(),
             }
           },
-          { $merge: 'accountopenings_new' },
+          { $merge: 'account_openings' },
         ];
         const customerOpeningPipeLine = [
           {
             $addFields: {
               customer: {
                 $toObjectId: '$customer',
-              },
-              branch: {
-                $toObjectId: '$branch',
               },
             },
           },
@@ -220,35 +631,31 @@ export class TestService {
             $unwind: '$accs',
           },
           {
-            $lookup: {
-              from: 'branches',
-              localField: 'branch',
-              foreignField: '_id',
-              as: 'brs',
-            },
-          },
-          {
-            $unwind: '$brs',
-          },
-          {
             $addFields: {
-              accountId: '$accs._id',
-              accountName: '$accs.displayName',
-              branchId: '$brs._id',
-              branchName: '$brs.displayName',
+              account: '$accs._id',
+              branch: { $toObjectId: '$branch' },
             },
           },
           {
             $group: {
               _id: {
-                accountId: '$accountId',
-                branchId: '$branchId',
+                account: '$account',
+                branch: '$branch',
               },
-              branchName: { $last: '$branchName' },
-              accountName: { $last: '$accountName' },
-              trns: {
+              acTrns: {
                 $push: {
                   _id: { $toObjectId: '$pending' },
+                  account: '$account',
+                  branch: '$branch',
+                  bwd: true,
+                  refNo: '$refNo',
+                  credit: '$credit',
+                  debit: '$debit',
+                },
+              },
+              items: {
+                $push: {
+                  _id: '$_id',
                   effDate: '$effDate',
                   refNo: '$refNo',
                   credit: '$credit',
@@ -259,26 +666,23 @@ export class TestService {
           },
           {
             $addFields: {
-              accountId: '$_id.accountId',
-              branchId: '$_id.branchId',
+              account: '$_id.account',
+              branch: '$_id.branch',
               date,
               voucherName: 'Account Opening',
               voucherType: 'ACCOUNT_OPENING',
-              updatedBy: user._id,
+              updatedBy: user,
               updatedAt: new Date(),
             }
           },
           { $project: { _id: 0 } },
-          { $merge: 'accountopenings_new' },
+          { $merge: 'account_openings' },
         ];
         const vendorOpeningPipeLine = [
           {
             $addFields: {
               vendor: {
                 $toObjectId: '$vendor',
-              },
-              branch: {
-                $toObjectId: '$branch',
               },
             },
           },
@@ -294,35 +698,31 @@ export class TestService {
             $unwind: '$accs',
           },
           {
-            $lookup: {
-              from: 'branches',
-              localField: 'branch',
-              foreignField: '_id',
-              as: 'brs',
-            },
-          },
-          {
-            $unwind: '$brs',
-          },
-          {
             $addFields: {
-              accountId: '$accs._id',
-              accountName: '$accs.displayName',
-              branchId: '$brs._id',
-              branchName: '$brs.displayName',
+              account: '$accs._id',
+              branch: { $toObjectId: '$branch' },
             },
           },
           {
             $group: {
               _id: {
-                accountId: '$accountId',
-                branchId: '$branchId',
+                account: '$account',
+                branch: '$branch',
               },
-              branchName: { $last: '$branchName' },
-              accountName: { $last: '$accountName' },
-              trns: {
+              acTrns: {
                 $push: {
                   _id: { $toObjectId: '$pending' },
+                  account: '$account',
+                  branch: '$branch',
+                  bwd: true,
+                  refNo: '$refNo',
+                  credit: '$credit',
+                  debit: '$debit',
+                },
+              },
+              items: {
+                $push: {
+                  _id: '$_id',
                   effDate: '$effDate',
                   refNo: '$refNo',
                   credit: '$credit',
@@ -333,17 +733,17 @@ export class TestService {
           },
           {
             $addFields: {
-              accountId: '$_id.accountId',
-              branchId: '$_id.branchId',
+              account: '$_id.account',
+              branch: '$_id.branch',
               date,
               voucherName: 'Account Opening',
               voucherType: 'ACCOUNT_OPENING',
-              updatedBy: user._id,
+              updatedBy: user,
               updatedAt: new Date(),
             }
           },
           { $project: { _id: 0 } },
-          { $merge: 'accountopenings_new' },
+          { $merge: 'account_openings' },
         ];
 
         const accOpCount = await connection.db(db).collection('accountopenings').countDocuments();
@@ -353,8 +753,6 @@ export class TestService {
         if (accOpCount > 0) {
           await connection.db(db).collection('accountopenings').aggregate(accOpeningPipeLine).toArray();
         } else {
-          await connection.db(db).dropCollection('accountopenings');
-          await connection.db(db).createCollection('accountopenings');
           console.log('No Account Openings Found');
         }
         if (cusOpCount > 0) {
@@ -369,7 +767,6 @@ export class TestService {
         }
         console.log('Account opening merge Sucess');
       }
-
       async function mergePendingAdjustment(db: string) {
         console.log({ organization: db, collectionName: 'accountpendingadjustments' });
         await connection.db(db).collection('customerpendingadjustments')
@@ -390,6 +787,7 @@ export class TestService {
           console.log(`${collectionName} START`);
           for (let skip = 0; skip <= count; skip = skip + limit) {
             console.log({ organization: db, collectionName });
+            const bulkVOuchers = connection.db(db).collection('vouchers').initializeOrderedBulkOp();
             const docs = [];
             const vouchers: any = await connection.db(db).collection(collectionName)
               .find({}, { projection: { cashRegister: 0 }, sort: { _id: 1 }, skip, limit }).toArray();
@@ -446,8 +844,7 @@ export class TestService {
                 _id: voucher._id,
                 branch: Types.ObjectId(voucher.branch.id),
                 date: voucher.date,
-                refNo: voucher.refNo,
-                description: voucher.description,
+                act: false,
                 voucherNo: voucher.voucherNo,
                 voucherName: voucher.voucherName,
                 voucherType: voucher.voucherType,
@@ -456,6 +853,12 @@ export class TestService {
                 createdAt: voucher.createdAt,
                 updatedAt: voucher.updatedAt,
               };
+              if (voucher.refNo) {
+                _.assign(doc, { refNo: voucher.refNo });
+              }
+              if (voucher.description) {
+                _.assign(doc, { description: voucher.description });
+              }
               let _id: any;
               if (creditCollections.includes(collectionName)) {
                 const getPending = pendings
@@ -473,25 +876,21 @@ export class TestService {
               } else {
                 _id = new Types.ObjectId();
               }
-              const acItems = [
+              const trns: any = [
                 {
                   _id: new Types.ObjectId(),
                   account: Types.ObjectId(partyAcc.id),
-                  accountType: partyAcc.type,
                   debit,
                   credit,
                 },
                 {
                   _id: new Types.ObjectId(),
                   account: Types.ObjectId(cashAcc.id),
-                  accountType: cashAcc.type,
-                  instNo: voucher.instNo,
-                  instDate: voucher.instDate ? new Date(new Date(voucher.instDate).setUTCHours(0, 0, 0, 0)) : null,
                   debit: credit,
                   credit: debit,
                 },
               ];
-              const acTrns = [
+              const acTrns: any = [
                 {
                   _id,
                   account: Types.ObjectId(partyAcc.id),
@@ -507,34 +906,41 @@ export class TestService {
                   credit: debit,
                 },
               ];
-              _.assign(doc, { acItems });
+              if (voucher.instNo) {
+                trns[1].instNo = voucher.instNo;
+                acTrns[1].instNo = voucher.instNo;
+              }
+              if (voucher.instDate) {
+                trns[1].instDate = new Date(new Date(voucher.instDate).setUTCHours(0, 0, 0, 0));
+                acTrns[1].instDate = new Date(new Date(voucher.instDate).setUTCHours(0, 0, 0, 0));
+              }
+              _.assign(doc, { trns });
               _.assign(doc, { acTrns });
               if (creditCollections.includes(collectionName)) {
-                const acAdjs = pendings
+                const adjs = pendings
                   .filter((pending) => (pending.byPending === voucherPending) && (pending.byPending > pending.toPending))
                   .map((p) => {
                     return {
                       _id: new Types.ObjectId(),
-                      account: Types.ObjectId(partyAcc.id),
                       pending: Types.ObjectId(p.toPending),
                       amount: round(p.amount),
                     };
                   });
-                _.assign(doc.acItems[0], { acAdjs });
-                _.assign(doc.acItems[1], { acAdjs: [] });
-                _.assign(doc.acTrns[0], { acAdjs, bwd: true });
-                _.assign(doc.acTrns[1], { acAdjs: [], bwd: false });
+                if (adjs.length > 0) {
+                  _.assign(doc.trns[0], { adjs });
+                  _.assign(doc.acTrns[0], { adjs });
+                }
+                _.assign(doc.acTrns[0], { bwd: true });
+                _.assign(doc.acTrns[1], { bwd: false });
               } else {
-                _.assign(doc.acItems[0], { acAdjs: [] });
-                _.assign(doc.acItems[1], { acAdjs: [] });
-                _.assign(doc.acTrns[0], { acAdjs: [], bwd: false });
-                _.assign(doc.acTrns[1], { acAdjs: [], bwd: false });
+                _.assign(doc.acTrns[0], { bwd: false });
+                _.assign(doc.acTrns[1], { bwd: false });
               }
-              docs.push(doc);
+              bulkVOuchers.insert(doc);
             }
             console.log(`${skip} to ${limit + skip} new documents generated for ${collectionName}`);
             console.log(`${skip} to ${limit + skip} bulk insert started....`);
-            await connection.db(db).collection('vouchers').insertMany(docs);
+            await bulkVOuchers.execute();
             console.log(`${skip} to ${limit + skip} bulk insert end for ${collectionName}....`);
           }
           console.log(`${collectionName} END`);
@@ -548,14 +954,13 @@ export class TestService {
         console.log(`${collectionName} Start`);
         const journalsCount = await connection.db(db).collection(collectionName).countDocuments();
         if (journalsCount > 0) {
-          const docs = [];
-          const vouchers: any = await connection.db(db).collection(collectionName).find({}, { projection: { cashRegister: 0 } }).toArray();
+          const bulkJournal = connection.db(db).collection('vouchers').initializeOrderedBulkOp();
+          const vouchers: any = await connection.db(db).collection(collectionName).find({}).toArray();
           for (const voucher of vouchers) {
             const doc = {
               _id: voucher._id,
               branch: Types.ObjectId(voucher.branch.id),
               date: voucher.date,
-              refNo: voucher.refNo,
               description: voucher.description,
               createdBy: Types.ObjectId(voucher.createdBy),
               updatedBy: Types.ObjectId(voucher.updatedBy),
@@ -566,12 +971,15 @@ export class TestService {
               voucherType: 'JOURNAL',
             };
 
-            const acItems = voucher.transactions.map((trn) => {
+            if (voucher.refNo) {
+              _.assign(doc, { refNo: voucher.refNo });
+            }
+
+            const trns = voucher.transactions.map((trn) => {
               const acc = accounts.find(acc => trn.account.id === acc.id);
               return {
                 _id: new Types.ObjectId(),
                 account: Types.ObjectId(acc.id),
-                accountType: acc.type,
                 credit: round(trn.credit),
                 debit: round(trn.debit),
               }
@@ -582,15 +990,16 @@ export class TestService {
                 _id: new Types.ObjectId(),
                 account: Types.ObjectId(trn.account.id),
                 branch: Types.ObjectId(voucher.branch.id),
+                bwd: false,
                 credit: round(trn.credit),
                 debit: round(trn.debit),
               }
             });
-            _.assign(doc, { acItems });
+            _.assign(doc, { trns });
             _.assign(doc, { acTrns });
-            docs.push(doc);
+            bulkJournal.insert(doc);
           }
-          await connection.db(db).collection('vouchers').insertMany(docs);
+          await bulkJournal.execute();
         } else {
           console.log('No journals Found');
         }
@@ -599,6 +1008,50 @@ export class TestService {
 
       async function reArrangeBatch(db: string) {
         console.log({ organization: db, collectionName: 'create new batches_rearrange' });
+        const openingPipe = [
+          {
+            $unwind: '$trns',
+          },
+          {
+            $addFields: { batch: { $toObjectId: '$trns.batch' } }
+          },
+          {
+            $lookup: {
+              from: 'batches',
+              localField: 'batch',
+              foreignField: '_id',
+              as: 'batchArr'
+            }
+          },
+          {
+            $unwind: '$batchArr',
+          },
+          {
+            $project: {
+              _id: 0,
+              year: { $toString: '$trns.expYear' },
+              month: { $toString: '$trns.expMonth' },
+              unitConv: '$trns.unit.conversion',
+              unitPrecision: '$trns.unitPrecision',
+              qty: '$trns.qty',
+              mrp: '$trns.mrp',
+              rate: '$trns.pRate',
+              sRate: '$trns.sRate',
+              updatedBy: { $toObjectId: '$updatedBy' },
+              updatedAt: '$updatedAt',
+              assetAmount: '$assetAmount',
+              transactionId: '$trns._id',
+              batch: '$trns.batch',
+              singleton: '$batchArr.singleton',
+              allowNegativeStock: '$batchArr.allowNegativeStock',
+              batchNo: { $ifNull: [{ $toUpper: '$trns.batchNo' }, 'N.A'] },
+              voucherName: 'OPENING',
+              branch: { $toObjectId: '$branchId' },
+              inventory: { $toObjectId: '$inventoryId' },
+            },
+          },
+          { $merge: { into: 'batches_rearrange' } }
+        ];
         const purchasePipe = [
           {
             $unwind: '$invTrns'
@@ -638,45 +1091,7 @@ export class TestService {
           },
           { $merge: { into: 'batches_rearrange' } }
         ];
-        const openingPipe = [
-          { $project: { trns: 1, branchId: 1, inventoryId: 1 } },
-          {
-            $unwind: '$trns',
-          },
-          {
-            $addFields: { batch: { $toObjectId: '$trns.batch' } }
-          },
-          {
-            $lookup: {
-              from: 'batches',
-              localField: 'batch',
-              foreignField: '_id',
-              as: 'batchArr'
-            }
-          },
-          {
-            $unwind: '$batchArr',
-          },
-          {
-            $addFields: {
-              transactionId: '$trns._id',
-              batch: '$trns.batch',
-              singleton: '$batchArr.singleton',
-              allowNegativeStock: '$batchArr.allowNegativeStock',
-              batchNo: { $ifNull: [{ $toUpper: '$trns.batchNo' }, 'N.A'] },
-              voucherName: 'OPENING',
-              branch: { $toObjectId: '$branchId' },
-              inventory: { $toObjectId: '$inventoryId' },
-            },
-          },
-          {
-            $project: {
-              _id: 0, transactionId: 1, batch: 1, branch: 1, inventory: 1,
-              singleton: 1, allowNegativeStock: 1, batchNo: 1, voucherName: 1
-            }
-          },
-          { $merge: { into: 'batches_rearrange' } }
-        ];
+
         const stockTransferPipe = [
           {
             $unwind: '$invTrns'
@@ -730,8 +1145,8 @@ export class TestService {
         ];
         console.log(`new collection batch_rearrage started...`);
         const newBatchStart = new Date().getTime();
-        await connection.db(db).collection('purchases').aggregate(purchasePipe).toArray();
         await connection.db(db).collection('inventory_openings').aggregate(openingPipe).toArray();
+        await connection.db(db).collection('purchases').aggregate(purchasePipe).toArray();
         await connection.db(db).collection('stock_transfers').aggregate(stockTransferPipe).toArray();
         console.log(`DURATION for new Batch ${(new Date().getTime() - newBatchStart) / 1000}-sec`);
         console.log(`Convert duplicate batchNo as Uniq batchNo started...`);
@@ -778,7 +1193,7 @@ export class TestService {
         if (count > 0) {
           const limit = 500;
           const begin = new Date().getTime();
-          for (let skip = 0; skip <= count; skip = skip + limit) {
+          for (let skip = 3000; skip <= count; skip = skip + limit) {
             console.log({ organization: db, collectionName });
             const start = new Date().getTime();
             const bulkOperation = connection.db(db).collection('purchases_new').initializeOrderedBulkOp();
@@ -787,44 +1202,35 @@ export class TestService {
             const vouchers: any = await connection.db(db).collection(collectionName)
               .find({},
                 {
-                  projection: { cashRegister: 0, warehouse: 0, fNo: 0, rcm: 0, taxInclusiveRate: 0 },
+                  projection: { cashRegister: 0, fNo: 0, rcm: 0, taxInclusiveRate: 0 },
                   sort: { _id: 1 }, skip, limit,
                 })
               .toArray();
             console.log(`get ${skip} to ${limit + skip} voucher duration ${new Date().getTime() - sttt}`);
             const afterGetVoucher = new Date().getTime();
             for (const voucher of vouchers) {
-              const partyLoc = STATE.find((loc) => voucher.gstInfo.source.location.defaultName === loc.defaultName).code.toString();
+              const partyLoc = STATE.find((loc) => voucher.gstInfo.source.location.defaultName === loc.defaultName).code;
               const doc: any = {
                 _id: voucher._id,
                 date: voucher.date,
                 billDate: voucher?.billDate ?? voucher.date,
                 vendor: Types.ObjectId(voucher.vendor.id),
                 branch: Types.ObjectId(voucher.branch.id),
-                warehouse: null,
                 transactionMode: voucher.purchaseType,
                 voucherType: voucher.voucherType,
-                purchaseType: voucher.voucherType,
                 branchGst: {
-                  regType: voucher.gstInfo.destination.regType.defaultName,
+                  regType: 'REGULAR',
                   location: '33',
                   gstNo: voucher.gstInfo.destination.gstNo,
                 },
                 partyGst: {
-                  regType: voucher.gstInfo.source.regType.defaultName,
+                  regType: 'REGULAR',
                   location: partyLoc,
                   gstNo: voucher.gstInfo.source.gstNo,
                 },
-                refNo: voucher.refNo,
-                description: voucher.description,
                 rcm: false,
                 pRateTaxInc: false,
                 sRateTaxInc: true,
-                cashAmount: 0,
-                bankAmount: 0,
-                bankAccount: null,
-                creditAmount: 0,
-                creditAccount: null,
                 voucherNo: voucher.voucherNo,
                 voucherName: voucher.voucherName,
                 createdBy: Types.ObjectId(voucher.createdBy),
@@ -833,8 +1239,16 @@ export class TestService {
                 updatedAt: voucher.updatedAt,
                 amount: round(voucher.amount),
                 act: false,
-                actHide: false,
               };
+              if (voucher.warehouse?.id) {
+                _.assign(doc, { warehouse: Types.ObjectId(voucher.warehouse.id) });
+              }
+              if (voucher.refNo) {
+                _.assign(doc, { refNo: voucher.refNo });
+              }
+              if (voucher.description) {
+                _.assign(doc, { description: voucher.description });
+              }
               const invItems = [];
               const invTrns = [];
               for (const item of voucher.invTrns) {
@@ -845,24 +1259,21 @@ export class TestService {
                   expiry = new Date(new Date(`${item.expYear}-${0}${item.expMonth}-01`).setUTCHours(0, 0, 0, 0));
                 } else if (item.expMonth && item.expMonth > 9) {
                   expiry = new Date(new Date(`${item.expYear}-${item.expMonth}-01`).setUTCHours(0, 0, 0, 0));
-                } else {
-                  expiry = null;
                 }
 
                 const invItemObj = {
                   _id: new Types.ObjectId(),
                   inventory: Types.ObjectId(item.inventory.id),
+                  unitConv: item.unit.conversion,
                   qty: item.qty,
                   mrp: round(item.mrp),
                   rate: round(item.rate),
-                  disc: round(item.discount),
                   unitPrecision: item.unitPrecision,
-                  expiry,
-                  hsnSac: item.hsnCode,
-                  unit: Types.ObjectId(item.unit.id),
-                  unitConv: item.unit.conversion,
                   tax,
                 };
+                if (item.discount > 0) {
+                  _.assign(invItemObj, { disc: round(item.discount) });
+                }
 
                 const invTrnObj = {
                   inventory: Types.ObjectId(item.inventory.id),
@@ -871,14 +1282,16 @@ export class TestService {
                   mrp: round(item.mrp),
                   tax,
                   rate: round(item.rate),
-                  profitAmount: 0,
-                  profitPercent: 0,
-                  expiry,
-                  hsnSac: item.hsnCode,
-                  warehouse: voucher.warehouse?.id ?? null,
                   branch: Types.ObjectId(voucher.branch.id),
                   outward: 0,
                 };
+                if (voucher.warehouse?.id) {
+                  _.assign(invTrnObj, { warehouse: Types.ObjectId(voucher.warehouse.id) });
+                }
+                if (expiry) {
+                  _.assign(invItemObj, { expiry });
+                  _.assign(invTrnObj, { expiry });
+                }
                 if (item.cgstAmount > 0) {
                   _.assign(invTrnObj, { cgstAmount: round(item.igstAmount) });
                 }
@@ -914,25 +1327,26 @@ export class TestService {
                 invTrns.push(orderedInvTrn);
               }
               const roundOff = voucher.acTrns.find((acc: any) => (acc.account.defaultName === 'ROUNDED_OFF_SHORTAGE'));
-              const acAdjs = {
-                discount: voucher?.discount ?? 0,
-                roundedOff: roundOff ? (roundOff.credit > 0 ? roundOff.credit * -1 : roundOff.debit) : 0,
+              const acAdjs = {};
+              if (voucher.discount > 0) {
+                _.assign(acAdjs, { discount: round(voucher.discount) });
+              }
+              if (roundOff) {
+                _.assign(acAdjs, { roundedOff: roundOff.credit > 0 ? round(roundOff.credit * -1) : round(roundOff.debit) });
               }
               const acItems = [];
+              const acTrns = [];
               for (const item of voucher.acTrns) {
                 if (['ROUNDED_OFF_SHORTAGE', 'DISCOUNT_RECEIVED'].includes(item.account?.defaultName)) {
-                  const account = accounts.find((acc: any) => acc.id === item.account.id);
+                  const itemAccount = accounts.find((acc: any) => acc.id === item.account.id);
                   const acItemObj = {
                     _id: new Types.ObjectId(),
-                    account: Types.ObjectId(account.id),
-                    accountType: account.type,
+                    account: Types.ObjectId(itemAccount.id),
+                    accountType: itemAccount.type,
                     amount: item.credit > 0 ? -item.credit : item.debit,
                   }
                   acItems.push(acItemObj);
                 }
-              }
-              const acTrns = [];
-              for (const item of voucher.acTrns) {
                 let account: any;
                 let _id: any;
                 let trnObj: any;
@@ -952,7 +1366,6 @@ export class TestService {
                       .map((p) => {
                         return {
                           _id: new Types.ObjectId(),
-                          account: Types.ObjectId(account.id),
                           amount: round(p.amount),
                           pending: Types.ObjectId(p.toPending),
                         };
@@ -1024,10 +1437,10 @@ export class TestService {
             const sttt = new Date().getTime();
             console.log(`bulkOperation initialzed Duration ${start - sttt}`);
             const vouchers: any = await connection.db(db).collection(collectionName)
-              .find({},
+              .find({ "_id": Types.ObjectId("60424c74410e1627663ce79f"), },
                 {
                   projection: {
-                    cashRegister: 0, warehouse: 0, fNo: 0,
+                    cashRegister: 0, fNo: 0,
                     __v: 0, cashRegisterApproved: 0,
                   },
                   sort: { _id: 1 }, skip, limit,
@@ -1036,15 +1449,41 @@ export class TestService {
             console.log(`get ${skip} to ${skip + limit} voucher duration ${new Date().getTime() - sttt}`);
             const afterGetVoucher = new Date().getTime();
             for (const voucher of vouchers) {
-              let partyGst = {};
-              let customer: any;
+              const initialDoc = {
+                _id: voucher._id,
+                date: voucher.date,
+                branch: Types.ObjectId(voucher.branch.id),
+                customer: voucher.customer ? Types.ObjectId(voucher.customer) : null,
+                customerGroup: voucher.customer?.customerGroup ? Types.ObjectId(voucher.customer.customerGroup) : null,
+                doctor: voucher.doctor ? Types.ObjectId(voucher.doctor.id) : null,
+                patient: voucher.patient ? Types.ObjectId(voucher.patient.id) : null,
+                branchGst: {
+                  regType: 'REGULAR',
+                  location: '33',
+                  gstNo: voucher.gstInfo.source.gstNo,
+                },
+                lut: voucher?.lut ?? false,
+                taxInclusiveRate: voucher.taxInclusiveRate,
+                voucherNo: voucher.voucherNo,
+                voucherType: voucher.voucherType,
+                voucherName: voucher.voucherName,
+                createdBy: Types.ObjectId(voucher.createdBy),
+                updatedBy: Types.ObjectId(voucher.updatedBy),
+                createdAt: voucher.createdAt,
+                updatedAt: voucher.updatedAt,
+                transactionMode: voucher.saleType,
+                amount: round(voucher.amount),
+                refNo: voucher.refNo,
+                description: voucher.description,
+                warehouse: voucher.warehouse?.id ? Types.ObjectId(voucher.warehouse.id) : null,
+              };
+              const doc = _.pickBy(initialDoc, (key) => key !== null && key !== undefined);
               if (voucher.customer) {
-                customer = Types.ObjectId(voucher.customer.id);
-                if (voucher.gstInfo.destination?.defaultName) {
-                  const regType = voucher.gstInfo.destination.regType.defaultName;
-                  partyGst = { regType };
+                const regType = voucher.gstInfo.destination.regType.defaultName;
+                let partyGst = { regType };
+                if (regType) {
                   if (regType != 'OVERSEAS') {
-                    let location = STATE.find((loc) => voucher.gstInfo.destination.location.defaultName === loc.defaultName).code.toString();
+                    let location = STATE.find((loc) => voucher.gstInfo.destination.location.defaultName === loc.defaultName).code;
                     _.assign(partyGst, { location });
                   }
                   if (['REGULAR', 'SPECIAL_ECONOMIC_ZONE'].includes(regType)) {
@@ -1054,57 +1493,17 @@ export class TestService {
                 } else {
                   const custInfo = await connection.db(db).collection('customers').findOne({ _id: Types.ObjectId(voucher.customer.id) });
                   partyGst = {
-                    regType: custInfo.gstInfo.regType.defaultName,
+                    regType: custInfo.gstInfo.regType,
                   }
                   if (custInfo.gstInfo.regType.defaultName != 'OVERSEAS') {
-                    const location = STATE.find((loc) => custInfo.gstInfo.location.defaultName === loc.defaultName).code.toString();
+                    const location = STATE.find((loc) => custInfo.gstInfo.location.defaultName === loc.defaultName).code;
                     _.assign(partyGst, { location });
                   }
                   if (['REGULAR', 'SPECIAL_ECONOMIC_ZONE'].includes(custInfo.gstInfo.regType.defaultName)) {
-                    const gstNo = custInfo.gstInfo.gstNo;
-                    _.assign(partyGst, { gstNo });
+                    _.assign(partyGst, { gstNo: custInfo.gstInfo.gstNo });
                   }
                 }
-              } else {
-                partyGst = null;
-                customer = null;
-              }
-              const doc: any = {
-                _id: voucher._id,
-                date: voucher.date,
-                customer,
-                branch: Types.ObjectId(voucher.branch.id),
-                warehouse: null,
-                voucherType: voucher.voucherType,
-                branchGst: {
-                  regType: 'REGULAR',
-                  location: '33',
-                  gstNo: voucher.gstInfo.source.gstNo,
-                },
-                partyGst,
-                refNo: voucher.refNo,
-                description: voucher.description,
-                lut: voucher?.lut ?? false,
-                // pRateTaxInc: false, later
-                // sRateTaxInc: true, later
-                cashAmount: 0,
-                bankAmount: 0,
-                bankAccount: null,
-                creditAmount: 0,
-                creditAccount: null,
-                voucherNo: voucher.voucherNo,
-                voucherName: voucher.voucherName,
-                createdBy: Types.ObjectId(voucher.createdBy),
-                updatedBy: Types.ObjectId(voucher.updatedBy),
-                createdAt: voucher.createdAt,
-                updatedAt: voucher.updatedAt,
-                transactionMode: voucher.saleType,
-                amount: round(voucher.amount),
-                act: false,
-                actHide: false,
-              };
-              if (collectionName === 'sales') {
-                _.assign(doc, { eftAmount: 0, eftAccount: null });
+                _.assign(doc, { partyGst });
               }
               const invItems = [];
               const invTrns = [];
@@ -1137,8 +1536,6 @@ export class TestService {
                   expiry = new Date(new Date(`${item.expYear}-${0}${item.expMonth}-01`).setUTCHours(0, 0, 0, 0));
                 } else if (item.expMonth && item.expMonth > 9) {
                   expiry = new Date(new Date(`${item.expYear}-${item.expMonth}-01`).setUTCHours(0, 0, 0, 0));
-                } else {
-                  expiry = null;
                 }
                 const invItemObj = {
                   _id: new Types.ObjectId(),
@@ -1147,36 +1544,44 @@ export class TestService {
                   qty: item.qty,
                   mrp: round(item.mrp),
                   rate: round(item.rate),
-                  disc: round(item.discount),
-                  expiry,
-                  hsnSac: item.hsnCode,
-                  unit: Types.ObjectId(item.unit.id),
                   unitConv: item.unit.conversion,
                   unitPrecision: item.unitPrecision,
                   tax,
                 };
-
+                if (item.discount > 0) {
+                  _.assign(invItemObj, { disc: round(item.discount) });
+                }
                 const invTrnObj = {
                   _id: new Types.ObjectId(),
                   batch: batch.transactionId,
                   inventory: Types.ObjectId(item.inventory.id),
                   inward: 0,
                   taxableAmount: round(item.taxableAmount),
-                  sgstAmount: round(item.cgstAmount),
-                  cgstAmount: round(item.sgstAmount),
-                  igstAmount: round(item.igstAmount),
-                  cessAmount: round(item.cessAmount),
                   assetAmount: round(item.assetAmount),
                   mrp: round(item.mrp),
                   tax,
                   rate: round(item.rate),
                   profitAmount: round(item.taxableAmount - item.assetAmount),
                   profitPercent: round((item.taxableAmount - item.assetAmount) / item.taxableAmount * 100),
-                  expiry,
-                  hsnSac: item.hsnCode,
-                  warehouse: voucher.warehouse?.id ?? null,
                   branch: Types.ObjectId(voucher.branch.id),
                 };
+                if (item.cgstAmount > 0) {
+                  _.assign(invTrnObj, { cgstAmount: round(item.cgstAmount) });
+                }
+                if (item.sgstAmount > 0) {
+                  _.assign(invTrnObj, { sgstAmount: round(item.sgstAmount) });
+                }
+                if (item.igstAmount > 0) {
+                  _.assign(invTrnObj, { igstAmount: round(item.igstAmount) });
+                }
+
+                if (voucher.warehouse?.id) {
+                  _.assign(invTrnObj, { warehouse: Types.ObjectId(voucher.warehouse.id) });
+                }
+                if (expiry) {
+                  _.assign(invItemObj, { expiry });
+                  _.assign(invTrnObj, { expiry });
+                }
                 if (item.sInc) {
                   _.assign(invItemObj, { sInc: Types.ObjectId(item.sInc) });
                   _.assign(invTrnObj, { sInc: Types.ObjectId(item.sInc) });
@@ -1186,23 +1591,46 @@ export class TestService {
                 } else {
                   _.assign(invTrnObj, { outward: item.qty * item.unit.conversion * -1 });
                 }
+                invTrns.push(invTrnObj);
+                invItems.push(invItemObj);
+              }
 
-                let orderedInvTrn = {};
-                _(invTrnObj).keys().sort().each((key) => { orderedInvTrn[key] = invTrnObj[key] });
-                let orderedInvItem = {};
-                _(invItemObj).keys().sort().each((key) => { orderedInvItem[key] = invItemObj[key] });
-                invItems.push(orderedInvItem);
-                invTrns.push(orderedInvTrn);
+              const acAdjs = {};
+              if (voucher.shippingInfo.tax?.id) {
+                const shippingTax = GST_TAXES.find(t => t.ratio.igst === voucher.shippingInfo.tax.gstRatio.igst).code;
+                _.assign(acAdjs, { shippingTax });
+                const shippingInfo = {};
+                if (voucher.shippingInfo.shipThrough) {
+                  _.assign(shippingInfo, { shipThrough: voucher.shippingInfo.shipThrough });
+                }
+                if (voucher.shippingInfo.shippingDate) {
+                  _.assign(shippingInfo, { shippingDate: voucher.shippingInfo.shippingDate });
+                }
+                if (voucher.shippingInfo.trackingNo) {
+                  _.assign(shippingInfo, { trackingNo: voucher.shippingInfo.trackingNo });
+                }
+                const addressId = (await connection.db(db).collection('customers').findOne({ _id: Types.ObjectId(voucher.customer.id) })).deliveryAddress[0]._id;
+                if (addressId) {
+                  _.assign(shippingInfo, { deliveryAddress: addressId });
+                }
+                if (voucher.shippingInfo.shipThrough || voucher.shippingInfo.shippingDate || voucher.shippingInfo.trackingNo) {
+                  _.assign(doc, { shippingInfo });
+                }
               }
-              const roundOff = voucher.acTrns.find((acc: any) => (acc.account.defaultName === 'ROUNDED_OFF_SURPLUS'));
-              const acAdjs = {
-                discount: voucher?.discount ?? 0,
-                roundedOff: roundOff ? (roundOff.credit > 0 ? roundOff.credit * -1 : roundOff.debit) : 0,
-              }
+              const acTrns = [];
               const acItems = [];
               for (const item of voucher.acTrns) {
-                if (['ROUNDED_OFF_SURPLUS', 'DISCOUNT_GIVEN'].includes(item.account?.defaultName)) {
-                  const account = accounts.find((acc: any) => acc.id === item.account.id);
+                let account = accounts.find((acc) => acc.id === item.account.id);
+                if (['ROUNDED_OFF_SURPLUS', 'DISCOUNT_GIVEN', 'SHIPPING_CHARGE'].includes(item.account?.defaultName)) {
+                  if (item.account.defaultName === 'ROUNDED_OFF_SURPLUS') {
+                    _.assign(acAdjs, { roundedOff: item.credit > 0 ? round(-item.credit) : round(item.debit) });
+                  }
+                  if (item.account.defaultName === 'DISCOUNT_GIVEN') {
+                    _.assign(acAdjs, { discount: item.credit > 0 ? round(-item.credit) : round(item.debit) });
+                  }
+                  if (item.account.defaultName === 'SHIPPING_CHARGE') {
+                    _.assign(acAdjs, { shippingCharge: item.credit > 0 ? round(-item.credit) : round(item.debit) });
+                  }
                   const acItemObj = {
                     _id: new Types.ObjectId(),
                     account: Types.ObjectId(account.id),
@@ -1211,10 +1639,6 @@ export class TestService {
                   }
                   acItems.push(acItemObj);
                 }
-              }
-              const acTrns = [];
-              for (const item of voucher.acTrns) {
-                let account = accounts.find((acc) => acc.id === item.account.id);
                 let _id: any;
                 let trnObj: any;
                 if (item.account.defaultName === 'TRADE_RECEIVABLE') {
@@ -1233,14 +1657,12 @@ export class TestService {
                       .map((p) => {
                         return {
                           _id: new Types.ObjectId(),
-                          account: Types.ObjectId(account.id),
-                          amount: round(p.amount),
                           pending: Types.ObjectId(p.toPending),
+                          amount: round(p.amount),
                         };
                       });
                   } else if (!getPending) {
                     _id = new Types.ObjectId();
-                    adjs = [];
                   }
                   trnObj = {
                     _id,
@@ -1248,9 +1670,16 @@ export class TestService {
                     branch: Types.ObjectId(voucher.branch.id),
                     credit: round(item.credit),
                     debit: round(item.debit),
-                    adjs,
+                    bwd: true,
                   }
-                  _.assign(doc, { creditAdjs: adjs, creditAccount: Types.ObjectId(account.id), creditAmount: round(voucher.amount) });
+                  if (adjs.length > 0) {
+                    _.assign(trnObj, { adjs });
+                    _.assign(doc, { creditAdjs: adjs });
+                  }
+                  if (voucher.refNo) {
+                    _.assign(trnObj, { refNo: voucher.refNo });
+                  }
+                  _.assign(doc, { creditAccount: Types.ObjectId(account.id), creditAmount: round(voucher.amount) });
                 } else {
                   if (account.type === 'CASH') {
                     _.assign(doc, { cashAmount: (item.credit > 0) ? round(item.credit) : round(item.debit) });
@@ -1267,14 +1696,16 @@ export class TestService {
                     branch: Types.ObjectId(voucher.branch.id),
                     credit: round(item.credit),
                     debit: round(item.debit),
+                    bwd: false,
+                  }
+                  if (voucher.refNo) {
+                    _.assign(trnObj, { refNo: voucher.refNo });
                   }
                 }
                 acTrns.push(trnObj);
               }
               _.assign(doc, { acAdjs, acItems, acTrns, invTrns, invItems });
-              let orderedDoc = {};
-              _(doc).keys().sort().each((key) => { orderedDoc[key] = doc[key] });
-              bulkOperation.insert(orderedDoc);
+              bulkOperation.insert(doc);
             }
 
             const start1 = new Date().getTime();
@@ -1620,7 +2051,7 @@ export class TestService {
                   fYear: Types.ObjectId(item.fYear),
                   voucherType: item.voucherType.defaultName,
                 },
-                $unset: { createdAt: 1 },
+                $unset: { createdAt: 1, __v: 1 },
               },
             }
           }
@@ -1630,41 +2061,141 @@ export class TestService {
       }
 
       async function renameCollections(db: string) {
-        await connection.db(db).collection('accountbooks').drop();
-        await connection.db(db).collection('inventorybooks').drop();
-        await connection.db(db).createCollection('accountbooks');
-        await connection.db(db).createCollection('inventorybooks');
-        const renameCollections = ['sales', 'purchases', 'stock_transfers', 'stock_adjustments', 'accountopenings'];
+        const renameCollections = ['sales', 'purchases', 'stock_transfers', 'stock_adjustments'];
         for (const item of renameCollections) {
           await connection.db(db).collection(item).rename(`${item}_old`);
           await connection.db(db).collection(`${item}_new`).rename(item);
         }
+        await connection.db(db).collection('inventory_openings').rename(`inventory_openings${new Date()}`);
+        await connection.db(db).collection('inventory_openings_new').rename('inventory_openings');
+        await connection.db(db).collection('costcategories').rename('cost_categories');
+        await connection.db(db).collection('costcentres').rename('cost_centres');
+        await connection.db(db).collection('desktopclients').rename('desktop_clients');
+        await connection.db(db).collection('vouchernumberings').rename('voucher_numberings');
+        await connection.db(db).collection('inventorydealers').rename('inventory_dealers');
+        await connection.db(db).collection('financialyears').rename('financial_years');
+        // await connection.db(db).collection('activitylogs').rename('activity_logs');
+        await connection.db(db).collection('currentpreferences').rename('current_preferences');
+        await connection.db(db).collection('printtemplates').rename('print_templates');
+        await connection.db(db).collection('cashtransfers').rename('cash_transfers');
+      }
+
+      async function inventoryOpening(db: string) {
+        const auditplusDB = await connection.db('auditplusdb').collection('organizations').findOne({ name: db });
+        const date = auditplusDB.bookBegin;
+        date.setDate(date.getDate() - 1);
+        const pipeLine = [
+          { $match: { voucherName: 'OPENING' } },
+          {
+            $addFields: {
+              expiry: { $toDate: { $concat: ['$year', '-', '$month', '-01'] } },
+            }
+          },
+          {
+            $group: {
+              _id: { inventory: '$inventory', branch: '$branch' },
+              assetAmount: { $last: '$assetAmount' },
+              updatedBy: { $last: '$updatedBy' },
+              updatedAt: { $last: '$updatedAt' },
+              items: {
+                $push: {
+                  _id: '$transactionId',
+                  batchNo: '$batchNo',
+                  unitConv: '$unitConv',
+                  unitPrecision: '$unitPrecision',
+                  qty: '$qty',
+                  mrp: '$mrp',
+                  rate: '$rate',
+                  sRate: '$sRate',
+                  expiry: { $cond: [{ $ne: ['$expiry', null] }, '$expiry', '$REMOVE'] },
+                }
+              },
+              invTrns: {
+                $push: {
+                  _id: '$transactionId',
+                  inventory: '$inventory',
+                  branch: '$branch',
+                  inward: { $multiply: ['$qty', '$unitConv'] },
+                  outward: 0,
+                  assetAmount: { $round: [{ $multiply: ['$qty', '$rate'] }, 2] },
+                  batchNo: '$batchNo',
+                  unitConv: '$unitConv',
+                  qty: '$qty',
+                  mrp: '$mrp',
+                  rate: '$rate',
+                  sRate: '$sRate',
+                  nlc: { $round: [{ $divide: ['$rate', '$unitConv'] }, 2] },
+                  expiry: { $cond: [{ $ne: ['$expiry', null] }, '$expiry', '$REMOVE'] },
+                }
+              }
+            }
+          },
+          { $addFields: { sRateTaxInc: true } },
+          {
+            $project: {
+              _id: 0,
+              assetAmount: '$assetAmount',
+              date,
+              branch: '$_id.branch',
+              inventory: '$_id.inventory',
+              invTrns: '$invTrns',
+              items: '$items',
+              sRateTaxInc: 1,
+              updatedAt: '$updatedAt',
+              updatedBy: '$updatedBy',
+            }
+          },
+          { $merge: 'inventory_openings_new' },
+        ];
+        await connection.db(db).collection('batches_rearrange').aggregate(pipeLine, { allowDiskUse: true }).toArray();
       }
 
       const startTime = new Date();
       console.log('.........START...........');
       console.log({ startTime });
 
-      const dbs = ['velavanmedical', 'velavanstationery', 'velavanhm'];
+
+      // const dbs = ['velavanmedical', 'velavanstationery', 'velavanhm', 'ttgold'];
+      const dbs = ['velavanmedical']; // for checking
       for (const db of dbs) {
-        console.log(db);
-        await customerMaster(db);
-        await accountMaster(db);
-        await accountOpeningMerge(db);
-        await mergePendingAdjustment(db);
-        const pendings: any = await connection.db(db).collection('accountpendingadjustments')
-          .find({}, { projection: { _id: 0, __v: 0 } }).toArray();
+        console.log(`${db} org start.....`);
+        const adminUserId: Types.ObjectId = (await connection.db(db).collection('users').findOne({ isAdmin: true }))._id;
+        await reArrangeBatch(db); // DONE
+        await inventoryMaster(db, adminUserId); //
+        await inventoryOpening(db); // DONE
+        await accountMaster(db, adminUserId); // DONE
+        await costCategoryMaster(db, adminUserId); // DONE
+        await costCentreMaster(db, adminUserId); // DONE
+        await pharmaSaltMaster(db, adminUserId); // DONE
+        await rackMaster(db, adminUserId); // DONE
+        await roleMaster(db); // DONE
+        await manufacturerMaster(db, adminUserId); // DONE
+        await sectionMaster(db, adminUserId); // DONE
+        await unitMaster(db, adminUserId); // DONE
+        await doctorMaster(db); // DONE
+        await financialYear(db); // DONE
+        await customerMaster(db); // DONE
+        await vendorMaster(db); // DONE
+        await branchMaster(db); // DONE
+        await cashRegisterMaster(db); // DONE
+        await accountOpeningMerge(db, adminUserId); // DONE
+        await voucherNumberings(db); // DONE
+        await mergePendingAdjustment(db); // DONE
+
+
         const accounts: any = await connection.db(db).collection('accounts')
-          .find({}, { projection: { party: 1, displayName: 1, type: 1 } })
+          .find({}, { projection: { party: 1, displayName: 1, accountType: 1 } })
           .map((elm: any) => {
             return {
               id: elm._id.toString(),
               displayName: elm.displayName,
               party: elm?.party?.toString(),
-              type: elm.type.defaultName,
+              type: elm.accountType,
             }
           })
           .toArray();
+        const pendings: any = await connection.db(db).collection('accountpendingadjustments')
+          .find({}, { projection: { _id: 0, __v: 0 } }).toArray();
         const collectionNames = [
           'customerpayments', 'customerreceipts',
           'vendorpayments', 'vendorreceipts',
@@ -1672,11 +2203,10 @@ export class TestService {
           'expenses', 'incomes',
           'cashdeposits', 'cashwithdrawals',
           'journals'
-        ];
-
+        ];  
         for (const coll of collectionNames) {
           if (['customerpayments', 'customerreceipts', 'vendorpayments', 'vendorreceipts'].includes(coll)) {
-            await accVoucher(db, coll, accounts, pendings);
+            await accVoucher(db, coll, accounts, pendings); //DONE
           }
           if (['accountreceipts', 'accountpayments', 'expenses', 'incomes', 'cashdeposits', 'cashwithdrawals'].includes(coll)) {
             await accVoucher(db, coll, accounts);
@@ -1686,7 +2216,6 @@ export class TestService {
           }
         }
 
-        await reArrangeBatch(db);
         const batches: any = await connection.db(db).collection('batches_rearrange')
           .find({}, { projection: { transactionId: 1, batch: 1, batchNo: 1, _id: 0 } })
           .map((elm: any) => {
@@ -1702,43 +2231,9 @@ export class TestService {
         await saleVoucher(db, 'sale_returns', accounts, pendings, batches);
         await stockAdjustments(db, 'stock_adjustments', accounts, batches);
         await stockTransfer(db, 'stock_transfers', accounts, batches);
-        await voucherNumberings(db);
         await renameCollections(db);
+        console.log(`********${db} org end ******`);
       }
-
-      async function mainDb(db: string) {
-        console.log(`${db} account updatation start....`);
-        await connection.db(db).collection('accounts')
-          .deleteMany({ defaultName: { $in: ['TRADE_RECEIVABLE', 'TRADE_PAYABLE', 'COST_OF_GOODS_SOLD'] } });
-        await connection.db(db).collection('accounts').updateOne({ defaultName: 'Postage' }, {
-          $set: {
-            defaultName: 'POSTAGE',
-          }
-        });
-        await connection.db(db).collection('accounts').updateOne({ defaultName: 'REPAIRS_AND_MAINTANANCE' }, {
-          $set: {
-            name: 'Repairs And Maintenance',
-            validateName: 'repairsandmaintenance',
-            displayName: 'Repairs And Maintenance',
-            defaultName: 'REPAIRS_AND_MAINTENANCE',
-          }
-        });
-        await connection.db(db).collection('accounts').updateOne({ defaultName: 'PRINTING_AND_STATIONARY' }, {
-          $set: {
-            name: 'Printing And Stationery',
-            validateName: 'printingandstationery',
-            displayName: 'Printing And Stationery',
-            defaultName: 'PRINTING_AND_STATIONERY',
-          }
-        });
-        await connection.db(db).collection('accounts').updateOne({ defaultName: 'FURNITUREANDEQUIPMENT' }, {
-          $set: {
-            defaultName: 'FURNITURE_AND_EQUIPMENT',
-          }
-        });
-        console.log(`${db} account updatation end*****`);
-      }
-      await mainDb('auditplusdb');
       const endTime = new Date();
       console.log('.........END...........');
       console.log({ endTime });
@@ -1760,7 +2255,7 @@ export class TestService {
 
       async function deleteCollections(db: string) {  // drop collection and drop Indexes
         const collections = [
-          'accountopenings_old', 'accountpayments', 'accountpendingadjustments', 'accountreceipts',
+          'accountopenings', 'accountpayments', 'accountpendingadjustments', 'accountreceipts', 'activitylogs',
           'act_account_map', 'act_account_openings', 'act_accountbooks', 'act_accounts',
           'act_gst_registrations', 'act_import_field_map', 'act_import_sessions', 'act_inventories',
           'act_inventory_details', 'act_inventory_openings', 'act_inventorybooks', 'act_vouchers',
@@ -1790,6 +2285,24 @@ export class TestService {
       for (const db of dbs) {
         await deleteCollections(db);
       }
+      async function mainDb(db: string) {
+        console.log(`${db} drop collections....`);
+        await connection.db(db).collection('accounts').drop();
+        await connection.db(db).collection('accounttypes').drop();
+        await connection.db(db).collection('configurations').drop();
+        await connection.db(db).collection('costcategories').drop();
+        await connection.db(db).collection('countries').drop();
+        await connection.db(db).collection('gstregistrations').drop();
+        await connection.db(db).collection('m1inventoryopenings').drop();
+        await connection.db(db).collection('m2inventoryopenings').drop();
+        await connection.db(db).collection('organizationtypes').drop();
+        await connection.db(db).collection('privileges').drop();
+        await connection.db(db).collection('states').drop();
+        await connection.db(db).collection('taxes').drop();
+        await connection.db(db).collection('taxtypes').drop();
+        await connection.db(db).collection('templatelayouts').drop();
+      }
+      await mainDb('auditplusdb');
       await connection.close();
       return 'unnecessary collections dropped and index drop for all collection successfully';
     } catch (err) {
