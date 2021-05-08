@@ -1193,7 +1193,7 @@ export class TestService {
         if (count > 0) {
           const limit = 500;
           const begin = new Date().getTime();
-          for (let skip = 3000; skip <= count; skip = skip + limit) {
+          for (let skip = 0; skip <= count; skip = skip + limit) {
             console.log({ organization: db, collectionName });
             const start = new Date().getTime();
             const bulkOperation = connection.db(db).collection('purchases_new').initializeOrderedBulkOp();
@@ -1293,10 +1293,10 @@ export class TestService {
                   _.assign(invTrnObj, { expiry });
                 }
                 if (item.cgstAmount > 0) {
-                  _.assign(invTrnObj, { cgstAmount: round(item.igstAmount) });
+                  _.assign(invTrnObj, { cgstAmount: round(item.cgstAmount) });
                 }
                 if (item.sgstAmount > 0) {
-                  _.assign(invTrnObj, { sgstAmount: round(item.igstAmount) });
+                  _.assign(invTrnObj, { sgstAmount: round(item.sgstAmount) });
                 }
                 if (item.igstAmount > 0) {
                   _.assign(invTrnObj, { igstAmount: round(item.igstAmount) });
@@ -1377,6 +1377,7 @@ export class TestService {
                   trnObj = {
                     _id,
                     account: Types.ObjectId(account.id),
+                    accountType: account.type,
                     adjs,
                     branch: Types.ObjectId(voucher.branch.id),
                     credit: round(item.credit),
@@ -1394,6 +1395,7 @@ export class TestService {
                   trnObj = {
                     _id: item._id,
                     account: Types.ObjectId(account.id),
+                    accountType: account.type,
                     branch: Types.ObjectId(voucher.branch.id),
                     credit: round(item.credit),
                     debit: round(item.debit),
