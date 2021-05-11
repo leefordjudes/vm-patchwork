@@ -7,6 +7,7 @@ import { URI } from './config';
 import { GST_TAXES } from './fixtures/gst-tax';
 import { STATE } from './fixtures/state/state';
 import { round } from './utils/utils';
+import { toArray } from 'lodash';
 
 @Injectable()
 export class TestService {
@@ -37,7 +38,7 @@ export class TestService {
             createdBy: Types.ObjectId(cus.createdBy),
             updatedBy: Types.ObjectId(cus.updatedBy),
           };
-          const $unset = {};
+          const $unset = { __v: 1 };
           if (cus.deliveryAddress?.length < 1) {
             _.assign($unset, { deliveryAddress: 1 });
           }
@@ -101,10 +102,14 @@ export class TestService {
               }
             }
           }
+          if (!cus.aliasName) {
+            _.assign($unset, { aliasName: 1, validateAliasName: 1 });
+          }
+          if (!cus.customerGroup) {
+            _.assign($unset, { customerGroup: 1 });
+          }
           bulkCustomer.find({ _id: cus._id }).updateOne({ $set, $unset });
         }
-        bulkCustomer.find({ $or: [{ 'customerGroup': null }, { 'customerGroup': '' }] }).update({ $unset: { customerGroup: 1 } });
-        bulkCustomer.find({}).update({ $unset: { __v: 1, aliasName: 1, validateAliasName: 1 } });
         await bulkCustomer.execute();
         console.log('Customer End');
       }
@@ -126,7 +131,7 @@ export class TestService {
             createdBy: Types.ObjectId(cus.createdBy),
             updatedBy: Types.ObjectId(cus.updatedBy),
           };
-          const $unset = {};
+          const $unset = { __v: 1 };
           if (cus.addressInfo) {
             if (!cus.addressInfo.address && !cus.addressInfo.city && !cus.addressInfo.contactPerson && !cus.addressInfo.pincode) {
               _.assign($unset, { addressInfo: 1 });
@@ -186,9 +191,11 @@ export class TestService {
               }
             }
           }
+          if (!cus.aliasName) {
+            _.assign($unset, { aliasName: 1, validateAliasName: 1 });
+          }
           bulkCustomer.find({ _id: cus._id }).updateOne({ $set, $unset });
         }
-        bulkCustomer.find({}).update({ $unset: { __v: 1, aliasName: 1, validateAliasName: 1 } });
         await bulkCustomer.execute();
         console.log('Vendor End');
       }
@@ -232,27 +239,25 @@ export class TestService {
               defaultName: 'POSTAGE',
             });
           }
+          const $unset = {
+            tdsApplicable: 1,
+            tdsRatio: 1,
+            type: 1,
+            __v: 1,
+          };
+          if (!acc.aliasName) {
+            _.assign($unset, { aliasName: 1, validateAliasName: 1 })
+          }
+          if (!acc.description) {
+            _.assign($unset, { description: 1 });
+          }
           if (acc.parentIds?.length > 0) {
             _.assign($set, { parentIds: acc.parentIds.map((a) => Types.ObjectId(a)) });
-            bulkAccountUpdate.find({ _id: acc._id }).updateOne({ $set });
           } else {
-            bulkAccountUpdate.find({ _id: acc._id })
-              .updateOne({
-                $set,
-                $unset: { parentAccount: 1, parentIds: 1 },
-              });
+            _.assign($unset, { parentAccount: 1, parentIds: 1 });
           }
+          bulkAccountUpdate.find({ _id: acc._id }).updateOne({ $set, $unset });
         }
-        bulkAccountUpdate.find({ $or: [{ description: null }, { description: '' }] }).update({ $unset: { description: 1 } });
-        const $unset = {
-          aliasName: 1,
-          validateAliasName: 1,
-          tdsApplicable: 1,
-          tdsRatio: 1,
-          type: 1,
-          __v: 1,
-        }
-        bulkAccountUpdate.find({}).update({ $unset });
         bulkAccountUpdate.execute();
         console.log('1.account updatation end....');
         console.log('1.account creation started....');
@@ -350,7 +355,10 @@ export class TestService {
           .find({}, { projection: { gstInfo: 1, otherInfo: 1, addressInfo: 1, contactInfo: 1 } }).toArray();
         const arr = [];
         for (const branch of branches) {
-          const $unset = { __v: 1, aliasName: 1, validateAliasName: 1 };
+          const $unset = { __v: 1 };
+          if (!branch.aliasName) {
+            _.assign($unset, { aliasName: 1, validateAliasName: 1 });
+          }
           const $set = {
             gstInfo: {
               regType: 'REGULAR',
@@ -415,8 +423,58 @@ export class TestService {
         await connection.db(db).collection('cashregisters').updateMany({}, { $unset: { enabledFor: 1, __v: 1 } });
       }
 
-      async function doctorMaster(db: string) {
-        await connection.db(db).collection('doctors').updateMany({}, { $unset: { aliasName: 1, validateAliasName: 1, __v: 1 } });
+      async function saleIncharge(db: string) {
+        const salesPeople = await connection.db(db).collection('sales_people').find({}).toArray();
+        const arr = [];
+        for (const item of salesPeople) {
+          const doc = {
+            _id: item._id,
+            name: item.name,
+            displayName: item.name,
+            code: item.code,
+            createdAt: item.createdAt,
+            updatedAt: item.updatedAt,
+            validateName: item.validateName,
+          };
+          arr.push(doc);
+        }
+        await connection.db(db).collection('sale_incharges').insertMany(arr);
+      }
+
+      async function desktopClientMaster(db: string) {
+        const desktops: any = await connection.db(db).collection('desktopclients')
+          .find({}, { projection: { name: 1, createdAt: 1 } }).toArray();
+        const arr = [];
+        for (const desk of desktops) {
+          const obj = {
+            updateOne: {
+              filter: { _id: desk._id },
+              update: {
+                $set: {
+                  validateName: desk.name.replace(/[^a-z0-9]/gi, '').toLowerCase(),
+                  updatedAt: new Date(),
+                },
+                $unset: { __v: 1 },
+              },
+            },
+          };
+          arr.push(obj);
+        }
+        await connection.db(db).collection('desktopclients').bulkWrite(arr);
+      }
+
+      async function doctorMaster(db: string, user: Types.ObjectId) {
+        await connection.db(db).collection('doctors')
+          .updateMany({}, { $set: { createdBy: user, updatedBy: user }, $unset: { __v: 1 } });
+        await connection.db(db).collection('doctors')
+          .updateMany({ $or: [{ aliasName: '' }, { aliasName: null }] }, { $unset: { aliasName: 1, validateAliasName: 1 } });
+      }
+
+      async function patientMaster(db: string, user: Types.ObjectId) {
+        await connection.db(db).collection('patients')
+          .updateMany({}, { $set: { createdBy: user, updatedBy: user }, $unset: { __v: 1 } });
+        await connection.db(db).collection('patients')
+          .updateMany({ $or: [{ aliasName: '' }, { aliasName: null }] }, { $unset: { aliasName: 1, validateAliasName: 1 } });
       }
 
       async function financialYear(db: string) {
@@ -424,30 +482,45 @@ export class TestService {
       }
 
       async function manufacturerMaster(db: string, user: Types.ObjectId) {
-        await connection.db(db).collection('manufacturers').updateMany({}, { $set: { createdBy: user, updatedBy: user }, $unset: { __v: 1 } });
+        await connection.db(db).collection('manufacturers')
+          .updateMany({}, { $set: { createdBy: user, updatedBy: user }, $unset: { __v: 1 } });
+        await connection.db(db).collection('manufacturers')
+          .updateMany({ $or: [{ aliasName: '' }, { aliasName: null }] }, { $unset: { aliasName: 1, validateAliasName: 1 } });
       }
 
       async function sectionMaster(db: string, user: Types.ObjectId) {
-        await connection.db(db).collection('sections').updateMany({}, { $set: { createdBy: user, updatedBy: user }, $unset: { __v: 1, aliasName: 1, validateAliasName: 1 } });
+        await connection.db(db).collection('sections').updateMany({}, { $set: { createdBy: user, updatedBy: user }, $unset: { __v: 1 } });
         await connection.db(db).collection('sections')
           .updateMany({ $or: [{ parentSection: null }, { parentSection: '' }] }, { $unset: { parentIds: 1, parentSection: 1 } });
+        await connection.db(db).collection('sections')
+          .updateMany({ $or: [{ aliasName: '' }, { aliasName: null }] }, { $unset: { aliasName: 1, validateAliasName: 1 } });
       }
 
       async function unitMaster(db: string, user: Types.ObjectId) {
-        await connection.db(db).collection('units').updateMany({}, { $set: { createdBy: user, updatedBy: user }, $unset: { __v: 1, aliasName: 1, validateAliasName: 1 } });
+        await connection.db(db).collection('units')
+          .updateMany({ $or: [{ aliasName: '' }, { aliasName: null }] }, { $unset: { aliasName: 1, validateAliasName: 1 } });
+        await connection.db(db).collection('units')
+          .updateMany({}, { $set: { createdBy: user, updatedBy: user }, $unset: { __v: 1 } });
       }
 
       async function pharmaSaltMaster(db: string, user: Types.ObjectId) {
-        await connection.db(db).collection('pharmasalts').updateMany({}, { $set: { createdBy: user, updatedBy: user }, $unset: { __v: 1, aliasName: 1, validateAliasName: 1 } });
+        await connection.db(db).collection('pharmasalts')
+          .updateMany({ $or: [{ aliasName: '' }, { aliasName: null }] }, { $unset: { aliasName: 1, validateAliasName: 1 } });
+        await connection.db(db).collection('pharmasalts')
+          .updateMany({}, { $set: { createdBy: user, updatedBy: user }, $unset: { __v: 1 } });
       }
 
       async function rackMaster(db: string, user: Types.ObjectId) {
-        await connection.db(db).collection('racks').updateMany({}, { $set: { createdBy: user, updatedBy: user }, $unset: { __v: 1, aliasName: 1, validateAliasName: 1 } });
+        await connection.db(db).collection('racks')
+          .updateMany({ $or: [{ aliasName: '' }, { aliasName: null }] }, { $unset: { aliasName: 1, validateAliasName: 1 } });
+        await connection.db(db).collection('racks')
+          .updateMany({}, { $set: { createdBy: user, updatedBy: user }, $unset: { __v: 1 } });
       }
 
       async function roleMaster(db: string) {
-        await connection.db(db).collection('roles').deleteOne({ name: 'Admin' });
-        await connection.db(db).collection('roles').updateMany({}, { $unset: { isDefault: 1, __v: 1 } });
+        await connection.db(db).collection('roles').deleteOne({ validateName: 'admin' });
+        await connection.db(db).collection('roles')
+          .updateMany({}, { $unset: { isDefault: 1, __v: 1 } });
       }
 
       async function inventoryMaster(db: string, user: Types.ObjectId) {
@@ -459,43 +532,72 @@ export class TestService {
           const limit = 1000;
           console.log(`${'inventories'} START`);
           for (let skip = 0; skip <= count; skip = skip + limit) {
-            const invBranchDetailBulk = connection.db(db).collection('inventory_branch_details').initializeOrderedBulkOp();
+            const invBranchDetailBulk = connection.db(db).collection('inv_branch_details').initializeOrderedBulkOp();
             const invBulk = connection.db(db).collection('inventories').initializeOrderedBulkOp();
             const inventories: any = await connection.db(db).collection('inventories')
               .find({}, { sort: { _id: 1 }, skip, limit }).toArray();
             const manufacturerIds = [];
             const taxIds = [];
             const sectionIds = [];
+            const vendorIds = [];
+            const unitIds = [];
 
             for (const inventory of inventories) {
               taxIds.push(inventory.tax);
+              unitIds.push(inventory.unit);
               if (inventory.manufacturer) {
                 manufacturerIds.push(inventory.manufacturer);
               }
               if (inventory.section) {
                 sectionIds.push(inventory.section);
               }
+              if (inventory.preferredVendor) {
+                vendorIds.push(inventory.preferredVendor);
+              }
+              if (inventory.unitConversion.length > 0) {
+                for (const u of inventory.unitConversion) {
+                  unitIds.push(u.unit);
+                }
+              }
             }
-            const taxes: any = await connection.db(db).collection('taxes').find({ _id: { $in: taxIds } }, { projection: { gstRatio: 1 } }).toArray();
-            const sections: any = await connection.db(db).collection('sections').find({ _id: { $in: sectionIds } }, { projection: { displayName: 1 } }).toArray();
-            const manufacturers: any = await connection.db(db).collection('manufacturers').find({ _id: { $in: manufacturerIds } }, { projection: { displayName: 1 } }).toArray();
+            const taxes: any = await connection.db(db).collection('taxes')
+              .find({ _id: { $in: taxIds } }, { projection: { gstRatio: 1 } }).toArray();
+            const sections: any = await connection.db(db).collection('sections')
+              .find({ _id: { $in: sectionIds } }, { projection: { displayName: 1 } }).toArray();
+            const manufacturers: any = await connection.db(db).collection('manufacturers')
+              .find({ _id: { $in: manufacturerIds } }, { projection: { displayName: 1 } }).toArray();
+            const vendors: any = await connection.db(db).collection('vendors')
+              .find({ _id: { $in: vendorIds } }, { projection: { displayName: 1 } }).toArray();
+            const unitDatas: any = await connection.db(db).collection('units')
+              .find({ _id: { $in: unitIds } }, { projection: { displayName: 1 } }).toArray();
             for (const inventory of inventories) {
               const exTax = taxes.find((a) => inventory.tax.toString() === a._id.toString()).gstRatio.igst;
               const tax = GST_TAXES.find((t) => t.ratio.igst === exTax).code;
               const units = [{
-                unit: inventory.unit,
+                unitId: inventory.unit,
+                unitName: unitDatas.find((x) => x._id.toString() === inventory.unit.toString()).displayName,
                 conversion: 1,
-                preferredForPurchase: false,
-                preferredForSale: false,
+                preferredForPurchase: true,
+                preferredForSale: true,
               }];
               if (inventory.unitConversion.length > 0) {
                 for (const item of inventory.unitConversion) {
-                  if (!item.primary) {
-                    units.push({
-                      unit: item.unit, conversion: item.conversion,
-                      preferredForPurchase: item.preferredForPurchase, preferredForSale: item.preferredForSale
-                    });
+                  const unitConv = {
+                    unitId: item.unit,
+                    unitName: unitDatas.find((x) => x._id.toString() === item.unit.toString()).displayName,
+                    conversion: item.conversion,
+                    preferredForPurchase: false,
+                    preferredForSale: false,
+                  };
+                  if (item.preferredForPurchase) {
+                    _.assign(unitConv, { preferredForPurchase: true });
+                    units[0].preferredForPurchase = false;
                   }
+                  if (item.preferredForSale) {
+                    _.assign(unitConv, { preferredForSale: true });
+                    units[0].preferredForSale = false;
+                  }
+                  units.push(unitConv);
                 }
               }
               const $set = {
@@ -512,6 +614,10 @@ export class TestService {
                 const section = sections.find((s) => s._id.toString() === inventory.section.toString());
                 _.assign($set, { sectionId: section._id, sectionName: section.displayName });
               }
+              if (inventory.preferredVendor) {
+                const preferredVendor = vendors.find((v) => v._id.toString() === inventory.preferredVendor.toString());
+                _.assign($set, { vendorId: preferredVendor._id, vendorName: preferredVendor.displayName });
+              }
               const $unset = {
                 section: 1,
                 manufacturer: 1,
@@ -520,6 +626,9 @@ export class TestService {
                 unit: 1,
                 sDiscount: 1,
                 sMargin: 1,
+                aliasName: 1,
+                validateAliasName: 1,
+                preferredVendor: 1,
                 __v: 1,
               };
               if (db === 'velavanmedical') {
@@ -531,9 +640,6 @@ export class TestService {
               }
               if (!inventory.barCode) {
                 _.assign($unset, { barcode: 1 });
-              }
-              if (!inventory.aliasName) {
-                _.assign($unset, { aliasName: 1, validateAliasName: 1 });
               }
               if (!inventory.hsnCode) {
                 _.assign($unset, { hsnCode: 1 });
@@ -567,8 +673,11 @@ export class TestService {
                 invBranchDetailBulk.insert(doc);
               }
             }
+            console.log(`${skip} to ${limit + skip} invenory updated`);
             await invBulk.execute();
+            console.log(`${skip} to ${limit + skip} invBranchDetail bulk insert started....`);
             await invBranchDetailBulk.execute();
+            console.log(`${skip} to ${limit + skip} invBranchDetail bulk insert end....`);
           }
           console.log(`Duration for inventory update & inventory_branch_details ${new Date().getTime() - st}`);
         } else {
@@ -788,7 +897,6 @@ export class TestService {
           for (let skip = 0; skip <= count; skip = skip + limit) {
             console.log({ organization: db, collectionName });
             const bulkVOuchers = connection.db(db).collection('vouchers').initializeOrderedBulkOp();
-            const docs = [];
             const vouchers: any = await connection.db(db).collection(collectionName)
               .find({}, { projection: { cashRegister: 0 }, sort: { _id: 1 }, skip, limit }).toArray();
             for (const voucher of vouchers) {
@@ -796,7 +904,7 @@ export class TestService {
               let credit: number;
               let debit: number;
               let partyAcc: any;
-              // let voucherName: string;
+              let voucherName: string;
               const receiptCollections = ['customerreceipts', 'vendorreceipts', 'accountreceipts', 'incomes'];
               const paymentCollections = ['customerpayments', 'vendorpayments', 'accountpayments', 'expenses'];
               const creditCollections = ['customerpayments', 'customerreceipts', 'vendorpayments', 'vendorreceipts'];
@@ -809,24 +917,24 @@ export class TestService {
                 voucherPending = voucher.vendorPending;
               }
               if (paymentCollections.includes(collectionName)) {
-                //voucherName = 'Payment';
+                voucherName = 'Payment';
                 debit = round(voucher.amount);
                 credit = 0;
               }
               if (receiptCollections.includes(collectionName)) {
-                //voucherName = 'Receipt';
+                voucherName = 'Receipt';
                 credit = round(voucher.amount);
                 debit = 0;
               }
               if (collectionName === 'cashdeposits') {
                 credit = round(voucher.amount);
                 debit = 0;
-                //voucherName = 'Contra';
+                voucherName = 'Contra';
               }
               if (collectionName === 'cashwithdrawals') {
                 debit = round(voucher.amount);
                 credit = 0;
-                //voucherName = 'Contra';
+                voucherName = 'Contra';
               }
               if (creditCollections.includes(collectionName)) {
                 partyAcc = accounts.find((party) => party.party === voucher.toAccount.id);
@@ -845,8 +953,9 @@ export class TestService {
                 branch: Types.ObjectId(voucher.branch.id),
                 date: voucher.date,
                 act: false,
+                actHide: false,
                 voucherNo: voucher.voucherNo,
-                voucherName: voucher.voucherName,
+                voucherName,
                 voucherType: voucher.voucherType,
                 createdBy: Types.ObjectId(voucher.createdBy),
                 updatedBy: Types.ObjectId(voucher.updatedBy),
@@ -873,18 +982,14 @@ export class TestService {
                 if (!getPending) {
                   _id = new Types.ObjectId();
                 }
-              } else {
-                _id = new Types.ObjectId();
               }
               const trns: any = [
                 {
-                  _id: new Types.ObjectId(),
                   account: Types.ObjectId(partyAcc.id),
                   debit,
                   credit,
                 },
                 {
-                  _id: new Types.ObjectId(),
                   account: Types.ObjectId(cashAcc.id),
                   debit: credit,
                   credit: debit,
@@ -892,15 +997,15 @@ export class TestService {
               ];
               const acTrns: any = [
                 {
-                  _id,
                   account: Types.ObjectId(partyAcc.id),
+                  accountType: partyAcc.type,
                   branch: Types.ObjectId(voucher.branch.id),
                   debit,
                   credit,
                 },
                 {
-                  _id: new Types.ObjectId(),
                   account: Types.ObjectId(cashAcc.id),
+                  accountType: cashAcc.type,
                   branch: Types.ObjectId(voucher.branch.id),
                   debit: credit,
                   credit: debit,
@@ -914,6 +1019,9 @@ export class TestService {
                 trns[1].instDate = new Date(new Date(voucher.instDate).setUTCHours(0, 0, 0, 0));
                 acTrns[1].instDate = new Date(new Date(voucher.instDate).setUTCHours(0, 0, 0, 0));
               }
+              if (_id) {
+                acTrns[0]._id = _id;
+              }
               _.assign(doc, { trns });
               _.assign(doc, { acTrns });
               if (creditCollections.includes(collectionName)) {
@@ -921,7 +1029,6 @@ export class TestService {
                   .filter((pending) => (pending.byPending === voucherPending) && (pending.byPending > pending.toPending))
                   .map((p) => {
                     return {
-                      _id: new Types.ObjectId(),
                       pending: Types.ObjectId(p.toPending),
                       amount: round(p.amount),
                     };
@@ -930,11 +1037,6 @@ export class TestService {
                   _.assign(doc.trns[0], { adjs });
                   _.assign(doc.acTrns[0], { adjs });
                 }
-                _.assign(doc.acTrns[0], { bwd: true });
-                _.assign(doc.acTrns[1], { bwd: false });
-              } else {
-                _.assign(doc.acTrns[0], { bwd: false });
-                _.assign(doc.acTrns[1], { bwd: false });
               }
               bulkVOuchers.insert(doc);
             }
@@ -957,10 +1059,13 @@ export class TestService {
           const bulkJournal = connection.db(db).collection('vouchers').initializeOrderedBulkOp();
           const vouchers: any = await connection.db(db).collection(collectionName).find({}).toArray();
           for (const voucher of vouchers) {
+            const branch = Types.ObjectId(voucher.branch.id);
             const doc = {
               _id: voucher._id,
-              branch: Types.ObjectId(voucher.branch.id),
+              branch,
               date: voucher.date,
+              act: false,
+              actHide: false,
               description: voucher.description,
               createdBy: Types.ObjectId(voucher.createdBy),
               updatedBy: Types.ObjectId(voucher.updatedBy),
@@ -975,26 +1080,27 @@ export class TestService {
               _.assign(doc, { refNo: voucher.refNo });
             }
 
-            const trns = voucher.transactions.map((trn) => {
-              const acc = accounts.find(acc => trn.account.id === acc.id);
-              return {
-                _id: new Types.ObjectId(),
-                account: Types.ObjectId(acc.id),
-                credit: round(trn.credit),
-                debit: round(trn.debit),
-              }
-            });
-
-            const acTrns = voucher.transactions.map((trn) => {
-              return {
-                _id: new Types.ObjectId(),
-                account: Types.ObjectId(trn.account.id),
-                branch: Types.ObjectId(voucher.branch.id),
-                bwd: false,
-                credit: round(trn.credit),
-                debit: round(trn.debit),
-              }
-            });
+            const trns = [];
+            const acTrns = [];
+            for (const txn of voucher.transactions) {
+              const acc = accounts.find(acc => txn.account.id === acc.id);
+              acTrns.push(
+                {
+                  account: Types.ObjectId(acc.id),
+                  accountType: acc.type,
+                  branch,
+                  credit: round(txn.credit),
+                  debit: round(txn.debit),
+                }
+              );
+              trns.push(
+                {
+                  account: Types.ObjectId(acc.id),
+                  credit: round(txn.credit),
+                  debit: round(txn.debit),
+                }
+              );
+            }
             _.assign(doc, { trns });
             _.assign(doc, { acTrns });
             bulkJournal.insert(doc);
@@ -2055,8 +2161,8 @@ export class TestService {
                 },
                 $unset: { createdAt: 1, __v: 1 },
               },
-            }
-          }
+            },
+          };
           arr.push(obj);
         }
         await connection.db(db).collection('vouchernumberings').bulkWrite(arr);
@@ -2162,27 +2268,30 @@ export class TestService {
       for (const db of dbs) {
         console.log(`${db} org start.....`);
         const adminUserId: Types.ObjectId = (await connection.db(db).collection('users').findOne({ isAdmin: true }))._id;
-        await reArrangeBatch(db); // DONE
-        await inventoryMaster(db, adminUserId); //
-        await inventoryOpening(db); // DONE
-        await accountMaster(db, adminUserId); // DONE
-        await costCategoryMaster(db, adminUserId); // DONE
-        await costCentreMaster(db, adminUserId); // DONE
-        await pharmaSaltMaster(db, adminUserId); // DONE
-        await rackMaster(db, adminUserId); // DONE
-        await roleMaster(db); // DONE
-        await manufacturerMaster(db, adminUserId); // DONE
-        await sectionMaster(db, adminUserId); // DONE
-        await unitMaster(db, adminUserId); // DONE
-        await doctorMaster(db); // DONE
-        await financialYear(db); // DONE
-        await customerMaster(db); // DONE
-        await vendorMaster(db); // DONE
-        await branchMaster(db); // DONE
-        await cashRegisterMaster(db); // DONE
-        await accountOpeningMerge(db, adminUserId); // DONE
-        await voucherNumberings(db); // DONE
-        await mergePendingAdjustment(db); // DONE
+        // await reArrangeBatch(db);
+        await inventoryMaster(db, adminUserId);
+        // await inventoryOpening(db);
+        await accountMaster(db, adminUserId);
+        await costCategoryMaster(db, adminUserId);
+        await costCentreMaster(db, adminUserId);
+        await pharmaSaltMaster(db, adminUserId);
+        await rackMaster(db, adminUserId);
+        await roleMaster(db);
+        await manufacturerMaster(db, adminUserId);
+        await sectionMaster(db, adminUserId);
+        await unitMaster(db, adminUserId);
+        await doctorMaster(db, adminUserId);
+        await patientMaster(db, adminUserId);
+        await desktopClientMaster(db);
+        await financialYear(db);
+        await customerMaster(db);
+        await vendorMaster(db);
+        await branchMaster(db);
+        await cashRegisterMaster(db);
+        await saleIncharge(db);
+        // await accountOpeningMerge(db, adminUserId);
+        await voucherNumberings(db);
+        await mergePendingAdjustment(db);
 
 
         const accounts: any = await connection.db(db).collection('accounts')
@@ -2195,9 +2304,9 @@ export class TestService {
               type: elm.accountType,
             }
           })
-          .toArray();
+          .toArray(); //for vouchers only DONE
         const pendings: any = await connection.db(db).collection('accountpendingadjustments')
-          .find({}, { projection: { _id: 0, __v: 0 } }).toArray();
+          .find({}, { projection: { _id: 0, __v: 0 } }).toArray(); // for vouchers only DONE
         const collectionNames = [
           'customerpayments', 'customerreceipts',
           'vendorpayments', 'vendorreceipts',
@@ -2205,10 +2314,10 @@ export class TestService {
           'expenses', 'incomes',
           'cashdeposits', 'cashwithdrawals',
           'journals'
-        ];  
+        ];
         for (const coll of collectionNames) {
           if (['customerpayments', 'customerreceipts', 'vendorpayments', 'vendorreceipts'].includes(coll)) {
-            await accVoucher(db, coll, accounts, pendings); //DONE
+            await accVoucher(db, coll, accounts, pendings);
           }
           if (['accountreceipts', 'accountpayments', 'expenses', 'incomes', 'cashdeposits', 'cashwithdrawals'].includes(coll)) {
             await accVoucher(db, coll, accounts);
@@ -2218,22 +2327,22 @@ export class TestService {
           }
         }
 
-        const batches: any = await connection.db(db).collection('batches_rearrange')
-          .find({}, { projection: { transactionId: 1, batch: 1, batchNo: 1, _id: 0 } })
-          .map((elm: any) => {
-            return {
-              batch: elm.batch.toString(),
-              transactionId: elm.transactionId,
-              batchNo: elm.batchNo,
-            }
-          }).toArray();
-        await purchaseVoucher(db, 'purchases', accounts, pendings, batches);
-        await purchaseVoucher(db, 'purchase_returns', accounts, pendings, batches);
-        await saleVoucher(db, 'sales', accounts, pendings, batches);
-        await saleVoucher(db, 'sale_returns', accounts, pendings, batches);
-        await stockAdjustments(db, 'stock_adjustments', accounts, batches);
-        await stockTransfer(db, 'stock_transfers', accounts, batches);
-        await renameCollections(db);
+        // const batches: any = await connection.db(db).collection('batches_rearrange')
+        //   .find({}, { projection: { transactionId: 1, batch: 1, batchNo: 1, _id: 0 } })
+        //   .map((elm: any) => {
+        //     return {
+        //       batch: elm.batch.toString(),
+        //       transactionId: elm.transactionId,
+        //       batchNo: elm.batchNo,
+        //     }
+        //   }).toArray();
+        // await purchaseVoucher(db, 'purchases', accounts, pendings, batches);
+        // await purchaseVoucher(db, 'purchase_returns', accounts, pendings, batches);
+        // await saleVoucher(db, 'sales', accounts, pendings, batches);
+        // await saleVoucher(db, 'sale_returns', accounts, pendings, batches);
+        // await stockAdjustments(db, 'stock_adjustments', accounts, batches);
+        // await stockTransfer(db, 'stock_transfers', accounts, batches);
+        // await renameCollections(db);
         console.log(`********${db} org end ******`);
       }
       const endTime = new Date();
