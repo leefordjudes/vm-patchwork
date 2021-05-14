@@ -7,7 +7,6 @@ import { URI } from './config';
 import { GST_TAXES } from './fixtures/gst-tax';
 import { STATE } from './fixtures/state/state';
 import { round } from './utils/utils';
-import { toArray } from 'lodash';
 
 @Injectable()
 export class TestService {
@@ -424,21 +423,27 @@ export class TestService {
       }
 
       async function saleIncharge(db: string) {
-        const salesPeople = await connection.db(db).collection('sales_people').find({}).toArray();
-        const arr = [];
-        for (const item of salesPeople) {
-          const doc = {
-            _id: item._id,
-            name: item.name,
-            displayName: item.name,
-            code: item.code,
-            createdAt: item.createdAt,
-            updatedAt: item.updatedAt,
-            validateName: item.validateName,
-          };
-          arr.push(doc);
+        const count = await connection.db(db).collection('sales_people').countDocuments();
+        if (count > 0) {
+          const salesPeople = await connection.db(db).collection('sales_people').find({}).toArray();
+          const arr = [];
+          for (const item of salesPeople) {
+            const doc = {
+              _id: item._id,
+              name: item.name,
+              displayName: item.name,
+              code: item.code,
+              createdAt: item.createdAt,
+              updatedAt: item.updatedAt,
+              validateName: item.validateName,
+            };
+            arr.push(doc);
+          }
+          await connection.db(db).collection('sale_incharges').insertMany(arr);
+        } else {
+          console.log('No sales_people found');
         }
-        await connection.db(db).collection('sale_incharges').insertMany(arr);
+
       }
 
       async function desktopClientMaster(db: string) {
@@ -554,7 +559,7 @@ export class TestService {
               if (inventory.preferredVendor) {
                 vendorIds.push(inventory.preferredVendor);
               }
-              if (inventory.unitConversion.length > 0) {
+              if (inventory.unitConversion?.length > 0) {
                 for (const u of inventory.unitConversion) {
                   unitIds.push(u.unit);
                 }
@@ -580,7 +585,7 @@ export class TestService {
                 preferredForPurchase: true,
                 preferredForSale: true,
               }];
-              if (inventory.unitConversion.length > 0) {
+              if (inventory.unitConversion?.length > 0) {
                 for (const item of inventory.unitConversion) {
                   const unitConv = {
                     unitId: item.unit,
@@ -692,24 +697,37 @@ export class TestService {
         date.setDate(date.getDate() - 1);
         const accOpeningPipeLine = [
           {
+            $addFields: {
+              account: { $toObjectId: '$account.id' },
+            }
+          },
+          {
+            $lookup: {
+              from: 'accounts',
+              localField: 'account',
+              foreignField: '_id',
+              as: 'accs',
+            },
+          },
+          {
+            $unwind: '$accs',
+          },
+          {
             $project: {
               _id: 0,
-              account: { $toObjectId: '$account.id' },
+              account: '$accs._id',
               branch: { $toObjectId: '$branch.id' },
               date,
               items: [
                 {
-                  _id: '$_id',
                   credit: '$credit',
                   debit: '$debit',
                 }
               ],
               acTrns: [
                 {
-                  _id: '$_id',
-                  account: { $toObjectId: '$account.id' },
-                  branch: { $toObjectId: '$branch.id' },
-                  bwd: false,
+                  account: '$accs._id',
+                  accountType: '$accs.accountType',
                   credit: '$credit',
                   debit: '$debit',
                 }
@@ -755,8 +773,7 @@ export class TestService {
                 $push: {
                   _id: { $toObjectId: '$pending' },
                   account: '$account',
-                  branch: '$branch',
-                  bwd: true,
+                  accountType: 'TRADE_RECEIVABLE',
                   refNo: '$refNo',
                   credit: '$credit',
                   debit: '$debit',
@@ -764,7 +781,6 @@ export class TestService {
               },
               items: {
                 $push: {
-                  _id: '$_id',
                   effDate: '$effDate',
                   refNo: '$refNo',
                   credit: '$credit',
@@ -778,8 +794,6 @@ export class TestService {
               account: '$_id.account',
               branch: '$_id.branch',
               date,
-              voucherName: 'Account Opening',
-              voucherType: 'ACCOUNT_OPENING',
               updatedBy: user,
               updatedAt: new Date(),
             }
@@ -822,8 +836,7 @@ export class TestService {
                 $push: {
                   _id: { $toObjectId: '$pending' },
                   account: '$account',
-                  branch: '$branch',
-                  bwd: true,
+                  accountType: 'TRADE_PAYABLE',
                   refNo: '$refNo',
                   credit: '$credit',
                   debit: '$debit',
@@ -831,7 +844,6 @@ export class TestService {
               },
               items: {
                 $push: {
-                  _id: '$_id',
                   effDate: '$effDate',
                   refNo: '$refNo',
                   credit: '$credit',
@@ -845,8 +857,6 @@ export class TestService {
               account: '$_id.account',
               branch: '$_id.branch',
               date,
-              voucherName: 'Account Opening',
-              voucherType: 'ACCOUNT_OPENING',
               updatedBy: user,
               updatedAt: new Date(),
             }
@@ -999,14 +1009,12 @@ export class TestService {
                 {
                   account: Types.ObjectId(partyAcc.id),
                   accountType: partyAcc.type,
-                  branch: Types.ObjectId(voucher.branch.id),
                   debit,
                   credit,
                 },
                 {
                   account: Types.ObjectId(cashAcc.id),
                   accountType: cashAcc.type,
-                  branch: Types.ObjectId(voucher.branch.id),
                   debit: credit,
                   credit: debit,
                 },
@@ -1088,7 +1096,6 @@ export class TestService {
                 {
                   account: Types.ObjectId(acc.id),
                   accountType: acc.type,
-                  branch,
                   credit: round(txn.credit),
                   debit: round(txn.debit),
                 }
@@ -1178,21 +1185,16 @@ export class TestService {
             $unwind: '$batchArr',
           },
           {
-            $addFields: {
+            $project: {
+              _id: 0,
               transactionId: '$invTrns._id',
               batch: '$invTrns.batch',
               branch: { $toObjectId: '$branch.id' },
               inventory: { $toObjectId: '$invTrns.inventory.id' },
               singleton: '$batchArr.singleton',
-              allowNegativeStock: false,
               batchNo: { $ifNull: [{ $toUpper: '$invTrns.batchNo' }, 'N.A'] },
+              allowNegativeStock: '$batchArr.allowNegativeStock',
               voucherName: 'PURCHASE',
-            },
-          },
-          {
-            $project: {
-              _id: 0, transactionId: 1, batch: 1, branch: 1, inventory: 1,
-              singleton: 1, allowNegativeStock: 1, batchNo: 1, voucherName: 1
             }
           },
           { $merge: { into: 'batches_rearrange' } }
@@ -1231,20 +1233,21 @@ export class TestService {
           },
           {
             $addFields: {
-              transactionId: '$invTrns._id',
-              batch: '$invTrns.batch',
-              singleton: '$batchArr.singleton',
               allowNegativeStock: false,
               voucherName: 'TRANSFER',
-              batchNo: { $ifNull: [{ $toUpper: '$invTrns.batchNo' }, 'N.A'] },
-              branch: { $toObjectId: '$invTrns.branch' },
-              inventory: { $toObjectId: '$invTrns.inventory.id' },
             },
           },
           {
             $project: {
-              _id: 0, transactionId: 1, batch: 1, branch: 1, inventory: 1,
-              singleton: 1, allowNegativeStock: 1, batchNo: 1, voucherName: 1
+              _id: 0,
+              transactionId: '$invTrns._id',
+              batch: '$invTrns.batch',
+              branch: { $toObjectId: '$invTrns.branch' },
+              inventory: { $toObjectId: '$invTrns.inventory.id' },
+              singleton: '$batchArr.singleton',
+              batchNo: { $ifNull: [{ $toUpper: '$invTrns.batchNo' }, 'N.A'] },
+              allowNegativeStock: 1,
+              voucherName: 1
             }
           },
           { $merge: { into: 'batches_rearrange' } }
@@ -1288,6 +1291,7 @@ export class TestService {
             }
           }
           await bulk.execute();
+          console.log(`Batch_rearrange updated sucessfully..`);
         } else {
           console.log('There is no duplicate batcNo');
         }
@@ -1312,11 +1316,11 @@ export class TestService {
                   sort: { _id: 1 }, skip, limit,
                 })
               .toArray();
-            console.log(`get ${skip} to ${limit + skip} voucher duration ${new Date().getTime() - sttt}`);
+            console.log(`get ${skip} to ${limit + skip} voucher duration ${(new Date().getTime() - sttt) / 1000}-sec`);
             const afterGetVoucher = new Date().getTime();
             for (const voucher of vouchers) {
               const partyLoc = STATE.find((loc) => voucher.gstInfo.source.location.defaultName === loc.defaultName).code;
-              const doc: any = {
+              const initialDoc: any = {
                 _id: voucher._id,
                 date: voucher.date,
                 billDate: voucher?.billDate ?? voucher.date,
@@ -1345,21 +1349,86 @@ export class TestService {
                 updatedAt: voucher.updatedAt,
                 amount: round(voucher.amount),
                 act: false,
+                actHide: false,
+                refNo: voucher.refNo,
+                warehouse: voucher.warehouse?.id ? Types.ObjectId(voucher.warehouse.id) : null,
+                description: voucher.description,
               };
-              if (voucher.warehouse?.id) {
-                _.assign(doc, { warehouse: Types.ObjectId(voucher.warehouse.id) });
-              }
-              if (voucher.refNo) {
-                _.assign(doc, { refNo: voucher.refNo });
-              }
-              if (voucher.description) {
-                _.assign(doc, { description: voucher.description });
+              const doc = _.pickBy(initialDoc, (key) => key !== null && key !== undefined && key !== '');
+              const acItems = [];
+              const acTrns = [];
+              for (const item of voucher.acTrns) {
+                let account = accounts.find((acc) => acc.id === item.account.id);
+                if (['ROUNDED_OFF_SHORTAGE', 'ROUNDED_OFF_SURPLUS', 'DISCOUNT_RECEIVED'].includes(item.account?.defaultName)) {
+                  if (item.account.defaultName.includes('ROUNDED')) {
+                    account = accounts.find((acc: any) => acc.displayName === 'Rounded Off (Shortage)');
+                  }
+                  const acItemObj = {
+                    account: Types.ObjectId(account.id),
+                    accountType: account.type,
+                    amount: item.credit > 0 ? round(-item.credit) : round(item.debit),
+                  }
+                  acItems.push(acItemObj);
+                }
+                let _id: any;
+                let trnObj: any;
+                if (item.account.defaultName === 'TRADE_PAYABLE') {
+                  let adjs: any;
+                  account = accounts.find((party) => party.party === voucher.vendor.id);
+                  const getPending = pendings
+                    .find((pending: any) => (pending.byPending === voucher.vendorPending || pending.toPending === voucher.vendorPending));
+                  if (getPending) {
+                    if (getPending.byPending > getPending.toPending) {
+                      _id = Types.ObjectId(getPending.byPending);
+                    } else {
+                      _id = Types.ObjectId(getPending.toPending);
+                    }
+                    adjs = pendings
+                      .filter((pending) => (pending.byPending === voucher.vendorPending) && (pending.byPending > pending.toPending))
+                      .map((p) => {
+                        return {
+                          pending: Types.ObjectId(p.toPending),
+                          amount: round(p.amount),
+                        };
+                      });
+                  } else if (!getPending) {
+                    _id = new Types.ObjectId();
+                    adjs = [];
+                  }
+                  trnObj = {
+                    _id,
+                    account: Types.ObjectId(account.id),
+                    accountType: account.type,
+                    adjs,
+                    credit: round(item.credit),
+                    debit: round(item.debit),
+                  };
+                  if (voucher.refNo) {
+                    _.assign(trnObj, { refNo: voucher.refNo });
+                  }
+                  _.assign(doc, { creditAdjs: adjs, creditAccount: Types.ObjectId(account.id), creditAmount: round(voucher.amount) });
+                } else {
+                  if (account.type === 'CASH') {
+                    _.assign(doc, { cashAmount: (item.credit > 0) ? round(item.credit) : round(item.debit) });
+                  }
+                  if (account.type === 'BANK_ACCOUNT' || account.type === 'BANK_OD_ACCOUNT') {
+                    _.assign(doc, { bankAmount: (item.credit > 0) ? round(item.credit) : round(item.debit), bankAccount: Types.ObjectId(account.id) });
+                  }
+                  trnObj = {
+                    account: Types.ObjectId(account.id),
+                    accountType: account.type,
+                    credit: round(item.credit),
+                    debit: round(item.debit),
+                  }
+                }
+                acTrns.push(trnObj);
               }
               const invItems = [];
               const invTrns = [];
+              const invBatches = _.intersectionBy(batches, voucher.invTrns, 'batch');
               for (const item of voucher.invTrns) {
                 const tax = GST_TAXES.find(tax => tax.ratio.igst === item.tax.gstRatio.igst).code;
-                const batch = batches.find((bat: any) => bat.batch === item.batch);
+                const batch: any = invBatches.find((bat: any) => bat.batch === item.batch);
                 let expiry: any;
                 if (item.expMonth && item.expMonth < 10) {
                   expiry = new Date(new Date(`${item.expYear}-${0}${item.expMonth}-01`).setUTCHours(0, 0, 0, 0));
@@ -1368,7 +1437,6 @@ export class TestService {
                 }
 
                 const invItemObj = {
-                  _id: new Types.ObjectId(),
                   inventory: Types.ObjectId(item.inventory.id),
                   unitConv: item.unit.conversion,
                   qty: item.qty,
@@ -1388,12 +1456,8 @@ export class TestService {
                   mrp: round(item.mrp),
                   tax,
                   rate: round(item.rate),
-                  branch: Types.ObjectId(voucher.branch.id),
                   outward: 0,
                 };
-                if (voucher.warehouse?.id) {
-                  _.assign(invTrnObj, { warehouse: Types.ObjectId(voucher.warehouse.id) });
-                }
                 if (expiry) {
                   _.assign(invItemObj, { expiry });
                   _.assign(invTrnObj, { expiry });
@@ -1407,32 +1471,30 @@ export class TestService {
                 if (item.igstAmount > 0) {
                   _.assign(invTrnObj, { igstAmount: round(item.igstAmount) });
                 }
-                if (item.cessAmount > 0) {
-                  _.assign(invTrnObj, { cessAmount: round(item.cessAmount) });
-                }
                 if (collectionName === 'purchases') {
+                  const altAccount = _.maxBy(
+                    acTrns.filter(x => x.accountType !== 'STOCK'),
+                    'credit',
+                  ).account;
                   const freeQty = (item?.freeQty > 0) ? item.freeQty : 0;
                   const inward = (item.qty + freeQty) * item.unit.conversion;
                   const nlc = round(item.taxableAmount / (item.qty + (item?.freeQty || 0)) / item.unit.conversion);
                   _.assign(invItemObj, { batchNo: batch.batchNo, freeQty, sRate: round(item.sRate) });
-                  _.assign(invTrnObj, { _id: batch.transactionId, nlc, batchNo: batch.batchNo, inward, sRate: round(item.sRate) });
+                  _.assign(invTrnObj, { _id: batch.transactionId, altAccount, nlc, batchNo: batch.batchNo, inward, sRate: round(item.sRate) });
                 } else {
+                  const altAccount = _.maxBy(
+                    acTrns.filter(x => x.accountType !== 'STOCK'),
+                    'debit',
+                  ).account;
                   const inward = item.qty * item.unit.conversion * -1;
                   _.assign(invItemObj, { batch: batch.transactionId });
-                  _.assign(invTrnObj, { inward, batch: batch.transactionId, _id: new Types.ObjectId() });
+                  _.assign(invTrnObj, { inward, altAccount, batch: batch.transactionId });
                 }
-                let orderedInvItem = {};
-                _(invItemObj).keys().sort().each((key) => {
-                  orderedInvItem[key] = invItemObj[key];
-                });
-                let orderedInvTrn = {};
-                _(invTrnObj).keys().sort().each((key) => {
-                  orderedInvTrn[key] = invTrnObj[key];
-                });
-                invItems.push(orderedInvItem);
-                invTrns.push(orderedInvTrn);
+                invItems.push(invItemObj);
+                invTrns.push(invTrnObj);
               }
-              const roundOff = voucher.acTrns.find((acc: any) => (acc.account.defaultName === 'ROUNDED_OFF_SHORTAGE'));
+
+              const roundOff = voucher.acTrns.find((acc: any) => (acc.account.defaultName.includes('ROUNDED')));
               const acAdjs = {};
               if (voucher.discount > 0) {
                 _.assign(acAdjs, { discount: round(voucher.discount) });
@@ -1440,81 +1502,8 @@ export class TestService {
               if (roundOff) {
                 _.assign(acAdjs, { roundedOff: roundOff.credit > 0 ? round(roundOff.credit * -1) : round(roundOff.debit) });
               }
-              const acItems = [];
-              const acTrns = [];
-              for (const item of voucher.acTrns) {
-                if (['ROUNDED_OFF_SHORTAGE', 'DISCOUNT_RECEIVED'].includes(item.account?.defaultName)) {
-                  const itemAccount = accounts.find((acc: any) => acc.id === item.account.id);
-                  const acItemObj = {
-                    _id: new Types.ObjectId(),
-                    account: Types.ObjectId(itemAccount.id),
-                    accountType: itemAccount.type,
-                    amount: item.credit > 0 ? -item.credit : item.debit,
-                  }
-                  acItems.push(acItemObj);
-                }
-                let account: any;
-                let _id: any;
-                let trnObj: any;
-                if (item.account.defaultName === 'TRADE_PAYABLE') {
-                  let adjs: any;
-                  account = accounts.find((party) => party.party === voucher.vendor.id);
-                  const getPending = pendings
-                    .find((pending: any) => (pending.byPending === voucher.vendorPending || pending.toPending === voucher.vendorPending));
-                  if (getPending) {
-                    if (getPending.byPending > getPending.toPending) {
-                      _id = Types.ObjectId(getPending.byPending);
-                    } else {
-                      _id = Types.ObjectId(getPending.toPending);
-                    }
-                    adjs = pendings
-                      .filter((pending) => (pending.byPending === voucher.vendorPending) && (pending.byPending > pending.toPending))
-                      .map((p) => {
-                        return {
-                          _id: new Types.ObjectId(),
-                          amount: round(p.amount),
-                          pending: Types.ObjectId(p.toPending),
-                        };
-                      });
-                  } else if (!getPending) {
-                    _id = new Types.ObjectId();
-                    adjs = [];
-                  }
-                  trnObj = {
-                    _id,
-                    account: Types.ObjectId(account.id),
-                    accountType: account.type,
-                    adjs,
-                    branch: Types.ObjectId(voucher.branch.id),
-                    credit: round(item.credit),
-                    debit: round(item.debit),
-                  }
-                  _.assign(doc, { creditAdjs: adjs, creditAccount: Types.ObjectId(account.id), creditAmount: round(voucher.amount) });
-                } else {
-                  account = accounts.find((acc) => acc.id === item.account.id);
-                  if (account.type === 'CASH') {
-                    _.assign(doc, { cashAmount: (item.credit > 0) ? round(item.credit) : round(item.debit) });
-                  }
-                  if (account.type === 'BANK_ACCOUNT' || account.type === 'BANK_OD_ACCOUNT') {
-                    _.assign(doc, { bankAmount: (item.credit > 0) ? round(item.credit) : round(item.debit), bankAccount: Types.ObjectId(account.id) });
-                  }
-                  trnObj = {
-                    _id: item._id,
-                    account: Types.ObjectId(account.id),
-                    accountType: account.type,
-                    branch: Types.ObjectId(voucher.branch.id),
-                    credit: round(item.credit),
-                    debit: round(item.debit),
-                  }
-                }
-                acTrns.push(trnObj);
-              }
               _.assign(doc, { acAdjs, acItems, acTrns, invTrns, invItems });
-              let orderedDoc = {};
-              _(doc).keys().sort().each((key) => {
-                orderedDoc[key] = doc[key];
-              });
-              bulkOperation.insert(orderedDoc);
+              bulkOperation.insert(doc);
             }
             const start1 = new Date().getTime();
             console.log(`${skip} to ${limit + skip} object initialized DURATION ${(start1 - afterGetVoucher) / 1000}-sec`);
@@ -1536,6 +1525,7 @@ export class TestService {
       async function saleVoucher(db: string, collectionName: string, accounts: any, pendings: any, batches: any) {
         const count = await connection.db(db).collection(collectionName).countDocuments();
         if (count > 0) {
+          const missedBatch = [];
           const limit = 500;
           const begin = new Date().getTime();
           for (let skip = 0; skip <= count; skip = skip + limit) {
@@ -1545,14 +1535,13 @@ export class TestService {
             const sttt = new Date().getTime();
             console.log(`bulkOperation initialzed Duration ${start - sttt}`);
             const vouchers: any = await connection.db(db).collection(collectionName)
-              .find({ "_id": Types.ObjectId("60424c74410e1627663ce79f"), },
-                {
-                  projection: {
-                    cashRegister: 0, fNo: 0,
-                    __v: 0, cashRegisterApproved: 0,
-                  },
-                  sort: { _id: 1 }, skip, limit,
-                }).toArray();
+              .find({}, {
+                projection: {
+                  cashRegister: 0, fNo: 0,
+                  __v: 0, cashRegisterApproved: 0,
+                },
+                sort: { _id: 1 }, skip, limit,
+              }).toArray();
 
             console.log(`get ${skip} to ${skip + limit} voucher duration ${new Date().getTime() - sttt}`);
             const afterGetVoucher = new Date().getTime();
@@ -1561,7 +1550,7 @@ export class TestService {
                 _id: voucher._id,
                 date: voucher.date,
                 branch: Types.ObjectId(voucher.branch.id),
-                customer: voucher.customer ? Types.ObjectId(voucher.customer) : null,
+                customer: voucher.customer ? Types.ObjectId(voucher.customer.id) : null,
                 customerGroup: voucher.customer?.customerGroup ? Types.ObjectId(voucher.customer.customerGroup) : null,
                 doctor: voucher.doctor ? Types.ObjectId(voucher.doctor.id) : null,
                 patient: voucher.patient ? Types.ObjectId(voucher.patient.id) : null,
@@ -1582,15 +1571,18 @@ export class TestService {
                 transactionMode: voucher.saleType,
                 amount: round(voucher.amount),
                 refNo: voucher.refNo,
+                act: false,
+                actHide: false,
                 description: voucher.description,
                 warehouse: voucher.warehouse?.id ? Types.ObjectId(voucher.warehouse.id) : null,
               };
-              const doc = _.pickBy(initialDoc, (key) => key !== null && key !== undefined);
+              const doc = _.pickBy(initialDoc, (key) => key !== null && key !== undefined && key !== '');
               if (voucher.customer) {
-                const regType = voucher.gstInfo.destination.regType.defaultName;
-                let partyGst = { regType };
-                if (regType) {
-                  if (regType != 'OVERSEAS') {
+                const regType = voucher.gstInfo.destination?.regType?.defaultName;
+                let partyGst = {};
+                if (regType && voucher.gstInfo.destination?.location?.defaultName) {
+                  partyGst = { regType };
+                  if (regType !== 'OVERSEAS') {
                     let location = STATE.find((loc) => voucher.gstInfo.destination.location.defaultName === loc.defaultName).code;
                     _.assign(partyGst, { location });
                   }
@@ -1600,137 +1592,18 @@ export class TestService {
                   }
                 } else {
                   const custInfo = await connection.db(db).collection('customers').findOne({ _id: Types.ObjectId(voucher.customer.id) });
-                  partyGst = {
-                    regType: custInfo.gstInfo.regType,
-                  }
-                  if (custInfo.gstInfo.regType.defaultName != 'OVERSEAS') {
-                    const location = STATE.find((loc) => custInfo.gstInfo.location.defaultName === loc.defaultName).code;
-                    _.assign(partyGst, { location });
-                  }
-                  if (['REGULAR', 'SPECIAL_ECONOMIC_ZONE'].includes(custInfo.gstInfo.regType.defaultName)) {
-                    _.assign(partyGst, { gstNo: custInfo.gstInfo.gstNo });
-                  }
+                  partyGst = custInfo.gstInfo;
                 }
                 _.assign(doc, { partyGst });
               }
-              const invItems = [];
-              const invTrns = [];
-              for (const item of voucher.invTrns) {
-                const tax = GST_TAXES.find(tax => tax.ratio.igst === item.tax.gstRatio.igst).code;
-                // const batch = batches.find((bat: any) => bat.batch === item.batch); later
-                let batch = batches.find((bat: any) => bat.batch === item.batch);
-                if (!batch) {
-                  batch = {
-                    voucherNo: voucher.voucherNo,
-                    batch: item.batch,
-                    batchNo: item.batchNo,
-                    transactionId: item.batch,
-                  };
-                  const doc123 = {
-                    voucherNo: voucher.voucherNo,
-                    inventoryName: item.inventory.displayName,
-                    inventoryId: item.inventory.id,
-                    batch: item.batch,
-                    batchNo: item.batchNo,
-                    branch: voucher.branch.id,
-                    branchName: voucher.branch.name,
-                    qty: item.qty * item.unit.conversion,
-                    rowNo: item.serialNo + 1,
-                  };
-                  await connection.db(db).collection('missing_batch').insertOne(doc123);
-                }
-                let expiry: any;
-                if (item.expMonth && item.expMonth < 10) {
-                  expiry = new Date(new Date(`${item.expYear}-${0}${item.expMonth}-01`).setUTCHours(0, 0, 0, 0));
-                } else if (item.expMonth && item.expMonth > 9) {
-                  expiry = new Date(new Date(`${item.expYear}-${item.expMonth}-01`).setUTCHours(0, 0, 0, 0));
-                }
-                const invItemObj = {
-                  _id: new Types.ObjectId(),
-                  batch: batch.transactionId,
-                  inventory: Types.ObjectId(item.inventory.id),
-                  qty: item.qty,
-                  mrp: round(item.mrp),
-                  rate: round(item.rate),
-                  unitConv: item.unit.conversion,
-                  unitPrecision: item.unitPrecision,
-                  tax,
-                };
-                if (item.discount > 0) {
-                  _.assign(invItemObj, { disc: round(item.discount) });
-                }
-                const invTrnObj = {
-                  _id: new Types.ObjectId(),
-                  batch: batch.transactionId,
-                  inventory: Types.ObjectId(item.inventory.id),
-                  inward: 0,
-                  taxableAmount: round(item.taxableAmount),
-                  assetAmount: round(item.assetAmount),
-                  mrp: round(item.mrp),
-                  tax,
-                  rate: round(item.rate),
-                  profitAmount: round(item.taxableAmount - item.assetAmount),
-                  profitPercent: round((item.taxableAmount - item.assetAmount) / item.taxableAmount * 100),
-                  branch: Types.ObjectId(voucher.branch.id),
-                };
-                if (item.cgstAmount > 0) {
-                  _.assign(invTrnObj, { cgstAmount: round(item.cgstAmount) });
-                }
-                if (item.sgstAmount > 0) {
-                  _.assign(invTrnObj, { sgstAmount: round(item.sgstAmount) });
-                }
-                if (item.igstAmount > 0) {
-                  _.assign(invTrnObj, { igstAmount: round(item.igstAmount) });
-                }
-
-                if (voucher.warehouse?.id) {
-                  _.assign(invTrnObj, { warehouse: Types.ObjectId(voucher.warehouse.id) });
-                }
-                if (expiry) {
-                  _.assign(invItemObj, { expiry });
-                  _.assign(invTrnObj, { expiry });
-                }
-                if (item.sInc) {
-                  _.assign(invItemObj, { sInc: Types.ObjectId(item.sInc) });
-                  _.assign(invTrnObj, { sInc: Types.ObjectId(item.sInc) });
-                }
-                if (collectionName === 'sales') {
-                  _.assign(invTrnObj, { outward: item.qty * item.unit.conversion });
-                } else {
-                  _.assign(invTrnObj, { outward: item.qty * item.unit.conversion * -1 });
-                }
-                invTrns.push(invTrnObj);
-                invItems.push(invItemObj);
-              }
-
-              const acAdjs = {};
-              if (voucher.shippingInfo.tax?.id) {
-                const shippingTax = GST_TAXES.find(t => t.ratio.igst === voucher.shippingInfo.tax.gstRatio.igst).code;
-                _.assign(acAdjs, { shippingTax });
-                const shippingInfo = {};
-                if (voucher.shippingInfo.shipThrough) {
-                  _.assign(shippingInfo, { shipThrough: voucher.shippingInfo.shipThrough });
-                }
-                if (voucher.shippingInfo.shippingDate) {
-                  _.assign(shippingInfo, { shippingDate: voucher.shippingInfo.shippingDate });
-                }
-                if (voucher.shippingInfo.trackingNo) {
-                  _.assign(shippingInfo, { trackingNo: voucher.shippingInfo.trackingNo });
-                }
-                const addressId = (await connection.db(db).collection('customers').findOne({ _id: Types.ObjectId(voucher.customer.id) })).deliveryAddress[0]._id;
-                if (addressId) {
-                  _.assign(shippingInfo, { deliveryAddress: addressId });
-                }
-                if (voucher.shippingInfo.shipThrough || voucher.shippingInfo.shippingDate || voucher.shippingInfo.trackingNo) {
-                  _.assign(doc, { shippingInfo });
-                }
-              }
               const acTrns = [];
               const acItems = [];
+              const acAdjs = {};
               for (const item of voucher.acTrns) {
                 let account = accounts.find((acc) => acc.id === item.account.id);
-                if (['ROUNDED_OFF_SURPLUS', 'DISCOUNT_GIVEN', 'SHIPPING_CHARGE'].includes(item.account?.defaultName)) {
-                  if (item.account.defaultName === 'ROUNDED_OFF_SURPLUS') {
+                if (['ROUNDED_OFF_SURPLUS', 'ROUNDED_OFF_SHORTAGE', 'DISCOUNT_GIVEN', 'SHIPPING_CHARGE'].includes(item.account?.defaultName)) {
+                  if (['ROUNDED_OFF_SHORTAGE', 'ROUNDED_OFF_SURPLUS'].includes(item.account.defaultName)) {
+                    account = accounts.find((acc) => acc.displayName === 'Rounded Off (Surplus)');
                     _.assign(acAdjs, { roundedOff: item.credit > 0 ? round(-item.credit) : round(item.debit) });
                   }
                   if (item.account.defaultName === 'DISCOUNT_GIVEN') {
@@ -1740,7 +1613,6 @@ export class TestService {
                     _.assign(acAdjs, { shippingCharge: item.credit > 0 ? round(-item.credit) : round(item.debit) });
                   }
                   const acItemObj = {
-                    _id: new Types.ObjectId(),
                     account: Types.ObjectId(account.id),
                     accountType: account.type,
                     amount: item.credit > 0 ? -item.credit : item.debit,
@@ -1764,21 +1636,20 @@ export class TestService {
                       .filter((pending) => (pending.byPending === voucher.customerPending) && (pending.byPending > pending.toPending))
                       .map((p) => {
                         return {
-                          _id: new Types.ObjectId(),
                           pending: Types.ObjectId(p.toPending),
                           amount: round(p.amount),
                         };
                       });
                   } else if (!getPending) {
                     _id = new Types.ObjectId();
+                    adjs = [];
                   }
                   trnObj = {
                     _id,
                     account: Types.ObjectId(account.id),
-                    branch: Types.ObjectId(voucher.branch.id),
+                    accountType: account.type,
                     credit: round(item.credit),
                     debit: round(item.debit),
-                    bwd: true,
                   }
                   if (adjs.length > 0) {
                     _.assign(trnObj, { adjs });
@@ -1799,12 +1670,10 @@ export class TestService {
                     _.assign(doc, { eftAmount: (item.credit > 0) ? round(item.credit) : round(item.debit), eftAccount: Types.ObjectId(account.id) });
                   }
                   trnObj = {
-                    _id: item._id,
                     account: Types.ObjectId(account.id),
-                    branch: Types.ObjectId(voucher.branch.id),
+                    accountType: account.type,
                     credit: round(item.credit),
                     debit: round(item.debit),
-                    bwd: false,
                   }
                   if (voucher.refNo) {
                     _.assign(trnObj, { refNo: voucher.refNo });
@@ -1812,7 +1681,161 @@ export class TestService {
                 }
                 acTrns.push(trnObj);
               }
-              _.assign(doc, { acAdjs, acItems, acTrns, invTrns, invItems });
+              const invItems = [];
+              const invTrns = [];
+              const incSum = [];
+              const invBatches = _.intersectionBy(batches, voucher.invTrns, 'batch');
+              for (const item of voucher.invTrns) {
+                if (item.sInc) {
+                  incSum.push({
+                    sInc: item.sInc,
+                    taxableAmount: item.taxableAmount,
+                    amount: item.rate * item.qty,
+                  });
+                }
+                const tax = GST_TAXES.find(tax => tax.ratio.igst === item.tax.gstRatio.igst).code;
+                // const batch = invBatches.find((bat: any) => bat.batch === item.batch); later
+                let batch: any = invBatches.find((bat: any) => bat.batch === item.batch);
+                if (!batch) {
+                  batch = {
+                    voucherNo: voucher.voucherNo,
+                    batch: item.batch,
+                    batchNo: item.batchNo,
+                    transactionId: item.batch,
+                  };
+                  const doc123 = {
+                    voucherNo: voucher.voucherNo,
+                    inventoryName: item.inventory.displayName,
+                    inventoryId: item.inventory.id,
+                    batch: item.batch,
+                    batchNo: item.batchNo,
+                    branch: voucher.branch.id,
+                    branchName: voucher.branch.name,
+                    qty: item.qty * item.unit.conversion,
+                    rowNo: item.serialNo + 1,
+                  };
+                  missedBatch.push(doc123);
+                }
+                let expiry: any;
+                if (item.expMonth && item.expMonth < 10) {
+                  expiry = new Date(new Date(`${item.expYear}-${0}${item.expMonth}-01`).setUTCHours(0, 0, 0, 0));
+                } else if (item.expMonth && item.expMonth > 9) {
+                  expiry = new Date(new Date(`${item.expYear}-${item.expMonth}-01`).setUTCHours(0, 0, 0, 0));
+                }
+                const invItemObj = {
+                  batch: batch.transactionId,
+                  inventory: Types.ObjectId(item.inventory.id),
+                  qty: item.qty,
+                  mrp: round(item.mrp),
+                  rate: round(item.rate),
+                  unitConv: item.unit.conversion,
+                  unitPrecision: item.unitPrecision,
+                  tax,
+                };
+                if (item.discount > 0) {
+                  _.assign(invItemObj, { disc: round(item.discount) });
+                }
+                const invTrnObj = {
+                  batch: batch.transactionId,
+                  inventory: Types.ObjectId(item.inventory.id),
+                  inward: 0,
+                  taxableAmount: round(item.taxableAmount),
+                  assetAmount: round(item.assetAmount),
+                  mrp: round(item.mrp),
+                  tax,
+                  rate: round(item.rate),
+                  profitAmount: round(item.taxableAmount - item.assetAmount),
+                  profitPercent: round((item.taxableAmount - item.assetAmount) / item.taxableAmount * 100),
+                };
+                if (item.cgstAmount > 0) {
+                  _.assign(invTrnObj, { cgstAmount: round(item.cgstAmount) });
+                }
+                if (item.sgstAmount > 0) {
+                  _.assign(invTrnObj, { sgstAmount: round(item.sgstAmount) });
+                }
+                if (item.igstAmount > 0) {
+                  _.assign(invTrnObj, { igstAmount: round(item.igstAmount) });
+                }
+
+                if (voucher.warehouse?.id) {
+                  _.assign(invTrnObj, { warehouse: Types.ObjectId(voucher.warehouse.id) });
+                }
+                if (expiry) {
+                  _.assign(invItemObj, { expiry });
+                  _.assign(invTrnObj, { expiry });
+                }
+                if (item.sInc) {
+                  _.assign(invItemObj, { sInc: Types.ObjectId(item.sInc) });
+                }
+                if (collectionName === 'sales') {
+                  const altAccount = _.maxBy(
+                    acTrns.filter(x => x.accountType !== 'STOCK'),
+                    'debit',
+                  ).account;
+                  _.assign(invTrnObj, { outward: item.qty * item.unit.conversion, altAccount });
+                } else {
+                  const altAccount = _.maxBy(
+                    acTrns.filter(x => x.accountType !== 'STOCK'),
+                    'credit',
+                  ).account;
+                  _.assign(invTrnObj, { outward: item.qty * item.unit.conversion * -1, altAccount });
+                }
+                invTrns.push(invTrnObj);
+                invItems.push(invItemObj);
+              }
+              const incSummary = [];
+              const mode = collectionName === 'sales' ? 1 : -1;
+              const grouped = _.groupBy(incSum, x => x.sInc);
+              for (const key in grouped) {
+                if (grouped.hasOwnProperty(key) && key) {
+                  const amt = _.reduce(grouped[key], (s, n) => s + n.amount, 0);
+                  const taxableAmt = _.reduce(grouped[key], (s, n) => s + n.taxableAmount, 0);
+                  incSummary.push({
+                    sInc: Types.ObjectId(key),
+                    amount: round(amt * mode),
+                    taxableAmount: round(taxableAmt * mode),
+                  });
+                }
+              }
+              const taxSummary = [];
+              const taxGroup = _.groupBy(invTrns, x => x.tax);
+              for (const key in taxGroup) {
+                if (taxGroup.hasOwnProperty(key) && key) {
+                  const taxableAmount = _.reduce(taxGroup[key], (s, n) => s + n.taxableAmount, 0);
+                  const cgstAmount = _.reduce(taxGroup[key], (s, n) => s + n.cgstAmount, 0);
+                  const sgstAmount = _.reduce(taxGroup[key], (s, n) => s + n.sgstAmount, 0);
+                  const igstAmount = _.reduce(taxGroup[key], (s, n) => s + n.igstAmount, 0);
+                  taxSummary.push({
+                    tax: key,
+                    taxableAmount: round(taxableAmount),
+                    cgstAmount: round(cgstAmount) || 0,
+                    sgstAmount: round(sgstAmount) || 0,
+                    igstAmount: round(igstAmount) || 0,
+                  });
+                }
+              }
+
+              if (voucher.shippingInfo?.tax?.id) {
+                const shippingTax = GST_TAXES.find(t => t.ratio.igst === voucher.shippingInfo.tax.gstRatio.igst).code;
+                _.assign(acAdjs, { shippingTax });
+                const shippingInfo = {};
+                if (voucher.shippingInfo?.shipThrough) {
+                  _.assign(shippingInfo, { shipThrough: voucher.shippingInfo.shipThrough });
+                }
+                if (voucher.shippingInfo?.shippingDate) {
+                  _.assign(shippingInfo, { shippingDate: voucher.shippingInfo.shippingDate });
+                }
+                if (voucher.shippingInfo?.trackingNo) {
+                  _.assign(shippingInfo, { trackingNo: voucher.shippingInfo.trackingNo });
+                }
+                if (voucher.shippingInfo.shipThrough || voucher.shippingInfo.shippingDate || voucher.shippingInfo.trackingNo) {
+                  _.assign(doc, { shippingInfo });
+                }
+              }
+              if (incSummary.length > 0) {
+                _.assign(doc, incSummary);
+              }
+              _.assign(doc, { acAdjs, acItems, acTrns, invTrns, invItems, taxSummary });
               bulkOperation.insert(doc);
             }
 
@@ -1824,6 +1847,9 @@ export class TestService {
             console.log(`DURATION for only insert execute  ${(new Date().getTime() - start1) / 1000}-sec`);
             console.log(`results are` + JSON.stringify({ insert: result.nInserted, err: result.hasWriteErrors() }));
             console.log(`Total DURATION for ${skip} to ${limit + skip}  ${(new Date().getTime() - start) / 1000}-sec`);
+          }
+          if (missedBatch.length > 0) {
+            await connection.db(db).collection('batches_missed').insertMany(missedBatch);
           }
           console.log(`END ALL ${collectionName} and DURATION ${(new Date().getTime() - begin) / (1000 * 60)}-min`);
         } else {
@@ -2169,23 +2195,27 @@ export class TestService {
       }
 
       async function renameCollections(db: string) {
-        const renameCollections = ['sales', 'purchases', 'stock_transfers', 'stock_adjustments'];
-        for (const item of renameCollections) {
-          await connection.db(db).collection(item).rename(`${item}_old`);
-          await connection.db(db).collection(`${item}_new`).rename(item);
-        }
-        await connection.db(db).collection('inventory_openings').rename(`inventory_openings${new Date()}`);
-        await connection.db(db).collection('inventory_openings_new').rename('inventory_openings');
-        await connection.db(db).collection('costcategories').rename('cost_categories');
-        await connection.db(db).collection('costcentres').rename('cost_centres');
-        await connection.db(db).collection('desktopclients').rename('desktop_clients');
-        await connection.db(db).collection('vouchernumberings').rename('voucher_numberings');
-        await connection.db(db).collection('inventorydealers').rename('inventory_dealers');
-        await connection.db(db).collection('financialyears').rename('financial_years');
-        // await connection.db(db).collection('activitylogs').rename('activity_logs');
-        await connection.db(db).collection('currentpreferences').rename('current_preferences');
-        await connection.db(db).collection('printtemplates').rename('print_templates');
-        await connection.db(db).collection('cashtransfers').rename('cash_transfers');
+        console.log('rename collection start');
+        // const renameCollections = ['sales', 'purchases', 'stock_adjustments'];
+        const renameCollections = ['sales', 'purchases'];
+        // for (const item of renameCollections) {
+        //   await connection.db(db).collection(item).rename(`${item}_old`);
+        //   await connection.db(db).collection(`${item}_new`).rename(item);
+        // }
+        // await connection.db(db).collection('inventory_openings').rename(`inventory_openings${new Date()}`);
+        // await connection.db(db).collection('inventory_openings_new').rename('inventory_openings');
+        // await connection.db(db).collection('costcategories').rename('cost_categories');
+        // await connection.db(db).collection('costcentres').rename('cost_centres');
+        // await connection.db(db).collection('desktopclients').rename('desktop_clients');
+        // await connection.db(db).collection('vouchernumberings').rename('voucher_numberings');
+        // await connection.db(db).collection('inventorydealers').rename('inventory_dealers');
+        // await connection.db(db).collection('financialyears').rename('financial_years');
+        // // await connection.db(db).collection('activitylogs').rename('activity_logs');
+        // await connection.db(db).collection('currentpreferences').rename('current_preferences');
+        // await connection.db(db).collection('printtemplates').rename('print_templates');
+        // await connection.db(db).collection('cashtransfers').rename('cash_transfers');
+        // await connection.db(db).collection('cashregisters').rename('cash_registers');
+        console.log('rename end');
       }
 
       async function inventoryOpening(db: string) {
@@ -2207,7 +2237,6 @@ export class TestService {
               updatedAt: { $last: '$updatedAt' },
               items: {
                 $push: {
-                  _id: '$transactionId',
                   batchNo: '$batchNo',
                   unitConv: '$unitConv',
                   unitPrecision: '$unitPrecision',
@@ -2222,7 +2251,6 @@ export class TestService {
                 $push: {
                   _id: '$transactionId',
                   inventory: '$inventory',
-                  branch: '$branch',
                   inward: { $multiply: ['$qty', '$unitConv'] },
                   outward: 0,
                   assetAmount: { $round: [{ $multiply: ['$qty', '$rate'] }, 2] },
@@ -2253,9 +2281,36 @@ export class TestService {
               updatedBy: '$updatedBy',
             }
           },
-          { $merge: 'inventory_openings_new' },
+          { $merge: { into: 'inventory_openings_new' } },
         ];
-        await connection.db(db).collection('batches_rearrange').aggregate(pipeLine, { allowDiskUse: true }).toArray();
+        const a = await connection.db(db).collection('batches_rearrange').aggregate(pipeLine, { allowDiskUse: true }).toArray();
+        console.log(a);
+        const assertAcc = (await connection.db(db).collection('accounts').findOne({ accountType: 'STOCK' }))._id;
+        const records = await connection.db(db).collection('inventory_openings_new')
+          .aggregate([
+            {
+              $group: {
+                _id: '$branch',
+                debit: { $sum: '$assetAmount' },
+                user: { $last: '$updatedBy' },
+              }
+            }
+          ]).toArray();
+        const arr = records.map((rec) => {
+          return {
+            date,
+            act: false,
+            actHide: false,
+            isOpening: true,
+            updatedBy: rec.user,
+            account: assertAcc,
+            accountType: 'STOCK',
+            branch: rec._id,
+            credit: 0,
+            debit: round(rec.debit),
+          }
+        });
+        await connection.db(db).collection('account_transactions').insertMany(arr);
       }
 
       const startTime = new Date();
@@ -2264,35 +2319,58 @@ export class TestService {
 
 
       // const dbs = ['velavanmedical', 'velavanstationery', 'velavanhm', 'ttgold'];
-      const dbs = ['velavanmedical']; // for checking
+      const dbs = ['velavanstationery1']; // for checking
       for (const db of dbs) {
         console.log(`${db} org start.....`);
         const adminUserId: Types.ObjectId = (await connection.db(db).collection('users').findOne({ isAdmin: true }))._id;
-        // await reArrangeBatch(db);
+        await reArrangeBatch(db);
+        console.log('reArrangeBatch End');
         await inventoryMaster(db, adminUserId);
-        // await inventoryOpening(db);
-        await accountMaster(db, adminUserId);
-        await costCategoryMaster(db, adminUserId);
-        await costCentreMaster(db, adminUserId);
-        await pharmaSaltMaster(db, adminUserId);
-        await rackMaster(db, adminUserId);
-        await roleMaster(db);
-        await manufacturerMaster(db, adminUserId);
-        await sectionMaster(db, adminUserId);
-        await unitMaster(db, adminUserId);
-        await doctorMaster(db, adminUserId);
-        await patientMaster(db, adminUserId);
-        await desktopClientMaster(db);
-        await financialYear(db);
-        await customerMaster(db);
-        await vendorMaster(db);
-        await branchMaster(db);
-        await cashRegisterMaster(db);
-        await saleIncharge(db);
-        // await accountOpeningMerge(db, adminUserId);
-        await voucherNumberings(db);
+        console.log('inventoryMaster End');
         await mergePendingAdjustment(db);
-
+        console.log('merge pening End');
+        await accountMaster(db, adminUserId);
+        console.log('Account master End');
+        await inventoryOpening(db);
+        console.log('inventoryOpening End');
+        await costCategoryMaster(db, adminUserId);
+        console.log('costCategoryMaster End');
+        await costCentreMaster(db, adminUserId);
+        console.log('costCentreMaster End');
+        await pharmaSaltMaster(db, adminUserId);
+        console.log('pharmaSaltMaster End');
+        await rackMaster(db, adminUserId);
+        console.log('rackMaster End');
+        await roleMaster(db);
+        console.log('roleMaster End');
+        await manufacturerMaster(db, adminUserId);
+        console.log('manufacturerMaster End');
+        await sectionMaster(db, adminUserId);
+        console.log('sectionMaster End');
+        await unitMaster(db, adminUserId);
+        console.log('unitMaster End');
+        await doctorMaster(db, adminUserId);
+        console.log('doctorMaster End');
+        await patientMaster(db, adminUserId);
+        console.log('costCategoryMaster End');
+        await desktopClientMaster(db);
+        console.log('desktopClientMaster End');
+        await financialYear(db);
+        console.log('financialYear End');
+        await customerMaster(db);
+        console.log('customerMaster End');
+        await vendorMaster(db);
+        console.log('vendorMaster End');
+        await branchMaster(db);
+        console.log('branchMaster End');
+        await cashRegisterMaster(db);
+        console.log('cashRegisterMaster End');
+        await saleIncharge(db);
+        console.log('saleIncharge End');
+        await accountOpeningMerge(db, adminUserId);
+        console.log('accountOpeningMerge End');
+        await voucherNumberings(db);
+        console.log('voucherNumberings End');
 
         const accounts: any = await connection.db(db).collection('accounts')
           .find({}, { projection: { party: 1, displayName: 1, accountType: 1 } })
@@ -2304,7 +2382,7 @@ export class TestService {
               type: elm.accountType,
             }
           })
-          .toArray(); //for vouchers only DONE
+          .toArray();
         const pendings: any = await connection.db(db).collection('accountpendingadjustments')
           .find({}, { projection: { _id: 0, __v: 0 } }).toArray(); // for vouchers only DONE
         const collectionNames = [
@@ -2327,22 +2405,28 @@ export class TestService {
           }
         }
 
-        // const batches: any = await connection.db(db).collection('batches_rearrange')
-        //   .find({}, { projection: { transactionId: 1, batch: 1, batchNo: 1, _id: 0 } })
-        //   .map((elm: any) => {
-        //     return {
-        //       batch: elm.batch.toString(),
-        //       transactionId: elm.transactionId,
-        //       batchNo: elm.batchNo,
-        //     }
-        //   }).toArray();
-        // await purchaseVoucher(db, 'purchases', accounts, pendings, batches);
-        // await purchaseVoucher(db, 'purchase_returns', accounts, pendings, batches);
-        // await saleVoucher(db, 'sales', accounts, pendings, batches);
-        // await saleVoucher(db, 'sale_returns', accounts, pendings, batches);
+        const st = new Date().getTime();
+        const batches: any = await connection.db(db).collection('batches_rearrange')
+          .find({}, { projection: { batch: 1, batchNo: 1, transactionId: 1 } })
+          .map((elm: any) => {
+            return {
+              batch: elm.batch,
+              transactionId: elm.transactionId,
+              batchNo: elm.batchNo,
+            }
+          }).toArray();
+        console.log(`GET batch duration ${(new Date().getTime() - st) / 1000}-sec`);
+        await purchaseVoucher(db, 'purchases', accounts, pendings, batches); // duration p & p_r 10min
+        console.log('purchase end');
+        await purchaseVoucher(db, 'purchase_returns', accounts, pendings, batches);
+        console.log('purchase return end');
+        await saleVoucher(db, 'sales', accounts, pendings, batches);
+        console.log('sales end');
+        await saleVoucher(db, 'sale_returns', accounts, pendings, batches);
+        console.log('sales return end');
         // await stockAdjustments(db, 'stock_adjustments', accounts, batches);
         // await stockTransfer(db, 'stock_transfers', accounts, batches);
-        // await renameCollections(db);
+        await renameCollections(db);
         console.log(`********${db} org end ******`);
       }
       const endTime = new Date();
