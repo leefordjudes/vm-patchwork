@@ -1029,6 +1029,7 @@ export class TestService {
               }
               if (_id) {
                 acTrns[0]._id = _id;
+                acTrns[0].refNo = voucher.refNo;
               }
               _.assign(doc, { trns });
               _.assign(doc, { acTrns });
@@ -1290,6 +1291,7 @@ export class TestService {
                 .update({ $set: { batchNo: `${item.batchNo}-${Math.random().toString(36).substring(2, 6).toUpperCase()}` } });
             }
           }
+          bulk.find({ batchNo: '' }).update({ $set: { batchNo: 'N.A' } });
           await bulk.execute();
           console.log(`Batch_rearrange updated sucessfully..`);
         } else {
@@ -1744,7 +1746,7 @@ export class TestService {
                   mrp: round(item.mrp),
                   tax,
                   rate: round(item.rate),
-                  profitAmount: round(item.taxableAmount - item.assetAmount),
+                  profitValue: round(item.taxableAmount - item.assetAmount),
                   profitPercent: round((item.taxableAmount - item.assetAmount) / item.taxableAmount * 100),
                 };
                 if (item.cgstAmount > 0) {
@@ -1755,10 +1757,6 @@ export class TestService {
                 }
                 if (item.igstAmount > 0) {
                   _.assign(invTrnObj, { igstAmount: round(item.igstAmount) });
-                }
-
-                if (voucher.warehouse?.id) {
-                  _.assign(invTrnObj, { warehouse: Types.ObjectId(voucher.warehouse.id) });
                 }
                 if (expiry) {
                   _.assign(invItemObj, { expiry });
@@ -1887,7 +1885,7 @@ export class TestService {
                 _id: voucher._id,
                 date: voucher.date,
                 branch: Types.ObjectId(voucher.branch.id),
-                warehouse: null,
+                warehouse: voucher.warehouse?.id ? Types.ObjectId(voucher.warehouse.id) : null,
                 voucherType: voucher.voucherType,
                 refNo: voucher.refNo,
                 description: voucher.description,
@@ -1902,7 +1900,6 @@ export class TestService {
                 actHide: false,
                 acItems: [
                   {
-                    _id: new Types.ObjectId(),
                     account: Types.ObjectId(accId),
                     accountType: 'STOCK',
                     amount,
@@ -1910,12 +1907,10 @@ export class TestService {
                 ],
                 acTrns: [
                   {
-                    _id: new Types.ObjectId(),
                     account: Types.ObjectId(accId),
-                    branch: Types.ObjectId(voucher.branch.id),
+                    accountType: 'STOCK',
                     credit: amount < 0 ? Math.abs(amount) : 0,
                     debit: amount > 0 ? amount : 0,
-                    bwd: false,
                   }
                 ]
               };
@@ -1971,16 +1966,12 @@ export class TestService {
                   _id: item._id,
                   assetAmount: round(item.amount),
                   batch: batch.transactionId,
-                  branch: Types.ObjectId(voucher.branch.id),
                   expiry,
                   inventory: Types.ObjectId(item.inventory.id),
                   inward: value > 0 ? value : 0,
-                  mrp: round(item.mrp),
-                  profitAmount: 0,
-                  profitPercent: 0,
-                  rate: round(item.cost),
                   outward: value < 0 ? Math.abs(value) : 0,
-                  warehouse: voucher.warehouse?.id ?? null,
+                  mrp: round(item.mrp),
+                  rate: round(item.cost),
                 };
                 invItems.push(invItemObj);
                 invTrns.push(invTrnObj);
@@ -2064,8 +2055,6 @@ export class TestService {
                     inventory: Types.ObjectId(item.inventory.id),
                     inward: 0,
                     mrp: round(item.mrp),
-                    profitAmount: 0,
-                    profitPercent: 0,
                     rate: round(item.cost),
                     outward: item.qty * item.unit.conversion,
                     warehouse: voucher.warehouse?.id ?? null,
@@ -2232,7 +2221,7 @@ export class TestService {
           {
             $group: {
               _id: { inventory: '$inventory', branch: '$branch' },
-              assetAmount: { $last: '$assetAmount' },
+              assetAmount: { $first: '$assetAmount' },
               updatedBy: { $last: '$updatedBy' },
               updatedAt: { $last: '$updatedAt' },
               items: {
@@ -2266,7 +2255,7 @@ export class TestService {
               }
             }
           },
-          { $addFields: { sRateTaxInc: true } },
+          { $addFields: { sRateTaxInc: true, pRateTaxInc: false } },
           {
             $project: {
               _id: 0,
@@ -2277,14 +2266,14 @@ export class TestService {
               invTrns: '$invTrns',
               items: '$items',
               sRateTaxInc: 1,
+              pRateTaxInc: 1,
               updatedAt: '$updatedAt',
               updatedBy: '$updatedBy',
             }
           },
           { $merge: { into: 'inventory_openings_new' } },
         ];
-        const a = await connection.db(db).collection('batches_rearrange').aggregate(pipeLine, { allowDiskUse: true }).toArray();
-        console.log(a);
+        await connection.db(db).collection('batches_rearrange').aggregate(pipeLine, { allowDiskUse: true }).toArray();
         const assertAcc = (await connection.db(db).collection('accounts').findOne({ accountType: 'STOCK' }))._id;
         const records = await connection.db(db).collection('inventory_openings_new')
           .aggregate([
@@ -2313,10 +2302,90 @@ export class TestService {
         await connection.db(db).collection('account_transactions').insertMany(arr);
       }
 
+      async function createOpening(db: string, user: Types.ObjectId) {
+        const tempBatches: any = await connection.db(db).collection('batches_rearrange')
+          .find({}, { projection: { _id: 0, batch: 1 } }).map((c: any) => Types.ObjectId(c.batch)).toArray();
+        const missedBatches = await connection.db(db).collection('batches')
+          .find({ _id: { $nin: tempBatches } }).toArray();
+        const docs = missedBatches.map((elm) => {
+          return {
+            allowNegativeStock: elm.allowNegativeStock,
+            assetAmount: 0,
+            batch: elm._id.toString(),
+            batchNo: 'DEV-' + Math.floor(Math.random() * 1000),
+            branch: Types.ObjectId(elm.branch),
+            inventory: Types.ObjectId(elm.inventory),
+            month: elm.expMonth ? elm.expMonth.toString() : null,
+            mrp: elm.mrp,
+            qty: 1,
+            rate: 0,
+            sRate: elm.sRate,
+            singleton: false,
+            transactionId: elm._id,
+            unitConv: elm.unitConversion,
+            unitPrecision: 2,
+            updatedAt: new Date(),
+            updatedBy: user,
+            voucherName: 'OPENING',
+            year: elm.expYear ? elm.expYear.toString() : null,
+            missed: true,
+            voucherType: elm.voucherType,
+            exnlc: elm.netLandingCost,
+          }
+        });
+        if (docs.length > 0) {
+          await connection.db(db).collection('batches_rearrange').insertMany(docs);
+        }
+        await connection.db('velavanstationery1').collection('batches')
+          .aggregate([
+            {
+              $match: { _id: { $nin: tempBatches } }
+            },
+            {
+              $group: {
+                _id: { branch: '$branch', inventory: '$inventory' },
+                trns: {
+                  $push: {
+                    _id: '$_id',
+                    batch: { $toString: '$_id' },
+                    batchNo: '$batchNo',
+                    qty: 1,
+                    mrp: '$mrp',
+                    pRate: 0,
+                    sRate: '$sRate',
+                    expYear: '$expYear',
+                    expMonth: '$expMonth',
+                    unit: { id: '$unit', conversion: '$unitConversion' },
+                    unitPrecision: 2,
+                  },
+                },
+              }
+            },
+            {
+              $addFields: {
+                pRateTaxInc: false,
+                sRateTaxInc: true,
+                branchId: '$branch',
+                inventoryId: '$inventory',
+                assetAmount: 0,
+                updatedAt: new Date(),
+                updatedBy: user.toString(),
+              }
+            },
+            {
+              $project: {
+                _id: 0,
+              },
+            },
+            {
+              $merge: 'inventory_openings'
+            }
+          ]).toArray();
+      }
+
       const startTime = new Date();
       console.log('.........START...........');
       console.log({ startTime });
-
 
       // const dbs = ['velavanmedical', 'velavanstationery', 'velavanhm', 'ttgold'];
       const dbs = ['velavanstationery1']; // for checking
@@ -2325,14 +2394,16 @@ export class TestService {
         const adminUserId: Types.ObjectId = (await connection.db(db).collection('users').findOne({ isAdmin: true }))._id;
         await reArrangeBatch(db);
         console.log('reArrangeBatch End');
+        await createOpening(db, adminUserId);
+        console.log('createOpening End');
         await inventoryMaster(db, adminUserId);
         console.log('inventoryMaster End');
-        await mergePendingAdjustment(db);
-        console.log('merge pening End');
         await accountMaster(db, adminUserId);
         console.log('Account master End');
         await inventoryOpening(db);
         console.log('inventoryOpening End');
+        await mergePendingAdjustment(db);
+        console.log('merge pening End');
         await costCategoryMaster(db, adminUserId);
         console.log('costCategoryMaster End');
         await costCentreMaster(db, adminUserId);
@@ -2426,7 +2497,7 @@ export class TestService {
         console.log('sales return end');
         // await stockAdjustments(db, 'stock_adjustments', accounts, batches);
         // await stockTransfer(db, 'stock_transfers', accounts, batches);
-        await renameCollections(db);
+        // await renameCollections(db);
         console.log(`********${db} org end ******`);
       }
       const endTime = new Date();

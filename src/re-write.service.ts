@@ -108,9 +108,6 @@ export class ReWriteService {
                 debit: trn.debit > 0 ? adj.amount : 0,
                 altAccount: trn.credit > 0 ? crAlt.account ?? undefined : drAlt.account ?? undefined,
               };
-              if (data.isOpening) {
-                delete adjObj.altAccount;
-              }
               if (trn._id) {
                 _.assign(adjObj, { pending: trn._id, adjPending: adj.pending, opening: round(opening) });
               }
@@ -129,6 +126,9 @@ export class ReWriteService {
               altAccount: trn.credit > 0 ? crAlt.account ?? undefined : drAlt.account ?? undefined,
             };
             if (data.isOpening) {
+              if (trn.refNo) {
+                _.assign(obj, { refNo: trn.refNo });
+              }
               opening = trn.debit - trn.credit;
               delete obj.altAccount;
             }
@@ -173,6 +173,7 @@ export class ReWriteService {
                   voucherType: voucher.voucherType,
                   createdBy: voucher.createdBy,
                   updatedBy: voucher.updatedBy,
+                  refNo: voucher.refNo,
                 };
                 accTxn = applyAccTransactions(bookObj);
               }
@@ -208,6 +209,7 @@ export class ReWriteService {
                   voucherType: voucher.voucherType,
                   createdBy: voucher.createdBy,
                   updatedBy: voucher.updatedBy,
+                  refNo: voucher.refNo,
                 };
                 accTxn = applyAccTransactions(_.assign(bookObj, { trns: voucher.acTrns }));
                 invTxn = applyInvTransactions(_.assign(bookObj, { trns: voucher.invTrns }));
