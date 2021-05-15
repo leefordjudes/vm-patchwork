@@ -244,8 +244,8 @@ export class ReWriteService {
       }
       const dbs = ['velavanstationery1'];
       for (const db of dbs) {
-        // const collections = ['vouchers', 'account_openings', 'inventory_openings', 'sales', 'purchases'];
-        const collections = ['sales', 'purchases']; // checking
+        const collections = ['vouchers', 'account_openings', 'inventory_openings', 'sales', 'purchases'];
+        // const collections = ['sales', 'purchases']; // checking
         for (const collection of collections) {
           await reWriteVouchers(db, collection);
         }

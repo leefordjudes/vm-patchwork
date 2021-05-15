@@ -1686,7 +1686,7 @@ export class TestService {
               const invItems = [];
               const invTrns = [];
               const incSum = [];
-              const invBatches = _.intersectionBy(batches, voucher.invTrns, 'batch');
+              const invBatches: any = _.intersectionBy(batches, voucher.invTrns, 'batch');
               for (const item of voucher.invTrns) {
                 if (item.sInc) {
                   incSum.push({
@@ -1696,28 +1696,7 @@ export class TestService {
                   });
                 }
                 const tax = GST_TAXES.find(tax => tax.ratio.igst === item.tax.gstRatio.igst).code;
-                // const batch = invBatches.find((bat: any) => bat.batch === item.batch); later
-                let batch: any = invBatches.find((bat: any) => bat.batch === item.batch);
-                if (!batch) {
-                  batch = {
-                    voucherNo: voucher.voucherNo,
-                    batch: item.batch,
-                    batchNo: item.batchNo,
-                    transactionId: item.batch,
-                  };
-                  const doc123 = {
-                    voucherNo: voucher.voucherNo,
-                    inventoryName: item.inventory.displayName,
-                    inventoryId: item.inventory.id,
-                    batch: item.batch,
-                    batchNo: item.batchNo,
-                    branch: voucher.branch.id,
-                    branchName: voucher.branch.name,
-                    qty: item.qty * item.unit.conversion,
-                    rowNo: item.serialNo + 1,
-                  };
-                  missedBatch.push(doc123);
-                }
+                const batch = invBatches.find((bat: any) => bat.batch === item.batch);
                 let expiry: any;
                 if (item.expMonth && item.expMonth < 10) {
                   expiry = new Date(new Date(`${item.expYear}-${0}${item.expMonth}-01`).setUTCHours(0, 0, 0, 0));
@@ -1881,7 +1860,7 @@ export class TestService {
             const afterGetVoucher = new Date().getTime();
             for (const voucher of vouchers) {
               const amount = round(voucher.amount);
-              const doc: any = {
+              const initialDoc: any = {
                 _id: voucher._id,
                 date: voucher.date,
                 branch: Types.ObjectId(voucher.branch.id),
@@ -1898,48 +1877,32 @@ export class TestService {
                 amount,
                 act: false,
                 actHide: false,
-                acItems: [
-                  {
-                    account: Types.ObjectId(accId),
-                    accountType: 'STOCK',
-                    amount,
-                  }
-                ],
-                acTrns: [
-                  {
-                    account: Types.ObjectId(accId),
-                    accountType: 'STOCK',
-                    credit: amount < 0 ? Math.abs(amount) : 0,
-                    debit: amount > 0 ? amount : 0,
-                  }
-                ]
               };
+              const doc = _.pickBy(initialDoc, (v) => v !== null && v !== undefined && v !== '');
+              if (amount !== 0) {
+                _.assign(doc, {
+                  acItems: [
+                    {
+                      account: Types.ObjectId(accId),
+                      accountType: 'STOCK',
+                      amount,
+                    }
+                  ],
+                  acTrns: [
+                    {
+                      account: Types.ObjectId(accId),
+                      accountType: 'STOCK',
+                      credit: amount < 0 ? Math.abs(amount) : 0,
+                      debit: amount > 0 ? amount : 0,
+                    }
+                  ]
+                });
+              }
               const invItems = [];
               const invTrns = [];
+              const invBatches: any = _.intersectionBy(batches, voucher.invTrns, 'batch');
               for (const item of voucher.invTrns) {
-                // const batch = batches.find((bat: any) => bat.batch === item.batch); later
-                let batch = batches.find((bat: any) => bat.batch === item.batch);
-                if (!batch) {
-                  batch = {
-                    voucherNo: voucher.voucherNo,
-                    inventoryName: item.inventory.displayName,
-                    batch: item.batch,
-                    batchNo: item.batchNo,
-                    transactionId: item.batch,
-                  };
-                  const doc123 = {
-                    voucherNo: voucher.voucherNo,
-                    inventoryName: item.inventory.displayName,
-                    inventoryId: item.inventory.id,
-                    batch: item.batch,
-                    batchNo: item.batchNo,
-                    branch: voucher.branch.id,
-                    branchName: voucher.branch.name,
-                    qty: item.qty * item.unit.conversion,
-                    voucherName: voucher.voucherName,
-                  };
-                  await connection.db(db).collection('missing_batch').insertOne(doc123);
-                }
+                const batch = invBatches.find((bat: any) => bat.batch === item.batch);
                 let expiry: any;
                 if (item.expMonth && item.expMonth < 10) {
                   expiry = new Date(new Date(`${item.expYear}-${0}${item.expMonth}-01`).setUTCHours(0, 0, 0, 0));
@@ -1949,9 +1912,7 @@ export class TestService {
                   expiry = null;
                 }
                 const invItemObj = {
-                  _id: new Types.ObjectId(),
                   batch: batch.transactionId,
-                  expiry,
                   inventory: Types.ObjectId(item.inventory.id),
                   mrp: round(item.mrp),
                   qty: item.qty,
@@ -1961,25 +1922,24 @@ export class TestService {
                   unitPrecision: item.unitPrecision,
                 };
                 const value = item.qty * item.unit.conversion;
-
                 const invTrnObj = {
-                  _id: item._id,
                   assetAmount: round(item.amount),
                   batch: batch.transactionId,
-                  expiry,
                   inventory: Types.ObjectId(item.inventory.id),
                   inward: value > 0 ? value : 0,
                   outward: value < 0 ? Math.abs(value) : 0,
                   mrp: round(item.mrp),
                   rate: round(item.cost),
                 };
+                if (expiry) {
+                  _.assign(invItemObj, { expiry });
+                  _.assign(invTrnObj, { expiry });
+                }
                 invItems.push(invItemObj);
                 invTrns.push(invTrnObj);
               }
               _.assign(doc, { invTrns, invItems });
-              let orderedDoc = {};
-              _(doc).keys().sort().each((key) => { orderedDoc[key] = doc[key] });
-              bulkOperation.insert(orderedDoc);
+              bulkOperation.insert(doc);
             }
             const start1 = new Date().getTime();
             console.log(`${skip} to ${limit + skip} object initialized DURATION ${(start1 - afterGetVoucher) / 1000}-sec`);
@@ -2048,19 +2008,15 @@ export class TestService {
                 const batch = batches.find((bat: any) => bat.batch === item.batch);
                 if (item.branch === voucher.branch.id) {
                   invTrns.push({
-                    _id: item._id,
                     assetAmount: round(item.amount),
                     batch: batch.transactionId,
-                    branch: Types.ObjectId(voucher.branch.id),
                     inventory: Types.ObjectId(item.inventory.id),
                     inward: 0,
                     mrp: round(item.mrp),
                     rate: round(item.cost),
                     outward: item.qty * item.unit.conversion,
-                    warehouse: voucher.warehouse?.id ?? null,
                   });
                   invItems.push({
-                    _id: new Types.ObjectId(),
                     batch: batch.transactionId,
                     inventory: Types.ObjectId(item.inventory.id),
                     mrp: round(item.mrp),
@@ -2185,25 +2141,25 @@ export class TestService {
 
       async function renameCollections(db: string) {
         console.log('rename collection start');
-        // const renameCollections = ['sales', 'purchases', 'stock_adjustments'];
         const renameCollections = ['sales', 'purchases'];
-        // for (const item of renameCollections) {
-        //   await connection.db(db).collection(item).rename(`${item}_old`);
-        //   await connection.db(db).collection(`${item}_new`).rename(item);
-        // }
-        // await connection.db(db).collection('inventory_openings').rename(`inventory_openings${new Date()}`);
-        // await connection.db(db).collection('inventory_openings_new').rename('inventory_openings');
-        // await connection.db(db).collection('costcategories').rename('cost_categories');
-        // await connection.db(db).collection('costcentres').rename('cost_centres');
-        // await connection.db(db).collection('desktopclients').rename('desktop_clients');
-        // await connection.db(db).collection('vouchernumberings').rename('voucher_numberings');
-        // await connection.db(db).collection('inventorydealers').rename('inventory_dealers');
-        // await connection.db(db).collection('financialyears').rename('financial_years');
-        // // await connection.db(db).collection('activitylogs').rename('activity_logs');
-        // await connection.db(db).collection('currentpreferences').rename('current_preferences');
-        // await connection.db(db).collection('printtemplates').rename('print_templates');
-        // await connection.db(db).collection('cashtransfers').rename('cash_transfers');
-        // await connection.db(db).collection('cashregisters').rename('cash_registers');
+        // const renameCollections = ['sales', 'purchases', 'stock_adjustments'];
+        for (const item of renameCollections) {
+          await connection.db(db).collection(item).rename(`${item}_old`);
+          await connection.db(db).collection(`${item}_new`).rename(item);
+        }
+        await connection.db(db).collection('inventory_openings').rename(`inventory_openings${new Date()}`);
+        await connection.db(db).collection('inventory_openings_new').rename('inventory_openings');
+        await connection.db(db).collection('costcategories').rename('cost_categories');
+        await connection.db(db).collection('costcentres').rename('cost_centres');
+        await connection.db(db).collection('desktopclients').rename('desktop_clients');
+        await connection.db(db).collection('vouchernumberings').rename('voucher_numberings');
+        await connection.db(db).collection('inventorydealers').rename('inventory_dealers');
+        await connection.db(db).collection('financialyears').rename('financial_years');
+        // await connection.db(db).collection('activitylogs').rename('activity_logs');
+        await connection.db(db).collection('currentpreferences').rename('current_preferences');
+        await connection.db(db).collection('printtemplates').rename('print_templates');
+        await connection.db(db).collection('cashtransfers').rename('cash_transfers');
+        await connection.db(db).collection('cashregisters').rename('cash_registers');
         console.log('rename end');
       }
 
@@ -2497,7 +2453,7 @@ export class TestService {
         console.log('sales return end');
         // await stockAdjustments(db, 'stock_adjustments', accounts, batches);
         // await stockTransfer(db, 'stock_transfers', accounts, batches);
-        // await renameCollections(db);
+        await renameCollections(db);
         console.log(`********${db} org end ******`);
       }
       const endTime = new Date();
