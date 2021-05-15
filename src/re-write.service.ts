@@ -129,6 +129,9 @@ export class ReWriteService {
               if (trn.refNo) {
                 _.assign(obj, { refNo: trn.refNo });
               }
+              if (trn.effDate) {
+                _.assign(obj, { effDate: trn.effDate });
+              }
               opening = trn.debit - trn.credit;
               delete obj.altAccount;
             }

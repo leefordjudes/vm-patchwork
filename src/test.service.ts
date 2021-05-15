@@ -978,21 +978,6 @@ export class TestService {
               if (voucher.description) {
                 _.assign(doc, { description: voucher.description });
               }
-              let _id: any;
-              if (creditCollections.includes(collectionName)) {
-                const getPending = pendings
-                  .find((pending: any) => (pending.byPending === voucherPending || pending.toPending === voucherPending));
-                if (getPending) {
-                  if (getPending.byPending > getPending.toPending) {
-                    _id = Types.ObjectId(getPending.byPending);
-                  } else {
-                    _id = Types.ObjectId(getPending.toPending);
-                  }
-                }
-                if (!getPending) {
-                  _id = new Types.ObjectId();
-                }
-              }
               const trns: any = [
                 {
                   account: Types.ObjectId(partyAcc.id),
@@ -1021,19 +1006,17 @@ export class TestService {
               ];
               if (voucher.instNo) {
                 trns[1].instNo = voucher.instNo;
-                acTrns[1].instNo = voucher.instNo;
               }
               if (voucher.instDate) {
                 trns[1].instDate = new Date(new Date(voucher.instDate).setUTCHours(0, 0, 0, 0));
-                acTrns[1].instDate = new Date(new Date(voucher.instDate).setUTCHours(0, 0, 0, 0));
-              }
-              if (_id) {
-                acTrns[0]._id = _id;
-                acTrns[0].refNo = voucher.refNo;
               }
               _.assign(doc, { trns });
               _.assign(doc, { acTrns });
               if (creditCollections.includes(collectionName)) {
+                acTrns[0]._id = Types.ObjectId(voucherPending);
+                if (voucher.refNo) {
+                  acTrns[0].refNo = voucher.refNo;
+                }
                 const adjs = pendings
                   .filter((pending) => (pending.byPending === voucherPending) && (pending.byPending > pending.toPending))
                   .map((p) => {
@@ -1372,33 +1355,20 @@ export class TestService {
                   }
                   acItems.push(acItemObj);
                 }
-                let _id: any;
+
                 let trnObj: any;
                 if (item.account.defaultName === 'TRADE_PAYABLE') {
-                  let adjs: any;
                   account = accounts.find((party) => party.party === voucher.vendor.id);
-                  const getPending = pendings
-                    .find((pending: any) => (pending.byPending === voucher.vendorPending || pending.toPending === voucher.vendorPending));
-                  if (getPending) {
-                    if (getPending.byPending > getPending.toPending) {
-                      _id = Types.ObjectId(getPending.byPending);
-                    } else {
-                      _id = Types.ObjectId(getPending.toPending);
-                    }
-                    adjs = pendings
-                      .filter((pending) => (pending.byPending === voucher.vendorPending) && (pending.byPending > pending.toPending))
-                      .map((p) => {
-                        return {
-                          pending: Types.ObjectId(p.toPending),
-                          amount: round(p.amount),
-                        };
-                      });
-                  } else if (!getPending) {
-                    _id = new Types.ObjectId();
-                    adjs = [];
-                  }
+                  const adjs = pendings
+                    .filter((pending) => (pending.byPending === voucher.vendorPending) && (pending.byPending > pending.toPending))
+                    .map((p) => {
+                      return {
+                        pending: Types.ObjectId(p.toPending),
+                        amount: round(p.amount),
+                      };
+                    });
                   trnObj = {
-                    _id,
+                    _id: Types.ObjectId(voucher.vendorPending),
                     account: Types.ObjectId(account.id),
                     accountType: account.type,
                     adjs,
@@ -1447,8 +1417,10 @@ export class TestService {
                   unitPrecision: item.unitPrecision,
                   tax,
                 };
-                if (item.discount > 0) {
+                if (item.discount) {
                   _.assign(invItemObj, { disc: round(item.discount) });
+                } else {
+                  _.assign(invItemObj, { disc: 0 });
                 }
 
                 const invTrnObj = {
@@ -1624,30 +1596,17 @@ export class TestService {
                 let _id: any;
                 let trnObj: any;
                 if (item.account.defaultName === 'TRADE_RECEIVABLE') {
-                  let adjs: any;
                   account = accounts.find((party) => party.party === voucher.customer.id);
-                  const getPending = pendings
-                    .find((pending: any) => (pending.byPending === voucher.customerPending || pending.toPending === voucher.customerPending));
-                  if (getPending) {
-                    if (getPending.byPending > getPending.toPending) {
-                      _id = Types.ObjectId(getPending.byPending);
-                    } else {
-                      _id = Types.ObjectId(getPending.toPending);
-                    }
-                    adjs = pendings
-                      .filter((pending) => (pending.byPending === voucher.customerPending) && (pending.byPending > pending.toPending))
-                      .map((p) => {
-                        return {
-                          pending: Types.ObjectId(p.toPending),
-                          amount: round(p.amount),
-                        };
-                      });
-                  } else if (!getPending) {
-                    _id = new Types.ObjectId();
-                    adjs = [];
-                  }
+                  const adjs = pendings
+                    .filter((pending) => (pending.byPending === voucher.customerPending) && (pending.byPending > pending.toPending))
+                    .map((p) => {
+                      return {
+                        pending: Types.ObjectId(p.toPending),
+                        amount: round(p.amount),
+                      };
+                    });
                   trnObj = {
-                    _id,
+                    _id: Types.ObjectId(voucher.customerPending),
                     account: Types.ObjectId(account.id),
                     accountType: account.type,
                     credit: round(item.credit),
@@ -1676,9 +1635,6 @@ export class TestService {
                     accountType: account.type,
                     credit: round(item.credit),
                     debit: round(item.debit),
-                  }
-                  if (voucher.refNo) {
-                    _.assign(trnObj, { refNo: voucher.refNo });
                   }
                 }
                 acTrns.push(trnObj);
@@ -1713,8 +1669,10 @@ export class TestService {
                   unitPrecision: item.unitPrecision,
                   tax,
                 };
-                if (item.discount > 0) {
+                if (item.discount) {
                   _.assign(invItemObj, { disc: round(item.discount) });
+                } else {
+                  _.assign(invItemObj, { disc: 0 });
                 }
                 const invTrnObj = {
                   batch: batch.transactionId,
@@ -1795,19 +1753,11 @@ export class TestService {
               if (voucher.shippingInfo?.tax?.id) {
                 const shippingTax = GST_TAXES.find(t => t.ratio.igst === voucher.shippingInfo.tax.gstRatio.igst).code;
                 _.assign(acAdjs, { shippingTax });
-                const shippingInfo = {};
-                if (voucher.shippingInfo?.shipThrough) {
-                  _.assign(shippingInfo, { shipThrough: voucher.shippingInfo.shipThrough });
+                const deliveryInfo = {};
+                if (voucher.deliveryInfo?.shippingDate) {
+                  _.assign(deliveryInfo, { date: voucher.deliveryInfo.shippingDate });
                 }
-                if (voucher.shippingInfo?.shippingDate) {
-                  _.assign(shippingInfo, { shippingDate: voucher.shippingInfo.shippingDate });
-                }
-                if (voucher.shippingInfo?.trackingNo) {
-                  _.assign(shippingInfo, { trackingNo: voucher.shippingInfo.trackingNo });
-                }
-                if (voucher.shippingInfo.shipThrough || voucher.shippingInfo.shippingDate || voucher.shippingInfo.trackingNo) {
-                  _.assign(doc, { shippingInfo });
-                }
+                _.assign(doc, { deliveryInfo });
               }
               if (incSummary.length > 0) {
                 _.assign(doc, incSummary);
@@ -2292,7 +2242,7 @@ export class TestService {
         if (docs.length > 0) {
           await connection.db(db).collection('batches_rearrange').insertMany(docs);
         }
-        await connection.db('velavanstationery1').collection('batches')
+        await connection.db(db).collection('batches')
           .aggregate([
             {
               $match: { _id: { $nin: tempBatches } }
