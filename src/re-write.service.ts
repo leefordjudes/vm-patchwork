@@ -245,7 +245,7 @@ export class ReWriteService {
           }
         }
       }
-      const dbs = ['velavanstationery1'];
+      const dbs = ['velavanmedical1'];
       for (const db of dbs) {
         const collections = ['vouchers', 'account_openings', 'inventory_openings', 'sales', 'purchases'];
         // const collections = ['sales', 'purchases']; // checking

@@ -636,7 +636,7 @@ export class TestService {
                 preferredVendor: 1,
                 __v: 1,
               };
-              if (db === 'velavanmedical') {
+              if (db === 'velavanmedical' || db === 'velavanmedical1') {
                 if (inventory.salts.length < 1) {
                   _.assign($unset, { salts: 1 });
                 }
@@ -2294,8 +2294,10 @@ export class TestService {
       console.log({ startTime });
 
       // const dbs = ['velavanmedical', 'velavanstationery', 'velavanhm', 'ttgold'];
-      const dbs = ['velavanstationery1']; // for checking
+      const dbs = ['velavanmedical1']; // for checking
       for (const db of dbs) {
+        await connection.db(db).collection('inventory_openings')
+        .updateMany({ trns: { $elemMatch: { expMonth: 0 } } }, { $set: { 'trns.$.expMonth': 1 } });
         console.log(`${db} org start.....`);
         const adminUserId: Types.ObjectId = (await connection.db(db).collection('users').findOne({ isAdmin: true }))._id;
         await reArrangeBatch(db);
