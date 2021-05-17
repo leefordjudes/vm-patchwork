@@ -658,7 +658,7 @@ export class TestService {
                 if (inventory.sDiscount) {
                   for (const key of Object.keys(inventory.sDiscount)) {
                     if (br._id.toString() === key) {
-                      _.assign(obj, { sDiscount: inventory.sDiscount[key].ratio });
+                      _.assign(obj, { sDisc: inventory.sDiscount[key].ratio });
                     }
                   }
                 }
@@ -1648,7 +1648,7 @@ export class TestService {
                   incSum.push({
                     sInc: item.sInc,
                     taxableAmount: item.taxableAmount,
-                    amount: item.rate * item.qty,
+                    amount: item.taxableAmount + item.sgstAmount + item.igstAmount + item.cgstAmount,
                   });
                 }
                 const tax = GST_TAXES.find(tax => tax.ratio.igst === item.tax.gstRatio.igst).code;
@@ -1760,7 +1760,7 @@ export class TestService {
                 _.assign(doc, { deliveryInfo });
               }
               if (incSummary.length > 0) {
-                _.assign(doc, incSummary);
+                _.assign(doc, { incSummary });
               }
               _.assign(doc, { acAdjs, acItems, acTrns, invTrns, invItems, taxSummary });
               bulkOperation.insert(doc);
@@ -2297,7 +2297,7 @@ export class TestService {
       const dbs = ['velavanmedical1']; // for checking
       for (const db of dbs) {
         await connection.db(db).collection('inventory_openings')
-        .updateMany({ trns: { $elemMatch: { expMonth: 0 } } }, { $set: { 'trns.$.expMonth': 1 } });
+          .updateMany({ trns: { $elemMatch: { expMonth: 0 } } }, { $set: { 'trns.$.expMonth': 1 } });
         console.log(`${db} org start.....`);
         const adminUserId: Types.ObjectId = (await connection.db(db).collection('users').findOne({ isAdmin: true }))._id;
         await reArrangeBatch(db);
