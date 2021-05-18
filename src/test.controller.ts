@@ -11,10 +11,4 @@ export class TestController {
     return await this.testService.test();
   }
 
-  @Put('delete')
-  async discountConfig() {
-    console.log('auditplus2.O delete controller account');
-    return await this.testService.delete();
-  }
-
 }

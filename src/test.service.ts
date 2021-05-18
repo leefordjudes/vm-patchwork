@@ -2196,6 +2196,36 @@ export class TestService {
         }
       }
 
+      async function deleteCollections(db: string) {
+        const collections = [
+          'accountbooks', 'accountopenings', 'accountpayments', 'accountpendingadjustments', 'accountreceipts', 'activitylogs',
+          'act_account_map', 'act_account_openings', 'act_accountbooks', 'act_accounts',
+          'act_gst_registrations', 'act_import_field_map', 'act_import_sessions', 'act_inventories',
+          'act_inventory_details', 'act_inventory_openings', 'act_inventorybooks', 'act_vouchers', 'activitylogs', // ask activitylogs
+          'batches', 'batches_rearrange', 'branchbooks', // ask branchbooks
+          'cashdeposits', 'cashregisterbooks', 'cashwithdrawals', 'configurations',
+          'currentpreferences', 'customerbooks', 'customeropenings', 'customerpayments', //ask currentpreferences judes
+          'customerpendingadjustments', 'customerpendings', 'customerreceipts', 'expenses',
+          'gstoutwards', 'gsttransactions', 'incomes', 'inventory_openings_old', 'inventorybooks',
+          'journals', 'reviews', 'reorder_analysis', 'vendorbooks', 'vendoropenings', // ask reorder_analysis & reviews
+          'vendorpayments', 'vendorpendingadjustments', 'vendorpendings', 'vendorreceipts',
+          'purchase_returns', 'sale_returns', 'stock_transfers', 'purchases_old', 'sales_old', 'stock_adjustments_old',
+          'taxes',
+        ];
+        const medicalColls = ['doctors', 'patients', 'pharma_salts', 'pharmasalts'];
+        const allCollections = (await connection.db(db).listCollections().toArray()).map((n) => n.name);
+        for (const coll of allCollections) {
+          if (collections.includes(coll) || coll.includes('temp_')) {
+            await connection.db(db).collection(coll).drop();
+          } else {
+            await connection.db(db).collection(coll).dropIndexes();
+          }
+          if (!db.includes('velavanmedical') && medicalColls.includes(coll)) {
+            await connection.db(db).collection(coll).drop();
+          }
+        }
+      }
+
       async function inventoryOpening(db: string) {
         const countDoc = await connection.db(db).collection('inventory_openings').countDocuments();
         if (countDoc > 0) {
@@ -2514,6 +2544,8 @@ export class TestService {
         console.log('stockTransfer converted stockAdjs end');
         await renameCollections(db);
         console.log('renameCollections end');
+        await deleteCollections(db);
+        console.log('renameCollections end');
         console.log(`********${db} org end ******`);
       }
       const endTime = new Date();
@@ -2528,68 +2560,4 @@ export class TestService {
     }
   }
 
-  async delete() {
-    try {
-      const connection = await new MongoClient(URI, {
-        useUnifiedTopology: true,
-        useNewUrlParser: true,
-      }).connect();
-
-      async function deleteCollections(db: string) {  // drop collection and drop Indexes
-        const collections = [
-          'accountopenings', 'accountpayments', 'accountpendingadjustments', 'accountreceipts', 'activitylogs',
-          'act_account_map', 'act_account_openings', 'act_accountbooks', 'act_accounts',
-          'act_gst_registrations', 'act_import_field_map', 'act_import_sessions', 'act_inventories',
-          'act_inventory_details', 'act_inventory_openings', 'act_inventorybooks', 'act_vouchers',
-          'batches', 'batches_rearrange',
-          'cashdeposits', 'cashregisterbooks', 'cashwithdrawals', 'configurations',
-          'currentpreferences', 'customerbooks', 'customeropenings', 'customerpayments',
-          'customerpendingadjustments', 'customerpendings', 'customerreceipts', 'expenses',
-          'gstoutwards', 'gsttransactions', 'incomes', 'inventory_openings_old',
-          'journals', 'reviews', 'vendorbooks', 'vendoropenings',
-          'vendorpayments', 'vendorpendingadjustments', 'vendorpendings', 'vendorreceipts',
-          'purchase_returns', 'sale_returns', 'purchases_old', 'sales_old',
-        ];
-
-        const lists = (await connection.db(db).listCollections().toArray()).map(col => col.name);
-        const dropColls = lists.filter(item => collections.includes(item));
-        const dropIndexes = lists.filter(item => !collections.includes(item));
-        for (const coll of dropColls) {
-          await connection.db(db).collection(coll).drop();
-          console.log(`${coll} collection drop`);
-        };
-        for (const coll of dropIndexes) {
-          await connection.db(db).collection(coll).dropIndexes();
-          console.log(`${coll} indexes drop`);
-        };
-      }
-      const dbs = ['velavanmedical', 'velavanstationery', 'velavanhm'];
-      for (const db of dbs) {
-        await deleteCollections(db);
-      }
-      async function mainDb(db: string) {
-        console.log(`${db} drop collections....`);
-        await connection.db(db).collection('accounts').drop();
-        await connection.db(db).collection('accounttypes').drop();
-        await connection.db(db).collection('configurations').drop();
-        await connection.db(db).collection('costcategories').drop();
-        await connection.db(db).collection('countries').drop();
-        await connection.db(db).collection('gstregistrations').drop();
-        await connection.db(db).collection('m1inventoryopenings').drop();
-        await connection.db(db).collection('m2inventoryopenings').drop();
-        await connection.db(db).collection('organizationtypes').drop();
-        await connection.db(db).collection('privileges').drop();
-        await connection.db(db).collection('states').drop();
-        await connection.db(db).collection('taxes').drop();
-        await connection.db(db).collection('taxtypes').drop();
-        await connection.db(db).collection('templatelayouts').drop();
-      }
-      await mainDb('auditplusdb');
-      await connection.close();
-      return 'unnecessary collections dropped and index drop for all collection successfully';
-    } catch (err) {
-      console.log(err)
-      return err.message;
-    }
-  }
 }
