@@ -279,65 +279,71 @@ export class TestService {
           createdAt: new Date(),
           updatedAt: new Date(),
         };
-        for (const item of customers) {
-          const cust = {};
-          _.assign(cust, {
-            accountType: 'TRADE_RECEIVABLE',
-            party: item._id,
-          });
-          if (item.contactInfo?.mobile) {
-            _.assign(cust,
-              {
-                name: `${item.name}-${item.contactInfo.mobile}`,
-                displayName: `${item.name}`,
-                validateName: `${item.name}-${item.contactInfo.mobile}`.replace(/[^a-z0-9]/gi, '').toLowerCase(),
-              }
-            );
-          } else {
-            _.assign(cust,
-              {
-                name: `${item.name}`,
-                displayName: `${item.name}`,
-                validateName: item.name.replace(/[^a-z0-9]/gi, '').toLowerCase(),
-              }
-            );
+        if (customers.length > 0) {
+          for (const item of customers) {
+            const cust = {};
+            _.assign(cust, {
+              accountType: 'TRADE_RECEIVABLE',
+              party: item._id,
+            });
+            if (item.contactInfo?.mobile) {
+              _.assign(cust,
+                {
+                  name: `${item.name}-${item.contactInfo.mobile}`,
+                  displayName: `${item.name}`,
+                  validateName: `${item.name}-${item.contactInfo.mobile}`.replace(/[^a-z0-9]/gi, '').toLowerCase(),
+                }
+              );
+            } else {
+              _.assign(cust,
+                {
+                  name: `${item.name}`,
+                  displayName: `${item.name}`,
+                  validateName: item.name.replace(/[^a-z0-9]/gi, '').toLowerCase(),
+                }
+              );
+            }
+            _.assign(cust, obj);
+            bulkAccountInsert.insert(cust);
           }
-          _.assign(cust, obj);
-          bulkAccountInsert.insert(cust);
         }
-        for (const item of vendors) {
-          const ven = {};
-          _.assign(ven, {
-            accountType: 'TRADE_PAYABLE',
-            party: item._id,
-          });
-          if (item.contactInfo.mobile) {
-            _.assign(ven,
-              {
-                name: `${item.name}-${item.contactInfo.mobile}`,
-                displayName: `${item.name}`,
-                validateName: `${item.name}-${item.contactInfo.mobile}`.replace(/[^a-z0-9]/gi, '').toLowerCase(),
-              }
-            );
-          } else {
-            _.assign(ven,
-              {
-                name: `${item.name}`,
-                displayName: `${item.name}`,
-                validateName: item.name.replace(/[^a-z0-9]/gi, '').toLowerCase(),
-              }
-            );
+        if (vendors.length > 0) {
+          for (const item of vendors) {
+            const ven = {};
+            _.assign(ven, {
+              accountType: 'TRADE_PAYABLE',
+              party: item._id,
+            });
+            if (item.contactInfo.mobile) {
+              _.assign(ven,
+                {
+                  name: `${item.name}-${item.contactInfo.mobile}`,
+                  displayName: `${item.name}`,
+                  validateName: `${item.name}-${item.contactInfo.mobile}`.replace(/[^a-z0-9]/gi, '').toLowerCase(),
+                }
+              );
+            } else {
+              _.assign(ven,
+                {
+                  name: `${item.name}`,
+                  displayName: `${item.name}`,
+                  validateName: item.name.replace(/[^a-z0-9]/gi, '').toLowerCase(),
+                }
+              );
+            }
+            _.assign(ven, obj);
+            bulkAccountInsert.insert(ven);
           }
-          _.assign(ven, obj);
-          bulkAccountInsert.insert(ven);
         }
-        const createAccount = await bulkAccountInsert.execute();
-        console.log(
-          createAccount.nInserted === vendors.length + customers.length ?
-            'All Credit Account created sucessfully' :
-            'Credit account createion Something error'
-        );
-        console.log('1.account creation end....');
+        if (vendors.length + customers.length > 0) {
+          const createAccount = await bulkAccountInsert.execute();
+          console.log(
+            createAccount.nInserted === vendors.length + customers.length ?
+              'All Credit Account created sucessfully' :
+              'Credit account createion Something error'
+          );
+          console.log('account creation end....');
+        }
       }
 
       async function costCategoryMaster(db: string, user: Types.ObjectId) {
@@ -576,8 +582,8 @@ export class TestService {
             const unitDatas: any = await connection.db(db).collection('units')
               .find({ _id: { $in: unitIds } }, { projection: { displayName: 1 } }).toArray();
             for (const inventory of inventories) {
-              const exTax = taxes.find((a) => inventory.tax.toString() === a._id.toString()).gstRatio.igst;
-              const tax = GST_TAXES.find((t) => t.ratio.igst === exTax).code;
+              const exTax = taxes.find((a) => inventory.tax.toString() === a._id.toString()).gstRatio;
+              const tax = GST_TAXES.find((t) => t.ratio.igst === round(exTax.cgst + exTax.sgst)).code;
               const units = [{
                 unitId: inventory.unit,
                 unitName: unitDatas.find((x) => x._id.toString() === inventory.unit.toString()).displayName,
@@ -1176,6 +1182,7 @@ export class TestService {
               branch: { $toObjectId: '$branch.id' },
               inventory: { $toObjectId: '$invTrns.inventory.id' },
               singleton: '$batchArr.singleton',
+              sRate: '$batchArr.sRate',
               batchNo: { $ifNull: [{ $toUpper: '$invTrns.batchNo' }, 'N.A'] },
               allowNegativeStock: '$batchArr.allowNegativeStock',
               voucherName: 'PURCHASE',
@@ -1400,7 +1407,7 @@ export class TestService {
               const invTrns = [];
               const invBatches = _.intersectionBy(batches, voucher.invTrns, 'batch');
               for (const item of voucher.invTrns) {
-                const tax = GST_TAXES.find(tax => tax.ratio.igst === item.tax.gstRatio.igst).code;
+                const tax = GST_TAXES.find(tax => tax.ratio.igst === round(item.tax.gstRatio.sgst + item.tax.gstRatio.cgst)).code;
                 const batch: any = invBatches.find((bat: any) => bat.batch === item.batch);
                 let expiry: any;
                 if (item.expMonth && item.expMonth < 10) {
@@ -1468,8 +1475,7 @@ export class TestService {
                 invItems.push(invItemObj);
                 invTrns.push(invTrnObj);
               }
-
-              const roundOff = voucher.acTrns.find((acc: any) => (acc.account.defaultName.includes('ROUNDED')));
+              const roundOff = voucher.acTrns.find((acc: any) => (acc.account.defaultName?.includes('ROUNDED')));
               const acAdjs = {};
               if (voucher.discount > 0) {
                 _.assign(acAdjs, { discount: round(voucher.discount) });
@@ -1652,7 +1658,7 @@ export class TestService {
                     amount: item.taxableAmount + item.sgstAmount + item.igstAmount + item.cgstAmount,
                   });
                 }
-                const tax = GST_TAXES.find(tax => tax.ratio.igst === item.tax.gstRatio.igst).code;
+                const tax = GST_TAXES.find(tax => tax.ratio.igst === round(item.tax.gstRatio.cgst + item.tax.gstRatio.sgst)).code;
                 const batch = invBatches.find((bat: any) => bat.batch === item.batch);
                 let expiry: any;
                 if (item.expMonth && item.expMonth < 10) {
@@ -2085,7 +2091,7 @@ export class TestService {
               newVouchers.push(targetBranchDoc);
               _.assign(sourceBranchDoc, {
                 invItems: sourceInvItems,
-                invTrns: sourceInvItems,
+                invTrns: sourceInvTrns,
                 acTrns: [
                   {
                     account: Types.ObjectId(accId),
@@ -2119,8 +2125,6 @@ export class TestService {
           }
           console.log(`END ALL ${collectionName} and DURATION ${(new Date().getTime() - begin) / (1000 * 60)}-min`);
         } else {
-          await connection.db(db).dropCollection(collectionName);
-          await connection.db(db).createCollection(collectionName);
           console.log(`${collectionName} Not Found`);
         }
       }
@@ -2149,121 +2153,148 @@ export class TestService {
 
       async function renameCollections(db: string) {
         console.log('rename collection start');
-        const renameCollections = ['sales', 'purchases'];
-        // const renameCollections = ['sales', 'purchases', 'stock_adjustments'];
-        for (const item of renameCollections) {
-          await connection.db(db).collection(item).rename(`${item}_old`);
-          await connection.db(db).collection(`${item}_new`).rename(item);
+        const allCollections = (await connection.db(db).listCollections().toArray()).map((n) => n.name);
+        if (allCollections.includes('inventory_openings_old')) {
+          await connection.db(db).collection('inventory_openings_old').drop();
         }
-        await connection.db(db).collection('inventory_openings').rename(`inventory_openings${new Date()}`);
-        await connection.db(db).collection('inventory_openings_new').rename('inventory_openings');
-        await connection.db(db).collection('costcategories').rename('cost_categories');
-        await connection.db(db).collection('costcentres').rename('cost_centres');
-        await connection.db(db).collection('desktopclients').rename('desktop_clients');
-        await connection.db(db).collection('vouchernumberings').rename('voucher_numberings');
-        await connection.db(db).collection('inventorydealers').rename('inventory_dealers');
-        await connection.db(db).collection('financialyears').rename('financial_years');
-        // await connection.db(db).collection('activitylogs').rename('activity_logs');
-        await connection.db(db).collection('currentpreferences').rename('current_preferences');
-        await connection.db(db).collection('printtemplates').rename('print_templates');
-        await connection.db(db).collection('cashtransfers').rename('cash_transfers');
-        await connection.db(db).collection('cashregisters').rename('cash_registers');
-        console.log('rename end');
+        const renameCollections = ['sales', 'purchases', 'stock_adjustments', 'inventory_openings'];
+        for (const oldName of allCollections) {
+          if (renameCollections.includes(oldName)) {
+            await connection.db(db).collection(oldName).rename(`${oldName}_old`);
+            await connection.db(db).collection(`${oldName}_new`).rename(oldName);
+          }
+          if (oldName === 'costcategories') {
+            await connection.db(db).collection(oldName).rename('cost_categories');
+          }
+          if (oldName === 'costcentres') {
+            await connection.db(db).collection(oldName).rename('cost_centres');
+          }
+          if (oldName === 'desktopclients') {
+            await connection.db(db).collection(oldName).rename('desktop_clients');
+          }
+          if (oldName === 'vouchernumberings') {
+            await connection.db(db).collection(oldName).rename('voucher_numberings');
+          }
+          if (oldName === 'financialyears') {
+            await connection.db(db).collection(oldName).rename('financial_years');
+          }
+          if (oldName === 'inventorydealers') {
+            await connection.db(db).collection(oldName).rename('inventory_dealers');
+          }
+          if (oldName === 'pharmasalts') {
+            await connection.db(db).collection(oldName).rename('pharma_salts');
+          }
+          if (oldName === 'printtemplates') {
+            await connection.db(db).collection(oldName).rename('print_templates');
+          }
+          if (oldName === 'cashtransfers') {
+            await connection.db(db).collection(oldName).rename('cash_transfers');
+          }
+          if (oldName === 'cashregisters') {
+            await connection.db(db).collection(oldName).rename('cash_registers');
+          }
+        }
       }
 
       async function inventoryOpening(db: string) {
-        const auditplusDB = await connection.db('auditplusdb').collection('organizations').findOne({ name: db });
-        const date = auditplusDB.bookBegin;
-        date.setDate(date.getDate() - 1);
-        const pipeLine = [
-          { $match: { voucherName: 'OPENING' } },
-          {
-            $addFields: {
-              expiry: { $toDate: { $concat: ['$year', '-', '$month', '-01'] } },
-            }
-          },
-          {
-            $group: {
-              _id: { inventory: '$inventory', branch: '$branch' },
-              assetAmount: { $first: '$assetAmount' },
-              updatedBy: { $last: '$updatedBy' },
-              updatedAt: { $last: '$updatedAt' },
-              items: {
-                $push: {
-                  batchNo: '$batchNo',
-                  unitConv: '$unitConv',
-                  unitPrecision: '$unitPrecision',
-                  qty: '$qty',
-                  mrp: '$mrp',
-                  rate: '$rate',
-                  sRate: '$sRate',
-                  expiry: { $cond: [{ $ne: ['$expiry', null] }, '$expiry', '$REMOVE'] },
-                }
-              },
-              invTrns: {
-                $push: {
-                  _id: '$transactionId',
-                  inventory: '$inventory',
-                  inward: { $multiply: ['$qty', '$unitConv'] },
-                  outward: 0,
-                  assetAmount: { $round: [{ $multiply: ['$qty', '$rate'] }, 2] },
-                  batchNo: '$batchNo',
-                  unitConv: '$unitConv',
-                  qty: '$qty',
-                  mrp: '$mrp',
-                  rate: '$rate',
-                  sRate: '$sRate',
-                  nlc: { $round: [{ $divide: ['$rate', '$unitConv'] }, 2] },
-                  expiry: { $cond: [{ $ne: ['$expiry', null] }, '$expiry', '$REMOVE'] },
-                }
+        const countDoc = await connection.db(db).collection('inventory_openings').countDocuments();
+        if (countDoc > 0) {
+          const auditplusDB = await connection.db('auditplusdb').collection('organizations').findOne({ name: db });
+          const date = auditplusDB.bookBegin;
+          date.setDate(date.getDate() - 1);
+          const pipeLine = [
+            { $match: { voucherName: 'OPENING' } },
+            {
+              $addFields: {
+                expiry: { $toDate: { $concat: ['$year', '-', '$month', '-01'] } },
               }
-            }
-          },
-          { $addFields: { sRateTaxInc: true, pRateTaxInc: false } },
-          {
-            $project: {
-              _id: 0,
-              assetAmount: '$assetAmount',
-              date,
-              branch: '$_id.branch',
-              inventory: '$_id.inventory',
-              invTrns: '$invTrns',
-              items: '$items',
-              sRateTaxInc: 1,
-              pRateTaxInc: 1,
-              updatedAt: '$updatedAt',
-              updatedBy: '$updatedBy',
-            }
-          },
-          { $merge: { into: 'inventory_openings_new' } },
-        ];
-        await connection.db(db).collection('batches_rearrange').aggregate(pipeLine, { allowDiskUse: true }).toArray();
-        const assertAcc = (await connection.db(db).collection('accounts').findOne({ accountType: 'STOCK' }))._id;
-        const records = await connection.db(db).collection('inventory_openings_new')
-          .aggregate([
+            },
             {
               $group: {
-                _id: '$branch',
-                debit: { $sum: '$assetAmount' },
-                user: { $last: '$updatedBy' },
+                _id: { inventory: '$inventory', branch: '$branch' },
+                assetAmount: { $first: '$assetAmount' },
+                updatedBy: { $last: '$updatedBy' },
+                updatedAt: { $last: '$updatedAt' },
+                items: {
+                  $push: {
+                    batchNo: '$batchNo',
+                    unitConv: '$unitConv',
+                    unitPrecision: '$unitPrecision',
+                    qty: '$qty',
+                    mrp: '$mrp',
+                    rate: '$rate',
+                    sRate: '$sRate',
+                    expiry: { $cond: [{ $ne: ['$expiry', null] }, '$expiry', '$REMOVE'] },
+                  }
+                },
+                invTrns: {
+                  $push: {
+                    _id: '$transactionId',
+                    inventory: '$inventory',
+                    inward: { $multiply: ['$qty', '$unitConv'] },
+                    outward: 0,
+                    assetAmount: { $round: [{ $multiply: ['$qty', '$rate'] }, 2] },
+                    batchNo: '$batchNo',
+                    unitConv: '$unitConv',
+                    qty: '$qty',
+                    mrp: '$mrp',
+                    rate: '$rate',
+                    sRate: '$sRate',
+                    nlc: { $round: [{ $divide: ['$rate', '$unitConv'] }, 2] },
+                    expiry: { $cond: [{ $ne: ['$expiry', null] }, '$expiry', '$REMOVE'] },
+                  }
+                }
               }
+            },
+            { $addFields: { sRateTaxInc: true, pRateTaxInc: false } },
+            {
+              $project: {
+                _id: 0,
+                assetAmount: '$assetAmount',
+                date,
+                branch: '$_id.branch',
+                inventory: '$_id.inventory',
+                invTrns: '$invTrns',
+                items: '$items',
+                sRateTaxInc: 1,
+                pRateTaxInc: 1,
+                updatedAt: '$updatedAt',
+                updatedBy: '$updatedBy',
+              }
+            },
+            { $merge: { into: 'inventory_openings_new' } },
+          ];
+          await connection.db(db).collection('batches_rearrange').aggregate(pipeLine, { allowDiskUse: true }).toArray();
+          const assertAcc = (await connection.db(db).collection('accounts').findOne({ accountType: 'STOCK' }))._id;
+          const records = await connection.db(db).collection('inventory_openings_new')
+            .aggregate([
+              {
+                $group: {
+                  _id: '$branch',
+                  debit: { $sum: '$assetAmount' },
+                  user: { $last: '$updatedBy' },
+                }
+              }
+            ]).toArray();
+          const arr = records.map((rec) => {
+            return {
+              date,
+              act: false,
+              actHide: false,
+              isOpening: true,
+              updatedBy: rec.user,
+              account: assertAcc,
+              accountType: 'STOCK',
+              branch: rec._id,
+              credit: 0,
+              debit: round(rec.debit),
             }
-          ]).toArray();
-        const arr = records.map((rec) => {
-          return {
-            date,
-            act: false,
-            actHide: false,
-            isOpening: true,
-            updatedBy: rec.user,
-            account: assertAcc,
-            accountType: 'STOCK',
-            branch: rec._id,
-            credit: 0,
-            debit: round(rec.debit),
-          }
-        });
-        await connection.db(db).collection('account_transactions').insertMany(arr);
+          });
+          await connection.db(db).collection('account_transactions').insertMany(arr);
+        } else {
+          await connection.db(db).createCollection('inventory_openings_new');
+          console.log(`No inventory opening in ${db}`);
+        }
       }
 
       async function createOpening(db: string, user: Types.ObjectId) {
@@ -2351,8 +2382,9 @@ export class TestService {
       console.log('.........START...........');
       console.log({ startTime });
 
-      // const dbs = ['velavanmedical', 'velavanstationery', 'velavanhm', 'ttgold'];
-      const dbs = ['velavanmedical1']; // for checking
+      // const dbs = ['velavanmedical', 'velavanstationery', 'velavanhm', 'ttgold', 'ttgoldpalace', 'auditplustech', 'ramasamy'];
+      // const dbs = ['velavanstationery1', 'velavanhm1', 'ttgold1', 'ttgoldpalace1', 'auditplustech1', 'ramasamy1'];// for checking
+      const dbs = ['velavanstationery1'];
       for (const db of dbs) {
         await connection.db(db).collection('inventory_openings')
           .updateMany({ trns: { $elemMatch: { expMonth: 0 } } }, { $set: { 'trns.$.expMonth': 1 } });
@@ -2374,8 +2406,14 @@ export class TestService {
         console.log('costCategoryMaster End');
         await costCentreMaster(db, adminUserId);
         console.log('costCentreMaster End');
-        await pharmaSaltMaster(db, adminUserId);
-        console.log('pharmaSaltMaster End');
+        if (db === 'velavanmedical' || db === 'velavanmedical1') {
+          await pharmaSaltMaster(db, adminUserId);
+          console.log('pharmaSaltMaster End');
+          await doctorMaster(db, adminUserId);
+          console.log('doctorMaster End');
+          await patientMaster(db, adminUserId);
+          console.log('patientMaster End');
+        }
         await rackMaster(db, adminUserId);
         console.log('rackMaster End');
         await roleMaster(db);
@@ -2386,21 +2424,27 @@ export class TestService {
         console.log('sectionMaster End');
         await unitMaster(db, adminUserId);
         console.log('unitMaster End');
-        await doctorMaster(db, adminUserId);
-        console.log('doctorMaster End');
-        await patientMaster(db, adminUserId);
-        console.log('costCategoryMaster End');
-        await desktopClientMaster(db);
+        if (await connection.db(db).collection('deskstopclients').countDocuments() > 0) {
+          await desktopClientMaster(db);
+        }
         console.log('desktopClientMaster End');
         await financialYear(db);
         console.log('financialYear End');
-        await customerMaster(db);
+        if (await connection.db(db).collection('customers').countDocuments() > 0) {
+          await customerMaster(db);
+        }
         console.log('customerMaster End');
-        await vendorMaster(db);
+        if (await connection.db(db).collection('vendors').countDocuments() > 0) {
+          await vendorMaster(db);
+        }
         console.log('vendorMaster End');
-        await branchMaster(db);
+        if (await connection.db(db).collection('branches').countDocuments() > 0) {
+          await branchMaster(db);
+        }
         console.log('branchMaster End');
-        await cashRegisterMaster(db);
+        if (await connection.db(db).collection('cashregisters').countDocuments() > 0) {
+          await cashRegisterMaster(db);
+        }
         console.log('cashRegisterMaster End');
         await saleIncharge(db);
         console.log('saleIncharge End');
@@ -2450,20 +2494,27 @@ export class TestService {
               batch: elm.batch,
               transactionId: elm.transactionId,
               batchNo: elm.batchNo,
+              sRate: elm.sRate,
             }
           }).toArray();
         console.log(`GET batch duration ${(new Date().getTime() - st) / 1000}-sec`);
+        await connection.db(db).createCollection('purchases_new');
         await purchaseVoucher(db, 'purchases', accounts, pendings, batches); // duration p & p_r 10min
         console.log('purchase end');
         await purchaseVoucher(db, 'purchase_returns', accounts, pendings, batches);
         console.log('purchase return end');
+        await connection.db(db).createCollection('sales_new');
         await saleVoucher(db, 'sales', accounts, pendings, batches);
         console.log('sales end');
         await saleVoucher(db, 'sale_returns', accounts, pendings, batches);
         console.log('sales return end');
+        await connection.db(db).createCollection('stock_adjustments_new');
         await stockAdjustments(db, 'stock_adjustments', accounts, batches);
+        console.log('stockAdjustments end');
         await stockTransfer(db, 'stock_transfers', accounts, batches);
+        console.log('stockTransfer converted stockAdjs end');
         await renameCollections(db);
+        console.log('renameCollections end');
         console.log(`********${db} org end ******`);
       }
       const endTime = new Date();

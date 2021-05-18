@@ -106,7 +106,7 @@ export class ReWriteService {
                 accountType: trn.accountType,
                 credit: trn.credit > 0 ? Math.abs(adj.amount) : 0,
                 debit: trn.debit > 0 ? adj.amount : 0,
-                altAccount: trn.credit > 0 ? crAlt.account ?? undefined : drAlt.account ?? undefined,
+                altAccount: trn.credit > 0 ? crAlt?.account ?? undefined : drAlt?.account ?? undefined,
               };
               if (trn._id) {
                 _.assign(adjObj, { pending: trn._id, adjPending: adj.pending, opening: round(opening) });
@@ -123,7 +123,7 @@ export class ReWriteService {
               accountType: trn.accountType,
               credit: trn.credit,
               debit: trn.debit,
-              altAccount: trn.credit > 0 ? crAlt.account ?? undefined : drAlt.account ?? undefined,
+              altAccount: trn.credit > 0 ? crAlt?.account ?? undefined : drAlt?.account ?? undefined,
             };
             if (data.isOpening) {
               if (trn.refNo) {
@@ -245,15 +245,21 @@ export class ReWriteService {
           }
         }
       }
-      const dbs = ['velavanmedical1'];
+      const start = new Date().getTime();
+      const dbs = ['velavanstationery1', 'velavanhm1', 'ttgold1', 'ttgoldpalace1', 'auditplustech1', 'ramasamy1'];// for checking
       for (const db of dbs) {
-        const collections = ['vouchers', 'account_openings', 'inventory_openings', 'sales', 'purchases'];
-        // const collections = ['sales', 'purchases']; // checking
+        const dbStart = new Date().getTime();
+        console.log(`------${db} started----`);
+        const collections = ['vouchers', 'account_openings', 'inventory_openings', 'sales', 'purchases', 'stock_adjustments'];
         for (const collection of collections) {
           await reWriteVouchers(db, collection);
         }
+        const dbEnd = new Date().getTime();
+        console.log(`******${db} duration ${(dbEnd - dbStart) / (1000 * 600)}-min end*****`);
       }
-      return 're-write completed';
+      const end = new Date().getTime();
+      const totalDuration = (end - start) / (1000 * 60);
+      return `re-write completed ${totalDuration}-min`;
     } else {
       return 'connection failed';
     }
