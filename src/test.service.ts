@@ -2168,7 +2168,7 @@ export class TestService {
               }
             },
             {
-              $addFields: { voucherName: 'Cash Transfer', destination: { $toObjectId: '$_id.destination' } },
+              $addFields: { destination: { $toObjectId: '$_id.destination' } },
             },
             {
               $lookup: {
@@ -2187,9 +2187,19 @@ export class TestService {
                 sourceBranchId: register.branch,
               }
             },
+            { $match: { $expr: { $ne: ['$sourceBranchId', '$destinationBranchId'] } } },
+            {
+              $lookup: {
+                from: 'branches',
+                localField: 'destinationBranchId',
+                foreignField: '_id',
+                as: 'brs',
+              },
+            },
+            { $unwind: '$brs' },
             {
               $project: {
-                _id: 0, voucherName: 1, amount: 1,
+                _id: 0, voucherName: 'Cash Transfer', amount: 1,
                 sourceRegId: register._id,
                 sourceRegName: register.name,
                 sourceBranchId: 1,
@@ -2197,6 +2207,7 @@ export class TestService {
                 destinationRegId: '$destination',
                 destinationRegName: '$regs.name',
                 destinationBranchId: 1,
+                destinationBranchName: '$brs.name',
               }
             },
             { $merge: 'branch_transactions' }
@@ -2216,7 +2227,7 @@ export class TestService {
               }
             },
             {
-              $addFields: { voucherName: 'Stock Transfer', destination: { $toObjectId: '$_id.destination' } },
+              $addFields: { destination: { $toObjectId: '$_id.destination' } },
             },
             {
               $lookup: {
@@ -2232,7 +2243,7 @@ export class TestService {
             {
               $project: {
                 _id: 0,
-                voucherName: 1,
+                voucherName: 'Stock Transfer',
                 amount: 1,
                 sourceBranchId: branch._id,
                 sourceBranchName: branch.name,
@@ -2295,8 +2306,8 @@ export class TestService {
       async function deleteCollections(db: string) {
         const collections = [
           'accountbooks', 'accountopenings', 'accountpayments', 'accountpendingadjustments', 'accountreceipts', 'activitylogs',
-          'act_account_map', 'act_account_openings', 'act_accountbooks', 'act_accounts',
-          'act_gst_registrations', 'act_import_field_map', 'act_import_sessions', 'act_inventories',
+          'act_account_map', 'act_account_openings', 'act_accountbooks', 'act_accounts', 'act_financial_years',
+          'act_gst_registrations', 'act_gstregistrations', 'act_import_field_map', 'act_import_sessions', 'act_inventories',
           'act_inventory_details', 'act_inventory_openings', 'act_inventorybooks', 'act_vouchers', 'activitylogs', // ask activitylogs
           'batches', 'batches_rearrange', 'branchbooks', // ask branchbooks
           'cashdeposits', 'cashregisterbooks', 'cashwithdrawals', 'configurations',
