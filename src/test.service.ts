@@ -2151,6 +2151,102 @@ export class TestService {
         await connection.db(db).collection('vouchernumberings').bulkWrite(arr);
       }
 
+      async function branchPayableValue(db: string) {
+        const registers = await connection.db(db).collection('cashregisters')
+          .find({}).toArray();
+        const branches = await connection.db(db).collection('branches')
+          .find({}).toArray();
+        for (const register of registers) {
+          const cashTrnsferPipeLine = [
+            {
+              $match: { 'source.id': register._id.toString() }
+            },
+            {
+              $group: {
+                _id: { destination: '$destination.id' },
+                amount: { $sum: '$amount' }
+              }
+            },
+            {
+              $addFields: { voucherName: 'Cash Transfer', destination: { $toObjectId: '$_id.destination' } },
+            },
+            {
+              $lookup: {
+                from: 'cashregisters',
+                localField: 'destination',
+                foreignField: '_id',
+                as: 'regs',
+              },
+            },
+            {
+              $unwind: '$regs'
+            },
+            {
+              $addFields: {
+                destinationBranchId: '$regs.branch',
+                sourceBranchId: register.branch,
+              }
+            },
+            {
+              $project: {
+                _id: 0, voucherName: 1, amount: 1,
+                sourceRegId: register._id,
+                sourceRegName: register.name,
+                sourceBranchId: 1,
+                sourceBranchName: branches.find((br) => br._id.toString() === register.branch.toString()).name,
+                destinationRegId: '$destination',
+                destinationRegName: '$regs.name',
+                destinationBranchId: 1,
+              }
+            },
+            { $merge: 'branch_transactions' }
+          ];
+          await connection.db(db).collection('cashtransfers')
+            .aggregate(cashTrnsferPipeLine).toArray();
+        }
+        for (const branch of branches) {
+          const stockTrnsferPipeLine = [
+            {
+              $match: { 'branch.id': branch._id.toString() }
+            },
+            {
+              $group: {
+                _id: { destination: '$targetBranch.id' },
+                amount: { $sum: '$amount' },
+              }
+            },
+            {
+              $addFields: { voucherName: 'Stock Transfer', destination: { $toObjectId: '$_id.destination' } },
+            },
+            {
+              $lookup: {
+                from: 'branches',
+                localField: 'destination',
+                foreignField: '_id',
+                as: 'regs',
+              },
+            },
+            {
+              $unwind: '$regs'
+            },
+            {
+              $project: {
+                _id: 0,
+                voucherName: 1,
+                amount: 1,
+                sourceBranchId: branch._id,
+                sourceBranchName: branch.name,
+                destinationBranchId: '$destination',
+                destinationBranchName: '$regs.name'
+              }
+            },
+            { $merge: 'branch_transactions' }
+          ];
+          await connection.db(db).collection('stock_transfers')
+            .aggregate(stockTrnsferPipeLine).toArray();
+        }
+      }
+
       async function renameCollections(db: string) {
         console.log('rename collection start');
         const allCollections = (await connection.db(db).listCollections().toArray()).map((n) => n.name);
@@ -2542,10 +2638,12 @@ export class TestService {
         console.log('stockAdjustments end');
         await stockTransfer(db, 'stock_transfers', accounts, batches);
         console.log('stockTransfer converted stockAdjs end');
+        await branchPayableValue(db);
+        console.log('branchPayableValue end');
         await renameCollections(db);
         console.log('renameCollections end');
         await deleteCollections(db);
-        console.log('renameCollections end');
+        console.log('deleteCollections end');
         console.log(`********${db} org end ******`);
       }
       const endTime = new Date();
