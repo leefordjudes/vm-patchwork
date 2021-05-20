@@ -1409,12 +1409,6 @@ export class TestService {
               for (const item of voucher.invTrns) {
                 const tax = GST_TAXES.find(tax => tax.ratio.igst === round(item.tax.gstRatio.sgst + item.tax.gstRatio.cgst)).code;
                 const batch: any = invBatches.find((bat: any) => bat.batch === item.batch);
-                let expiry: any;
-                if (item.expMonth && item.expMonth < 10) {
-                  expiry = new Date(new Date(`${item.expYear}-${0}${item.expMonth}-01`).setUTCHours(0, 0, 0, 0));
-                } else if (item.expMonth && item.expMonth > 9) {
-                  expiry = new Date(new Date(`${item.expYear}-${item.expMonth}-01`).setUTCHours(0, 0, 0, 0));
-                }
 
                 const invItemObj = {
                   inventory: Types.ObjectId(item.inventory.id),
@@ -1424,26 +1418,19 @@ export class TestService {
                   rate: round(item.rate),
                   unitPrecision: item.unitPrecision,
                   tax,
+                  disc: round(item.discount) || 0,
                 };
-                if (item.discount) {
-                  _.assign(invItemObj, { disc: round(item.discount) });
-                } else {
-                  _.assign(invItemObj, { disc: 0 });
-                }
 
                 const invTrnObj = {
                   inventory: Types.ObjectId(item.inventory.id),
                   taxableAmount: round(item.taxableAmount),
                   assetAmount: round(item.assetAmount),
+                  unitConv: item.unit.conversion,
                   mrp: round(item.mrp),
                   tax,
                   rate: round(item.rate),
                   outward: 0,
                 };
-                if (expiry) {
-                  _.assign(invItemObj, { expiry });
-                  _.assign(invTrnObj, { expiry });
-                }
                 if (item.cgstAmount > 0) {
                   _.assign(invTrnObj, { cgstAmount: round(item.cgstAmount) });
                 }
@@ -1454,13 +1441,23 @@ export class TestService {
                   _.assign(invTrnObj, { igstAmount: round(item.igstAmount) });
                 }
                 if (collectionName === 'purchases') {
+                  let expiry: any;
+                  if (item.expMonth && item.expMonth < 10) {
+                    expiry = new Date(new Date(`${item.expYear}-${0}${item.expMonth}-01`).setUTCHours(0, 0, 0, 0));
+                  } else if (item.expMonth && item.expMonth > 9) {
+                    expiry = new Date(new Date(`${item.expYear}-${item.expMonth}-01`).setUTCHours(0, 0, 0, 0));
+                  }
+                  if (expiry) {
+                    _.assign(invItemObj, { expiry });
+                    _.assign(invTrnObj, { expiry });
+                  }
                   const altAccount = _.maxBy(
                     acTrns.filter(x => x.accountType !== 'STOCK'),
                     'credit',
                   ).account;
-                  const freeQty = (item?.freeQty > 0) ? item.freeQty : 0;
+                  const freeQty: number = item?.freeQty || 0;
                   const inward = (item.qty + freeQty) * item.unit.conversion;
-                  const nlc = round(item.taxableAmount / (item.qty + (item?.freeQty || 0)) / item.unit.conversion);
+                  const nlc = round(item.taxableAmount / (item.qty + freeQty) / item.unit.conversion);
                   _.assign(invItemObj, { batchNo: batch.batchNo, freeQty, sRate: round(item.sRate) });
                   _.assign(invTrnObj, { _id: batch.transactionId, altAccount, nlc, batchNo: batch.batchNo, inward, sRate: round(item.sRate) });
                 } else {
@@ -1600,7 +1597,6 @@ export class TestService {
                   }
                   acItems.push(acItemObj);
                 }
-                let _id: any;
                 let trnObj: any;
                 if (item.account.defaultName === 'TRADE_RECEIVABLE') {
                   account = accounts.find((party) => party.party === voucher.customer.id);
@@ -1660,12 +1656,6 @@ export class TestService {
                 }
                 const tax = GST_TAXES.find(tax => tax.ratio.igst === round(item.tax.gstRatio.cgst + item.tax.gstRatio.sgst)).code;
                 const batch = invBatches.find((bat: any) => bat.batch === item.batch);
-                let expiry: any;
-                if (item.expMonth && item.expMonth < 10) {
-                  expiry = new Date(new Date(`${item.expYear}-${0}${item.expMonth}-01`).setUTCHours(0, 0, 0, 0));
-                } else if (item.expMonth && item.expMonth > 9) {
-                  expiry = new Date(new Date(`${item.expYear}-${item.expMonth}-01`).setUTCHours(0, 0, 0, 0));
-                }
                 const invItemObj = {
                   batch: batch.transactionId,
                   inventory: Types.ObjectId(item.inventory.id),
@@ -1675,22 +1665,19 @@ export class TestService {
                   unitConv: item.unit.conversion,
                   unitPrecision: item.unitPrecision,
                   tax,
+                  disc: round(item.discount) || 0,
                 };
-                if (item.discount) {
-                  _.assign(invItemObj, { disc: round(item.discount) });
-                } else {
-                  _.assign(invItemObj, { disc: 0 });
-                }
                 const invTrnObj = {
                   batch: batch.transactionId,
                   inventory: Types.ObjectId(item.inventory.id),
                   inward: 0,
+                  unitConv: item.unit.conversion,
                   taxableAmount: round(item.taxableAmount),
                   assetAmount: round(item.assetAmount),
                   mrp: round(item.mrp),
                   tax,
                   rate: round(item.rate),
-                  profitValue: round(item.taxableAmount - item.assetAmount),
+                  profitAmount: round(item.taxableAmount - item.assetAmount),
                   profitPercent: round((item.taxableAmount - item.assetAmount) / item.taxableAmount * 100),
                 };
                 if (item.cgstAmount > 0) {
@@ -1701,10 +1688,6 @@ export class TestService {
                 }
                 if (item.igstAmount > 0) {
                   _.assign(invTrnObj, { igstAmount: round(item.igstAmount) });
-                }
-                if (expiry) {
-                  _.assign(invItemObj, { expiry });
-                  _.assign(invTrnObj, { expiry });
                 }
                 if (item.sInc) {
                   _.assign(invItemObj, { sInc: Types.ObjectId(item.sInc) });
@@ -1759,7 +1742,7 @@ export class TestService {
 
               if (voucher.shippingInfo?.tax?.id) {
                 const shippingTax = GST_TAXES.find(t => t.ratio.igst === voucher.shippingInfo.tax.gstRatio.igst).code;
-                _.assign(acAdjs, { shippingTax });
+                _.assign(acAdjs, { shippingTax, shippingCharge: round(voucher.shippingInfo.shippingCharge) });
                 const deliveryInfo = {};
                 if (voucher.deliveryInfo?.shippingDate) {
                   _.assign(deliveryInfo, { date: voucher.deliveryInfo.shippingDate });
@@ -1853,14 +1836,6 @@ export class TestService {
               const invBatches: any = _.intersectionBy(batches, voucher.invTrns, 'batch');
               for (const item of voucher.invTrns) {
                 const batch = invBatches.find((bat: any) => bat.batch === item.batch);
-                let expiry: any;
-                if (item.expMonth && item.expMonth < 10) {
-                  expiry = new Date(new Date(`${item.expYear}-${0}${item.expMonth}-01`).setUTCHours(0, 0, 0, 0));
-                } else if (item.expMonth && item.expMonth > 9) {
-                  expiry = new Date(new Date(`${item.expYear}-${item.expMonth}-01`).setUTCHours(0, 0, 0, 0));
-                } else {
-                  expiry = null;
-                }
                 const invItemObj = {
                   batch: batch.transactionId,
                   inventory: Types.ObjectId(item.inventory.id),
@@ -1873,16 +1848,13 @@ export class TestService {
                 const value = item.qty * item.unit.conversion;
                 const invTrnObj = {
                   assetAmount: round(item.amount),
+                  unitConv: item.unit.conversion,
                   batch: batch.transactionId,
                   inventory: Types.ObjectId(item.inventory.id),
                   inward: value > 0 ? value : 0,
                   outward: value < 0 ? Math.abs(value) : 0,
                   rate: round(item.cost),
                 };
-                if (expiry) {
-                  _.assign(invItemObj, { expiry });
-                  _.assign(invTrnObj, { expiry });
-                }
                 invItems.push(invItemObj);
                 invTrns.push(invTrnObj);
               }
@@ -2019,7 +1991,6 @@ export class TestService {
                     inventory: Types.ObjectId(item.inventory.id),
                     unitConv: item.unit.conversion,
                     unitPrecision: item.unitPrecision,
-                    tax: GST_TAXES.find((t) => t.ratio.igst === item.tax.gstRatio.igst).code,
                     assetAmount: round(item.amount),
                     batch: batch.transactionId,
                     inward: 0,
@@ -2051,6 +2022,7 @@ export class TestService {
                     batchNo: batch.batchNo,
                     inventory: Types.ObjectId(item.inventory.id),
                     inward: item.qty * item.unit.conversion,
+                    unitConv: item.unit.conversion,
                     mrp: round(item.mrp),
                     rate: round(item.cost),
                     sRate: round(batch.sRate),
@@ -2059,12 +2031,11 @@ export class TestService {
                   const itemObj = {
                     batchNo: batch.batchNo,
                     inventory: Types.ObjectId(item.inventory.id),
-                    expiry,
+                    tax: GST_TAXES.find((t) => t.ratio.igst === item.tax.gstRatio.igst).code,
                     mrp: round(item.mrp),
                     qty: item.qty,
                     rate: round(item.cost),
                     sRate: round(batch.sRate),
-                    unit: Types.ObjectId(item.unit.id),
                     unitConv: item.unit.conversion,
                     unitPrecision: item.unitPrecision,
                   }
