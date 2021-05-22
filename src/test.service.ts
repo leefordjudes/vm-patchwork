@@ -1579,16 +1579,13 @@ export class TestService {
               const acAdjs = {};
               for (const item of voucher.acTrns) {
                 let account = accounts.find((acc) => acc.id === item.account.id);
-                if (['ROUNDED_OFF_SURPLUS', 'ROUNDED_OFF_SHORTAGE', 'DISCOUNT_GIVEN', 'SHIPPING_CHARGE'].includes(item.account?.defaultName)) {
+                if (['ROUNDED_OFF_SURPLUS', 'ROUNDED_OFF_SHORTAGE', 'DISCOUNT_GIVEN'].includes(item.account?.defaultName)) {
                   if (['ROUNDED_OFF_SHORTAGE', 'ROUNDED_OFF_SURPLUS'].includes(item.account.defaultName)) {
                     account = accounts.find((acc) => acc.displayName === 'Rounded Off (Surplus)');
                     _.assign(acAdjs, { roundedOff: item.credit > 0 ? round(-item.credit) : round(item.debit) });
                   }
                   if (item.account.defaultName === 'DISCOUNT_GIVEN') {
                     _.assign(acAdjs, { discount: item.credit > 0 ? round(-item.credit) : round(item.debit) });
-                  }
-                  if (item.account.defaultName === 'SHIPPING_CHARGE') {
-                    _.assign(acAdjs, { shippingCharge: item.credit > 0 ? round(-item.credit) : round(item.debit) });
                   }
                   const acItemObj = {
                     account: Types.ObjectId(account.id),
@@ -1743,11 +1740,21 @@ export class TestService {
               if (voucher.shippingInfo?.tax?.id) {
                 const shippingTax = GST_TAXES.find(t => t.ratio.igst === voucher.shippingInfo.tax.gstRatio.igst).code;
                 _.assign(acAdjs, { shippingTax, shippingCharge: round(voucher.shippingInfo.shippingCharge) });
-                const deliveryInfo = {};
-                if (voucher.deliveryInfo?.shippingDate) {
-                  _.assign(deliveryInfo, { date: voucher.deliveryInfo.shippingDate });
+                const shippingAcc = accounts.find((a) => a.displayName === 'Shipping Charge').id;
+                const ship = acTrns.find((ship) => ship.account.toString() === shippingAcc)?.account;
+                acItems.push({
+                  account: Types.ObjectId(shippingAcc),
+                  accountType: 'DIRECT_INCOME',
+                  amount: round(voucher.shippingInfo.shippingCharge) * -1,
+                });
+                if (!ship) {
+                  acTrns.push({
+                    account: Types.ObjectId(shippingAcc),
+                    accountType: 'DIRECT_INCOME',
+                    credit: round(voucher.shippingInfo.shippingCharge),
+                    debit: 0,
+                  });
                 }
-                _.assign(doc, { deliveryInfo });
               }
               if (incSummary.length > 0) {
                 _.assign(doc, { incSummary });
@@ -2235,9 +2242,9 @@ export class TestService {
         if (allCollections.includes('inventory_openings_old')) {
           await connection.db(db).collection('inventory_openings_old').drop();
         }
-        const renameCollections = ['sales', 'purchases', 'stock_adjustments', 'inventory_openings'];
+        const renameColls = ['sales', 'purchases', 'stock_adjustments', 'inventory_openings'];
         for (const oldName of allCollections) {
-          if (renameCollections.includes(oldName)) {
+          if (renameColls.includes(oldName)) {
             await connection.db(db).collection(oldName).rename(`${oldName}_old`);
             await connection.db(db).collection(`${oldName}_new`).rename(oldName);
           }
@@ -2288,7 +2295,7 @@ export class TestService {
           'journals', 'reviews', 'reorder_analysis', 'vendorbooks', 'vendoropenings', // ask reorder_analysis & reviews
           'vendorpayments', 'vendorpendingadjustments', 'vendorpendings', 'vendorreceipts',
           'purchase_returns', 'sale_returns', 'stock_transfers', 'purchases_old', 'sales_old', 'stock_adjustments_old',
-          'taxes',
+          'taxes', 'sales_people',
         ];
         const medicalColls = ['doctors', 'patients', 'pharma_salts', 'pharmasalts'];
         const allCollections = (await connection.db(db).listCollections().toArray()).map((n) => n.name);
@@ -2468,8 +2475,8 @@ export class TestService {
               $addFields: {
                 pRateTaxInc: false,
                 sRateTaxInc: true,
-                branchId: '$branch',
-                inventoryId: '$inventory',
+                branchId: '$_id.branch',
+                inventoryId: '$_id.inventory',
                 assetAmount: 0,
                 updatedAt: new Date(),
                 updatedBy: user.toString(),
