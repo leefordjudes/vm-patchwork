@@ -23,7 +23,10 @@ export class ReWriteService {
           actHide: false,
           isOpening: data.isOpening,
           altAccount: data.altAccount,
+          createdBy: data.isOpening ? data.updatedBy : data.createdBy,
           updatedBy: data.updatedBy,
+          createdAt: data.isOpening ? data.updatedAt: data.createdAt,
+          updatedAt: data.updatedAt,
           warehouse: data.warehouse,
           refNo: data.refNo,
           voucherId: data.voucherId,
@@ -45,6 +48,7 @@ export class ReWriteService {
 
             batchNo: trn.batchNo ?? undefined,
             batch: trn?._id ? trn._id : undefined,
+            barcode: trn.barcode ?? undefined,
             adjBatch: trn.batchNo ? trn._id : trn.batch ? trn.batch : undefined,
             opening: data.isOpening ? opening : trn.batchNo ? opening : undefined,
             unitConv: trn.unitConv ?? undefined,
@@ -75,7 +79,10 @@ export class ReWriteService {
           actHide: false,
           isOpening: data.isOpening,
           branch: data.branch,
+          createdBy: data.isOpening ? data.updatedBy : data.createdBy,
           updatedBy: data.updatedBy,
+          createdAt: data.isOpening ? data.updatedAt: data.createdAt,
+          updatedAt: data.updatedAt,
           voucherId: data.voucherId,
           voucherNo: data.voucherNo,
           voucherName: data.voucherName,
@@ -83,11 +90,11 @@ export class ReWriteService {
           refNo: data.refNo,
         };
         const crAlt: any = _.maxBy(
-          trns.filter(x => x.accountType !== 'STOCK'),
+          trns?.filter(x => x.accountType !== 'STOCK'),
           'debit',
         );
         const drAlt: any = _.maxBy(
-          trns.filter(x => x.accountType !== 'STOCK'),
+          trns?.filter(x => x.accountType !== 'STOCK'),
           'credit',
         );
         for (const trn of trns) {
@@ -176,6 +183,8 @@ export class ReWriteService {
                   voucherType: voucher.voucherType,
                   createdBy: voucher.createdBy,
                   updatedBy: voucher.updatedBy,
+                  createdAt: voucher.createdAt,
+                  updatedAt: voucher.updatedAt,
                   refNo: voucher.refNo,
                 };
                 accTxn = applyAccTransactions(bookObj);
@@ -186,7 +195,10 @@ export class ReWriteService {
                   date: voucher.date,
                   isOpening: true,
                   branch: voucher.branch,
+                  createdBy: voucher.updatedBy,
                   updatedBy: voucher.updatedBy,
+                  createdAt: voucher.updatedAt,
+                  updatedAt: voucher.updatedAt,
                 };
                 invTxn = applyInvTransactions(bookObj);
               }
@@ -196,7 +208,10 @@ export class ReWriteService {
                   date: voucher.date,
                   branch: voucher.branch,
                   isOpening: true,
+                  createdBy: voucher.updatedBy,
                   updatedBy: voucher.updatedBy,
+                  createdAt: voucher.updatedAt,
+                  updatedAt: voucher.updatedAt
                 };
                 accTxn = applyAccTransactions(bookObj);
               }
@@ -212,9 +227,11 @@ export class ReWriteService {
                   voucherType: voucher.voucherType,
                   createdBy: voucher.createdBy,
                   updatedBy: voucher.updatedBy,
+                  createdAt: voucher.createdAt,
+                  updatedAt: voucher.updatedAt,
                   refNo: voucher.refNo,
                 };
-                accTxn = applyAccTransactions(_.assign(bookObj, { trns: voucher.acTrns }));
+                accTxn = applyAccTransactions(_.assign(bookObj, { trns: voucher.acTrns || [] }));
                 invTxn = applyInvTransactions(_.assign(bookObj, { trns: voucher.invTrns }));
               }
 
@@ -246,6 +263,7 @@ export class ReWriteService {
         }
       }
       const start = new Date().getTime();
+      // const dbs = ['velavanmedical', 'velavanstationery', 'velavanhm', 'ttgold', 'ttgoldpalace', 'auditplustech', 'ramasamy'];
       const dbs = ['velavanstationery1', 'velavanhm1', 'ttgold1', 'ttgoldpalace1', 'auditplustech1', 'ramasamy1'];// for checking
       for (const db of dbs) {
         const dbStart = new Date().getTime();

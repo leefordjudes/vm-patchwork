@@ -642,7 +642,7 @@ export class TestService {
                 preferredVendor: 1,
                 __v: 1,
               };
-              if (db === 'velavanmedical' || db === 'velavanmedical1') {
+              if (db === 'velavanmedical' || db === 'velavanmedical3') {
                 if (inventory.salts.length < 1) {
                   _.assign($unset, { salts: 1 });
                 }
@@ -1459,7 +1459,7 @@ export class TestService {
                   const inward = (item.qty + freeQty) * item.unit.conversion;
                   const nlc = round(item.taxableAmount / (item.qty + freeQty) / item.unit.conversion);
                   _.assign(invItemObj, { batchNo: batch.batchNo, freeQty, sRate: round(item.sRate) });
-                  _.assign(invTrnObj, { _id: batch.transactionId, altAccount, nlc, batchNo: batch.batchNo, inward, sRate: round(item.sRate) });
+                  _.assign(invTrnObj, { _id: batch.transactionId, barcode: new Types.ObjectId(), altAccount, nlc, batchNo: batch.batchNo, inward, sRate: round(item.sRate) });
                 } else {
                   const altAccount = _.maxBy(
                     acTrns.filter(x => x.accountType !== 'STOCK'),
@@ -2025,6 +2025,7 @@ export class TestService {
                   }
                   const trnObj = {
                     _id: batch.transactionId,
+                    barcode: new Types.ObjectId(),
                     assetAmount: round(item.amount),
                     batchNo: batch.batchNo,
                     inventory: Types.ObjectId(item.inventory.id),
@@ -2278,6 +2279,9 @@ export class TestService {
           if (oldName === 'cashregisters') {
             await connection.db(db).collection(oldName).rename('cash_registers');
           }
+          if (oldName === 'currentpreferences') {
+            await connection.db(db).collection(oldName).rename('current_preferences');
+          }
         }
       }
 
@@ -2289,7 +2293,7 @@ export class TestService {
           'act_inventory_details', 'act_inventory_openings', 'act_inventorybooks', 'act_vouchers', 'activitylogs', // ask activitylogs
           'batches', 'batches_rearrange', 'branchbooks', // ask branchbooks
           'cashdeposits', 'cashregisterbooks', 'cashwithdrawals', 'configurations',
-          'currentpreferences', 'customerbooks', 'customeropenings', 'customerpayments', //ask currentpreferences judes
+          'customerbooks', 'customeropenings', 'customerpayments',
           'customerpendingadjustments', 'customerpendings', 'customerreceipts', 'expenses',
           'gstoutwards', 'gsttransactions', 'incomes', 'inventory_openings_old', 'inventorybooks',
           'journals', 'reviews', 'reorder_analysis', 'vendorbooks', 'vendoropenings', // ask reorder_analysis & reviews
@@ -2345,6 +2349,7 @@ export class TestService {
                 invTrns: {
                   $push: {
                     _id: '$transactionId',
+                    barcode: {$toObjectId: '$batch'},
                     inventory: '$inventory',
                     inward: { $multiply: ['$qty', '$unitConv'] },
                     outward: 0,
@@ -2520,7 +2525,7 @@ export class TestService {
         console.log('costCategoryMaster End');
         await costCentreMaster(db, adminUserId);
         console.log('costCentreMaster End');
-        if (db === 'velavanmedical' || db === 'velavanmedical1') {
+        if (db === 'velavanmedical' || db === 'velavanmedical3') {
           await pharmaSaltMaster(db, adminUserId);
           console.log('pharmaSaltMaster End');
           await doctorMaster(db, adminUserId);
