@@ -665,6 +665,7 @@ export class TestService {
                 }
               }
               const $set = {
+                bwd: true,
                 tax,
                 units,
                 createdBy: user,
