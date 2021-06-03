@@ -424,6 +424,59 @@ export class TestService {
         await connection.db(db).collection('branches').bulkWrite(arr);
       }
 
+      async function warehouseMaster(db: string) {
+        const warehouses: any = await connection.db(db).collection('warehouses')
+          .find({}, { projection: { aliasName: 1, addressInfo: 1, contactInfo: 1 } }).toArray();
+        const arr = [];
+        for (const warehouse of warehouses) {
+          const $unset = { __v: 1 };
+          if (!warehouse.aliasName) {
+            _.assign($unset, { aliasName: 1, validateAliasName: 1 });
+          }
+          if (warehouse.addressInfo) {
+            if (!warehouse.addressInfo.address && !warehouse.addressInfo.city && !warehouse.addressInfo.pincode) {
+              _.assign($unset, { addressInfo: 1 });
+            } else {
+              if (!warehouse.addressInfo.address) {
+                _.assign($unset, { 'addressInfo.address': 1 });
+              }
+              if (!warehouse.addressInfo.city) {
+                _.assign($unset, { 'addressInfo.city': 1 });
+              }
+              if (!warehouse.addressInfo.pincode) {
+                _.assign($unset, { 'addressInfo.pincode': 1 });
+              }
+            }
+          }
+          if (!warehouse.contactInfo.mobile && !warehouse.contactInfo.alternateMobile && !warehouse.contactInfo.telephone && !warehouse.contactInfo.email) {
+            _.assign($unset, { contactInfo: 1 });
+          } else {
+            if (!warehouse.contactInfo.mobile) {
+              _.assign($unset, { 'contactInfo.mobile': 1 });
+            }
+            if (!warehouse.contactInfo.telephone) {
+              _.assign($unset, { 'contactInfo.telephone': 1 });
+            }
+            if (!warehouse.contactInfo.email) {
+              _.assign($unset, { 'contactInfo.email': 1 });
+            }
+          }
+          const obj: any = {
+            updateOne: {
+              filter: { _id: warehouse._id },
+              update: {
+                $unset,
+              },
+            },
+          };
+          if (warehouse.addressInfo.state) {
+            _.assign(obj.updateOne.update.$set, { 'addressInfo.state': warehouse.addressInfo.state.defaultName });
+          }
+          arr.push(obj);
+        }
+        await connection.db(db).collection('warehouses').bulkWrite(arr);
+      }
+
       async function cashRegisterMaster(db: string) {
         await connection.db(db).collection('cashregisters').updateMany({}, { $unset: { enabledFor: 1, __v: 1 } });
       }
@@ -2349,7 +2402,7 @@ export class TestService {
                 invTrns: {
                   $push: {
                     _id: '$transactionId',
-                    barcode: {$toObjectId: '$batch'},
+                    barcode: { $toObjectId: '$batch' },
                     inventory: '$inventory',
                     inward: { $multiply: ['$qty', '$unitConv'] },
                     outward: 0,
@@ -2561,6 +2614,10 @@ export class TestService {
           await branchMaster(db);
         }
         console.log('branchMaster End');
+        if (await connection.db(db).collection('warehouses').countDocuments() > 0) {
+          await warehouseMaster(db);
+        }
+        console.log('warehouses Master End');
         if (await connection.db(db).collection('cashregisters').countDocuments() > 0) {
           await cashRegisterMaster(db);
         }
