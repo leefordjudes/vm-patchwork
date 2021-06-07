@@ -355,16 +355,32 @@ export class TestService {
         await connection.db(db).collection('costcentres').updateMany({}, { $set: { updatedBy: user, createdBy: user }, $unset: { __v: 1, aliasName: 1, validateAliasName: 1 } });
       }
 
-      async function branchMaster(db: string) {
+      async function branchMaster(db: string, user: Types.ObjectId) {
         const branches: any = await connection.db(db).collection('branches')
-          .find({}, { projection: { gstInfo: 1, otherInfo: 1, addressInfo: 1, contactInfo: 1 } }).toArray();
+          .find({}, { projection: { displayName: 1, gstInfo: 1, otherInfo: 1, addressInfo: 1, contactInfo: 1 } }).toArray();
         const arr = [];
+        const accArr = [];
         for (const branch of branches) {
+          const accId = new Types.ObjectId();
+          const branchAccObj = {
+            _id: accId,
+            name: branch.displayName,
+            displayName: branch.displayName,
+            validateName: branch.displayName.replace(/[^a-z0-9]/gi, '').toLowerCase(),
+            accountType: 'BRANCH_TRANSFER',
+            hide: false,
+            createdBy: user,
+            updatedBy: user,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+          accArr.push(branchAccObj);
           const $unset = { __v: 1 };
           if (!branch.aliasName) {
             _.assign($unset, { aliasName: 1, validateAliasName: 1 });
           }
           const $set = {
+            account: accId,
             gstInfo: {
               regType: 'REGULAR',
               location: '33',
@@ -422,6 +438,7 @@ export class TestService {
           arr.push(obj);
         }
         await connection.db(db).collection('branches').bulkWrite(arr);
+        await connection.db(db).collection('accounts').insertMany(accArr);
       }
 
       async function warehouseMaster(db: string) {
@@ -1901,7 +1918,7 @@ export class TestService {
                   batch: batch.transactionId,
                   inventory: Types.ObjectId(item.inventory.id),
                   qty: item.qty,
-                  rate: round(item.cost),
+                  cost: round(item.cost),
                   unit: Types.ObjectId(item.unit.id),
                   unitConv: item.unit.conversion,
                   unitPrecision: item.unitPrecision,
@@ -2065,7 +2082,7 @@ export class TestService {
                     tax: GST_TAXES.find((t) => t.ratio.igst === item.tax.gstRatio.igst).code,
                     batch: batch.transactionId,
                     qty: item.qty,
-                    rate: round(item.cost),
+                    cost: round(item.cost),
                   });
                 }
                 if (item.branch === voucher.targetBranch.id) {
@@ -2089,6 +2106,7 @@ export class TestService {
                     rate: round(item.cost),
                     sRate: round(batch.sRate),
                     outward: 0,
+                    nlc: round(item.cost / item.unit.conversion),
                   };
                   const itemObj = {
                     batchNo: batch.batchNo,
@@ -2403,7 +2421,7 @@ export class TestService {
                 invTrns: {
                   $push: {
                     _id: '$transactionId',
-                    barcode: { $toObjectId: '$batch' },
+                    barcode: '$_id',
                     inventory: '$inventory',
                     inward: { $multiply: ['$qty', '$unitConv'] },
                     outward: 0,
@@ -2486,8 +2504,8 @@ export class TestService {
             inventory: Types.ObjectId(elm.inventory),
             month: elm.expMonth ? elm.expMonth.toString() : null,
             mrp: elm.mrp,
-            qty: 1,
-            rate: 0,
+            qty: 0,
+            rate: elm.pRate,
             sRate: elm.sRate,
             singleton: false,
             transactionId: elm._id,
@@ -2518,9 +2536,9 @@ export class TestService {
                     _id: '$_id',
                     batch: { $toString: '$_id' },
                     batchNo: '$batchNo',
-                    qty: 1,
+                    qty: 0,
                     mrp: '$mrp',
-                    pRate: 0,
+                    rate: '$rate',
                     sRate: '$sRate',
                     expYear: '$expYear',
                     expMonth: '$expMonth',
@@ -2612,7 +2630,7 @@ export class TestService {
         }
         console.log('vendorMaster End');
         if (await connection.db(db).collection('branches').countDocuments() > 0) {
-          await branchMaster(db);
+          await branchMaster(db, adminUserId);
         }
         console.log('branchMaster End');
         if (await connection.db(db).collection('warehouses').countDocuments() > 0) {
