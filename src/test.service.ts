@@ -713,7 +713,7 @@ export class TestService {
                 preferredVendor: 1,
                 __v: 1,
               };
-              if (db === 'velavanmedical' || db === 'velavanmedical3') {
+              if (db === 'velavanmedical') {
                 if (inventory.salts.length < 1) {
                   _.assign($unset, { salts: 1 });
                 }
@@ -1318,28 +1318,29 @@ export class TestService {
         console.log(`DURATION for new Batch ${(new Date().getTime() - newBatchStart) / 1000}-sec`);
         console.log(`Convert duplicate batchNo as Uniq batchNo started...`);
         const skipSpecialChars: any = await connection.db(db).collection('batches_rearrange')
-        .aggregate([
-          {
-            $match: { batchNo: RegExp('[^0-9A-Za-z]') }
-          },
-          {
-            $project: {_id: 1, batchNo: 1}
-          },
-        ]).toArray();
+          .aggregate([
+            {
+              $match: { batchNo: RegExp('[^0-9A-Za-z]') }
+            },
+            {
+              $project: { _id: 1, batchNo: 1 }
+            },
+          ]).toArray();
         const skipSpecialArr = [];
         for (const elm of skipSpecialChars) {
           const updateObj = {
             updateOne: {
-              filter: {_id: elm._id},
-              update: {$set: {batchNo: elm.batchNo.replace(/[^a-z0-9]/gi, '').length ? elm.batchNo.replace(/[^a-z0-9]/gi, ''): 'NA'}
-            },
-          }
-        };
-        skipSpecialArr.push(updateObj);
-      }
-      if (skipSpecialArr.length > 0) {
-        await connection.db(db).collection('batches_rearrange').bulkWrite(skipSpecialArr);
-      }
+              filter: { _id: elm._id },
+              update: {
+                $set: { batchNo: elm.batchNo.replace(/[^a-z0-9]/gi, '').length ? elm.batchNo.replace(/[^a-z0-9]/gi, '') : 'NA' }
+              },
+            }
+          };
+          skipSpecialArr.push(updateObj);
+        }
+        if (skipSpecialArr.length > 0) {
+          await connection.db(db).collection('batches_rearrange').bulkWrite(skipSpecialArr);
+        }
         const reBatches: any = await connection.db(db).collection('batches_rearrange')
           .aggregate([
             {
@@ -1544,7 +1545,7 @@ export class TestService {
                   const inward = (item.qty + freeQty) * item.unit.conversion;
                   const nlc = round(item.taxableAmount / (item.qty + freeQty) / item.unit.conversion);
                   _.assign(invItemObj, { batchNo: batch.batchNo.replace(/[^a-z0-9]/gi, '').toUpperCase(), freeQty, sRate: round(item.sRate) });
-                  _.assign(invTrnObj, { _id: batch.transactionId, barcode: new Types.ObjectId(), nlc, batchNo: batch.batchNo.replace(/[^a-z0-9]/gi, '').toUpperCase(), inward, sRate: round(item.sRate) });
+                  _.assign(invTrnObj, { _id: batch.transactionId, barcode: new Types.ObjectId(), nlc, batchNo: batch.batchNo.replace(/[^a-z0-9]/gi, '').toUpperCase(), inward, sRate: round(item.sRate), pRateTaxInc: false, sRateTaxInc: true });
                 } else {
                   const inward = item.qty * item.unit.conversion * -1;
                   _.assign(invItemObj, { batch: batch.transactionId });
@@ -2200,6 +2201,45 @@ export class TestService {
         await connection.db(db).collection('vouchernumberings').bulkWrite(arr);
       }
 
+      async function preferencesChange(db: string) {
+        const preferences = await connection.db(db).collection('preferences')
+          .find({}).toArray();
+        if (preferences.length > 0) {
+          const preArr = [];
+          for (const pre of preferences) {
+            let code = pre.code;
+            if (code === 'sale-return') {
+              code = 'saleReturn';
+            }
+            if (code === 'stock-transfer') {
+              code = 'stockTransfer';
+            }
+            if (code === 'purchase-return') {
+              code = 'purchaseReturn';
+            }
+            if (code === 'sales-people') {
+              code = 'saleIncharge';
+            }
+            if (code === 'banking') {
+              code = 'contra';
+            }
+            if (code === 'stock-adjustment') {
+              code = 'stockAdjustment';
+            }
+            const updateObj = {
+              updateOne: {
+                filter: { _id: pre._id },
+                update: { $set: { branch: Types.ObjectId(pre.branch), updatedAt: new Date(), code } }
+              }
+            };
+            preArr.push(updateObj);
+          }
+          await connection.db(db).collection('preferences').bulkWrite(preArr);
+        } else {
+          console.log('preferences not found');
+        }
+      }
+
       async function branchPayableValue(db: string) {
         const registers = await connection.db(db).collection('cashregisters')
           .find({}).toArray();
@@ -2406,7 +2446,7 @@ export class TestService {
                 updatedAt: { $last: '$updatedAt' },
                 items: {
                   $push: {
-                    batchNo: {$toUpper:'$batchNo'},
+                    batchNo: { $toUpper: '$batchNo' },
                     unitConv: '$unitConv',
                     unitPrecision: '$unitPrecision',
                     qty: '$qty',
@@ -2424,7 +2464,7 @@ export class TestService {
                     inward: { $multiply: ['$qty', '$unitConv'] },
                     outward: 0,
                     assetAmount: { $round: [{ $multiply: ['$qty', '$rate'] }, 2] },
-                    batchNo: {$toUpper:'$batchNo'},
+                    batchNo: { $toUpper: '$batchNo' },
                     unitConv: '$unitConv',
                     qty: '$qty',
                     mrp: '$mrp',
@@ -2432,6 +2472,8 @@ export class TestService {
                     sRate: '$sRate',
                     nlc: { $round: [{ $divide: ['$rate', '$unitConv'] }, 2] },
                     expiry: { $cond: [{ $ne: ['$expiry', null] }, '$expiry', '$REMOVE'] },
+                    pRateTaxInc: false,
+                    sRateTaxInc: true,
                   }
                 }
               }
@@ -2566,13 +2608,14 @@ export class TestService {
           ]).toArray();
       }
 
+
       const startTime = new Date();
       console.log('.........START...........');
       console.log({ startTime });
 
       // const dbs = ['velavanmedical', 'velavanstationery', 'velavanhm', 'ttgold', 'ttgoldpalace', 'auditplustech', 'ramasamy'];
       // const dbs = ['velavanstationery1', 'velavanhm1', 'ttgold1', 'ttgoldpalace1', 'auditplustech1', 'ramasamy1'];
-      const dbs = ['velavanstationery'];
+      const dbs = ['velavanmedical'];
       for (const db of dbs) {
         await connection.db(db).collection('inventory_openings')
           .updateMany({ trns: { $elemMatch: { expMonth: 0 } } }, { $set: { 'trns.$.expMonth': 1 } });
@@ -2644,6 +2687,8 @@ export class TestService {
         console.log('accountOpeningMerge End');
         await voucherNumberings(db);
         console.log('voucherNumberings End');
+        await preferencesChange(db);
+        console.log('preferencesChange End');
 
         const accounts: any = await connection.db(db).collection('accounts')
           .find({}, { projection: { party: 1, displayName: 1, accountType: 1 } })
