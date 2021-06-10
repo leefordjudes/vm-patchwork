@@ -1,0 +1,64 @@
+version: '3'
+
+services:
+    tenant-dev:
+        build:
+            context: .
+            dockerfile: docker-files/dev.Dockerfile
+        
+        ports:
+            - 3000:3000
+        volumes:
+            - ./:/app
+        tty: true
+        command: /app/docker-files/tenant-dev.entrypoint.sh
+        links:
+            - mongodb-primary
+            - mongodb-secondary
+            - mongodb-arbiter
+        depends_on:
+            - mongodb-primary 
+
+    mongodb-primary:
+        image: bitnami/mongodb:4.2
+        ports:
+            - 127.0.10.1:27017:27017
+        volumes:
+            - mongodb_data:/bitnami
+        environment:
+            - MONGODB_REPLICA_SET_MODE=primary
+            - MONGODB_ADVERTISED_HOSTNAME=mongodb-primary
+            - MONGODB_REPLICA_SET_KEY=replicasetkey123
+            - MONGODB_ROOT_PASSWORD=password123
+
+    mongodb-secondary:
+        image: bitnami/mongodb:4.2
+        depends_on:
+            - mongodb-primary
+        ports:
+            - 127.0.10.2:27017:27017
+        environment:
+            - MONGODB_REPLICA_SET_MODE=secondary
+            - MONGODB_ADVERTISED_HOSTNAME=mongodb-secondary
+            - MONGODB_REPLICA_SET_KEY=replicasetkey123
+            - MONGODB_INITIAL_PRIMARY_HOST=mongodb-primary
+            - MONGODB_INITIAL_PRIMARY_PORT_NUMBER=27017
+            - MONGODB_INITIAL_PRIMARY_ROOT_PASSWORD=password123
+
+    mongodb-arbiter:
+        image: bitnami/mongodb:4.2
+        depends_on:
+            - mongodb-primary
+        ports:
+            - 127.0.10.3:27017:27017
+        environment:
+            - MONGODB_ADVERTISED_HOSTNAME=mongodb-arbiter
+            - MONGODB_REPLICA_SET_MODE=arbiter
+            - MONGODB_INITIAL_PRIMARY_HOST=mongodb-primary
+            - MONGODB_INITIAL_PRIMARY_PORT_NUMBER=27017
+            - MONGODB_INITIAL_PRIMARY_ROOT_PASSWORD=password123
+            - MONGODB_REPLICA_SET_KEY=replicasetkey123
+
+volumes:
+    mongodb_data:
+        external: true

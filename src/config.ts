@@ -1,1 +1,1 @@
-export const URI = `mongodb://localhost:27017`;
+export const URI = `mongodb://root:password123@mongodb-primary/test?authSource=admin`;
