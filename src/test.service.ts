@@ -1016,12 +1016,18 @@ export class TestService {
               if (collectionName === 'cashdeposits') {
                 credit = round(voucher.amount);
                 debit = 0;
-                voucherName = 'Contra';
+                voucherName = 'Cash Deposit';
               }
               if (collectionName === 'cashwithdrawals') {
                 debit = round(voucher.amount);
                 credit = 0;
-                voucherName = 'Contra';
+                voucherName = 'Cash Withdrawal';
+              }
+              if (collectionName === 'incomes') {
+                voucherName = 'Income';
+              }
+              if (collectionName === 'expenses') {
+                voucherName = 'Expense';
               }
               if (creditCollections.includes(collectionName)) {
                 partyAcc = accounts.find((party) => party.party === voucher.toAccount.id);
@@ -1216,9 +1222,7 @@ export class TestService {
               assetAmount: '$assetAmount',
               transactionId: '$trns._id',
               batch: '$trns.batch',
-              singleton: '$batchArr.singleton',
-              allowNegativeStock: '$batchArr.allowNegativeStock',
-              batchNo: { $ifNull: [{ $toUpper: '$trns.batchNo' }, 'N.A'] },
+              batchNo: { $ifNull: [{ $toUpper: '$trns.batchNo' }, 'NA'] },
               voucherName: 'OPENING',
               branch: { $toObjectId: '$branchId' },
               inventory: { $toObjectId: '$inventoryId' },
@@ -1250,12 +1254,7 @@ export class TestService {
               _id: 0,
               transactionId: '$invTrns._id',
               batch: '$invTrns.batch',
-              branch: { $toObjectId: '$branch.id' },
-              inventory: { $toObjectId: '$invTrns.inventory.id' },
-              singleton: '$batchArr.singleton',
-              sRate: '$batchArr.sRate',
-              batchNo: { $ifNull: [{ $toUpper: '$invTrns.batchNo' }, 'N.A'] },
-              allowNegativeStock: '$batchArr.allowNegativeStock',
+              batchNo: { $ifNull: [{ $toUpper: '$invTrns.batchNo' }, 'NA'] },
               voucherName: 'PURCHASE',
             }
           },
@@ -1304,12 +1303,8 @@ export class TestService {
               _id: 0,
               transactionId: '$invTrns._id',
               batch: '$invTrns.batch',
-              branch: { $toObjectId: '$invTrns.branch' },
-              inventory: { $toObjectId: '$invTrns.inventory.id' },
-              singleton: '$batchArr.singleton',
               sRate: '$batchArr.sRate',
-              batchNo: { $ifNull: [{ $toUpper: '$invTrns.batchNo' }, 'N.A'] },
-              allowNegativeStock: 1,
+              batchNo: { $ifNull: [{ $toUpper: '$batchArr.batchNo' }, 'NA'] },
               voucherName: 1
             }
           },
@@ -1322,6 +1317,29 @@ export class TestService {
         await connection.db(db).collection('stock_transfers').aggregate(stockTransferPipe).toArray();
         console.log(`DURATION for new Batch ${(new Date().getTime() - newBatchStart) / 1000}-sec`);
         console.log(`Convert duplicate batchNo as Uniq batchNo started...`);
+        const skipSpecialChars: any = await connection.db(db).collection('batches_rearrange')
+        .aggregate([
+          {
+            $match: { batchNo: RegExp('[^0-9A-Za-z]') }
+          },
+          {
+            $project: {_id: 1, batchNo: 1}
+          },
+        ]).toArray();
+        const skipSpecialArr = [];
+        for (const elm of skipSpecialChars) {
+          const updateObj = {
+            updateOne: {
+              filter: {_id: elm._id},
+              update: {$set: {batchNo: elm.batchNo.replace(/[^a-z0-9]/gi, '').length ? elm.batchNo.replace(/[^a-z0-9]/gi, ''): 'NA'}
+            },
+          }
+        };
+        skipSpecialArr.push(updateObj);
+      }
+      if (skipSpecialArr.length > 0) {
+        await connection.db(db).collection('batches_rearrange').bulkWrite(skipSpecialArr);
+      }
         const reBatches: any = await connection.db(db).collection('batches_rearrange')
           .aggregate([
             {
@@ -1350,10 +1368,10 @@ export class TestService {
           for (const item of reBatches) {
             for (let i = 1; i < item.docIds.length; i++) {
               bulk.find({ _id: item.docIds[i] })
-                .update({ $set: { batchNo: `${item.batchNo}-${Math.random().toString(36).substring(2, 6).toUpperCase()}` } });
+                .update({ $set: { batchNo: `${item.batchNo}${Math.random().toString(36).substring(2, 6).toUpperCase()}` } });
             }
           }
-          bulk.find({ batchNo: '' }).update({ $set: { batchNo: 'N.A' } });
+          bulk.find({ batchNo: '' }).update({ $set: { batchNo: 'NA' } });
           await bulk.execute();
           console.log(`Batch_rearrange updated sucessfully..`);
         } else {
@@ -1387,7 +1405,7 @@ export class TestService {
               const initialDoc: any = {
                 _id: voucher._id,
                 date: voucher.date,
-                billDate: voucher?.billDate ?? voucher.date,
+                billDate: collectionName === 'purchases' ? voucher?.billDate ?? voucher.date : undefined,
                 vendor: Types.ObjectId(voucher.vendor.id),
                 branch: Types.ObjectId(voucher.branch.id),
                 transactionMode: voucher.purchaseType,
@@ -1522,23 +1540,15 @@ export class TestService {
                     _.assign(invItemObj, { expiry });
                     _.assign(invTrnObj, { expiry });
                   }
-                  const altAccount = _.maxBy(
-                    acTrns.filter(x => x.accountType !== 'STOCK'),
-                    'credit',
-                  ).account;
                   const freeQty: number = item?.freeQty || 0;
                   const inward = (item.qty + freeQty) * item.unit.conversion;
                   const nlc = round(item.taxableAmount / (item.qty + freeQty) / item.unit.conversion);
-                  _.assign(invItemObj, { batchNo: batch.batchNo, freeQty, sRate: round(item.sRate) });
-                  _.assign(invTrnObj, { _id: batch.transactionId, barcode: new Types.ObjectId(), altAccount, nlc, batchNo: batch.batchNo, inward, sRate: round(item.sRate) });
+                  _.assign(invItemObj, { batchNo: batch.batchNo.replace(/[^a-z0-9]/gi, '').toUpperCase(), freeQty, sRate: round(item.sRate) });
+                  _.assign(invTrnObj, { _id: batch.transactionId, barcode: new Types.ObjectId(), nlc, batchNo: batch.batchNo.replace(/[^a-z0-9]/gi, '').toUpperCase(), inward, sRate: round(item.sRate) });
                 } else {
-                  const altAccount = _.maxBy(
-                    acTrns.filter(x => x.accountType !== 'STOCK'),
-                    'debit',
-                  ).account;
                   const inward = item.qty * item.unit.conversion * -1;
                   _.assign(invItemObj, { batch: batch.transactionId });
-                  _.assign(invTrnObj, { inward, altAccount, batch: batch.transactionId });
+                  _.assign(invTrnObj, { inward, batch: batch.transactionId });
                 }
                 invItems.push(invItemObj);
                 invTrns.push(invTrnObj);
@@ -1574,7 +1584,6 @@ export class TestService {
       async function saleVoucher(db: string, collectionName: string, accounts: any, pendings: any, batches: any) {
         const count = await connection.db(db).collection(collectionName).countDocuments();
         if (count > 0) {
-          const missedBatch = [];
           const limit = 500;
           const begin = new Date().getTime();
           for (let skip = 0; skip <= count; skip = skip + limit) {
@@ -1632,7 +1641,7 @@ export class TestService {
                 if (regType && voucher.gstInfo.destination?.location?.defaultName) {
                   partyGst = { regType };
                   if (regType !== 'OVERSEAS') {
-                    let location = STATE.find((loc) => voucher.gstInfo.destination.location.defaultName === loc.defaultName).code;
+                    const location = STATE.find((loc) => voucher.gstInfo.destination.location.defaultName === loc.defaultName).code;
                     _.assign(partyGst, { location });
                   }
                   if (['REGULAR', 'SPECIAL_ECONOMIC_ZONE'].includes(regType)) {
@@ -1761,17 +1770,9 @@ export class TestService {
                   _.assign(invItemObj, { sInc: Types.ObjectId(item.sInc) });
                 }
                 if (collectionName === 'sales') {
-                  const altAccount = _.maxBy(
-                    acTrns.filter(x => x.accountType !== 'STOCK'),
-                    'debit',
-                  ).account;
-                  _.assign(invTrnObj, { outward: item.qty * item.unit.conversion, altAccount });
+                  _.assign(invTrnObj, { outward: item.qty * item.unit.conversion });
                 } else {
-                  const altAccount = _.maxBy(
-                    acTrns.filter(x => x.accountType !== 'STOCK'),
-                    'credit',
-                  ).account;
-                  _.assign(invTrnObj, { outward: item.qty * item.unit.conversion * -1, altAccount });
+                  _.assign(invTrnObj, { outward: item.qty * item.unit.conversion * -1 });
                 }
                 invTrns.push(invTrnObj);
                 invItems.push(invItemObj);
@@ -1842,9 +1843,6 @@ export class TestService {
             console.log(`DURATION for only insert execute  ${(new Date().getTime() - start1) / 1000}-sec`);
             console.log(`results are` + JSON.stringify({ insert: result.nInserted, err: result.hasWriteErrors() }));
             console.log(`Total DURATION for ${skip} to ${limit + skip}  ${(new Date().getTime() - start) / 1000}-sec`);
-          }
-          if (missedBatch.length > 0) {
-            await connection.db(db).collection('batches_missed').insertMany(missedBatch);
           }
           console.log(`END ALL ${collectionName} and DURATION ${(new Date().getTime() - begin) / (1000 * 60)}-min`);
         } else {
@@ -2098,7 +2096,7 @@ export class TestService {
                     _id: batch.transactionId,
                     barcode: new Types.ObjectId(),
                     assetAmount: round(item.amount),
-                    batchNo: batch.batchNo,
+                    batchNo: batch.batchNo.replace(/[^a-z0-9]/gi, '').toUpperCase(),
                     inventory: Types.ObjectId(item.inventory.id),
                     inward: item.qty * item.unit.conversion,
                     unitConv: item.unit.conversion,
@@ -2109,7 +2107,7 @@ export class TestService {
                     nlc: round(item.cost / item.unit.conversion),
                   };
                   const itemObj = {
-                    batchNo: batch.batchNo,
+                    batchNo: batch.batchNo.replace(/[^a-z0-9]/gi, '').toUpperCase(),
                     inventory: Types.ObjectId(item.inventory.id),
                     tax: GST_TAXES.find((t) => t.ratio.igst === item.tax.gstRatio.igst).code,
                     mrp: round(item.mrp),
@@ -2408,7 +2406,7 @@ export class TestService {
                 updatedAt: { $last: '$updatedAt' },
                 items: {
                   $push: {
-                    batchNo: '$batchNo',
+                    batchNo: {$toUpper:'$batchNo'},
                     unitConv: '$unitConv',
                     unitPrecision: '$unitPrecision',
                     qty: '$qty',
@@ -2426,7 +2424,7 @@ export class TestService {
                     inward: { $multiply: ['$qty', '$unitConv'] },
                     outward: 0,
                     assetAmount: { $round: [{ $multiply: ['$qty', '$rate'] }, 2] },
-                    batchNo: '$batchNo',
+                    batchNo: {$toUpper:'$batchNo'},
                     unitConv: '$unitConv',
                     qty: '$qty',
                     mrp: '$mrp',
@@ -2496,10 +2494,9 @@ export class TestService {
           .find({ _id: { $nin: tempBatches } }).toArray();
         const docs = missedBatches.map((elm) => {
           return {
-            allowNegativeStock: elm.allowNegativeStock,
             assetAmount: 0,
             batch: elm._id.toString(),
-            batchNo: 'DEV-' + Math.floor(Math.random() * 1000),
+            batchNo: `DEV${Math.floor(Math.random() * 1000)}`,
             branch: Types.ObjectId(elm.branch),
             inventory: Types.ObjectId(elm.inventory),
             month: elm.expMonth ? elm.expMonth.toString() : null,
@@ -2507,7 +2504,6 @@ export class TestService {
             qty: 0,
             rate: elm.pRate,
             sRate: elm.sRate,
-            singleton: false,
             transactionId: elm._id,
             unitConv: elm.unitConversion,
             unitPrecision: 2,
@@ -2575,7 +2571,8 @@ export class TestService {
       console.log({ startTime });
 
       // const dbs = ['velavanmedical', 'velavanstationery', 'velavanhm', 'ttgold', 'ttgoldpalace', 'auditplustech', 'ramasamy'];
-      const dbs = ['velavanstationery1', 'velavanhm1', 'ttgold1', 'ttgoldpalace1', 'auditplustech1', 'ramasamy1'];
+      // const dbs = ['velavanstationery1', 'velavanhm1', 'ttgold1', 'ttgoldpalace1', 'auditplustech1', 'ramasamy1'];
+      const dbs = ['velavanstationery'];
       for (const db of dbs) {
         await connection.db(db).collection('inventory_openings')
           .updateMany({ trns: { $elemMatch: { expMonth: 0 } } }, { $set: { 'trns.$.expMonth': 1 } });
@@ -2597,7 +2594,7 @@ export class TestService {
         console.log('costCategoryMaster End');
         await costCentreMaster(db, adminUserId);
         console.log('costCentreMaster End');
-        if (db === 'velavanmedical' || db === 'velavanmedical3') {
+        if (db === 'velavanmedical') {
           await pharmaSaltMaster(db, adminUserId);
           console.log('pharmaSaltMaster End');
           await doctorMaster(db, adminUserId);
