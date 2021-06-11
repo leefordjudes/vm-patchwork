@@ -713,7 +713,7 @@ export class TestService {
                 preferredVendor: 1,
                 __v: 1,
               };
-              if (db === 'velavanmedical') {
+              if (db.includes('velavanmedical')) {
                 if (inventory.salts.length < 1) {
                   _.assign($unset, { salts: 1 });
                 }
@@ -2613,14 +2613,13 @@ export class TestService {
       console.log('.........START...........');
       console.log({ startTime });
 
-      // const dbs = ['velavanmedical', 'velavanstationery', 'velavanhm', 'ttgold', 'ttgoldpalace', 'auditplustech', 'ramasamy'];
-      // const dbs = ['velavanstationery1', 'velavanhm1', 'ttgold1', 'ttgoldpalace1', 'auditplustech1', 'ramasamy1'];
-      const dbs = ['velavanmedical'];
+      // const dbs = ['velavanstationery', 'velavanhm', 'ttgold', 'ttgoldpalace', 'auditplustech', 'ramasamy', 'velavanmedical'];
+      const dbs = ['velavanstationery1', 'velavanhm1', 'ttgold1', 'ttgoldpalace1', 'auditplustech1', 'ramasamy1', 'velavanmedical1'];
       for (const db of dbs) {
+        const adminUserId: Types.ObjectId = (await connection.db(db).collection('users').findOne({ isAdmin: true }))._id;
         await connection.db(db).collection('inventory_openings')
           .updateMany({ trns: { $elemMatch: { expMonth: 0 } } }, { $set: { 'trns.$.expMonth': 1 } });
         console.log(`${db} org start.....`);
-        const adminUserId: Types.ObjectId = (await connection.db(db).collection('users').findOne({ isAdmin: true }))._id;
         await reArrangeBatch(db);
         console.log('reArrangeBatch End');
         await createOpening(db, adminUserId);
@@ -2637,7 +2636,7 @@ export class TestService {
         console.log('costCategoryMaster End');
         await costCentreMaster(db, adminUserId);
         console.log('costCentreMaster End');
-        if (db === 'velavanmedical') {
+        if (db.includes('velavanmedical')) {
           await pharmaSaltMaster(db, adminUserId);
           console.log('pharmaSaltMaster End');
           await doctorMaster(db, adminUserId);
