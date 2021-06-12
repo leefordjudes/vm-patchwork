@@ -602,6 +602,9 @@ export class TestService {
         await connection.db(db).collection('roles').deleteOne({ validateName: 'admin' });
         await connection.db(db).collection('roles')
           .updateMany({}, { $unset: { isDefault: 1, __v: 1 } });
+        await connection.db(db).collection('users').updateOne({ isAdmin: true }, { $unset: { role: 1 } });
+        await connection.db(db).collection('users')
+          .updateMany({}, { $unset: { __v: 1 } });
       }
 
       async function inventoryMaster(db: string, user: Types.ObjectId) {
@@ -2514,7 +2517,10 @@ export class TestService {
               act: false,
               actHide: false,
               isOpening: true,
+              createdBy: rec.user,
               updatedBy: rec.user,
+              createdAt: new Date(),
+              updatedAt: new Date(),
               account: assertAcc,
               accountType: 'STOCK',
               branch: rec._id,
