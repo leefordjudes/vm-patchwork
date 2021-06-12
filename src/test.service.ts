@@ -2109,6 +2109,8 @@ export class TestService {
                     sRate: round(batch.sRate),
                     outward: 0,
                     nlc: round(item.cost / item.unit.conversion),
+                    pRateTaxInc: false,
+                    sRateTaxInc: true,
                   };
                   const itemObj = {
                     batchNo: batch.batchNo.replace(/[^a-z0-9]/gi, '').toUpperCase(),
@@ -2116,7 +2118,7 @@ export class TestService {
                     tax: GST_TAXES.find((t) => t.ratio.igst === item.tax.gstRatio.igst).code,
                     mrp: round(item.mrp),
                     qty: item.qty,
-                    rate: round(item.cost),
+                    cost: round(item.cost),
                     sRate: round(batch.sRate),
                     unitConv: item.unit.conversion,
                     unitPrecision: item.unitPrecision,
