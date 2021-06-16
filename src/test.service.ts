@@ -2625,84 +2625,8 @@ export class TestService {
       console.log('.........START...........');
       console.log({ startTime });
 
-      const dbs = ['velavanstationery', 'velavanhm', 'ttgold', 'ttgoldpalace', 'auditplustech', 'ramasamy', 'velavanmedical'];
-      // const dbs = ['velavanstationery1', 'velavanhm1', 'ttgold1', 'ttgoldpalace1', 'auditplustech1', 'ramasamy1', 'velavanmedical1'];
+      const dbs = [ 'velavanmedical'];
       for (const db of dbs) {
-        await dropIndexes(db);
-        console.log('Drop All collections Index End');
-        const adminUserId: Types.ObjectId = (await connection.db(db).collection('users').findOne({ isAdmin: true }))._id;
-        await connection.db(db).collection('inventory_openings')
-          .updateMany({ trns: { $elemMatch: { expMonth: 0 } } }, { $set: { 'trns.$.expMonth': 1 } });
-        console.log(`${db} org start.....`);
-        await reArrangeBatch(db);
-        console.log('reArrangeBatch End');
-        await createOpening(db, adminUserId);
-        console.log('createOpening End');
-        await inventoryMaster(db, adminUserId);
-        console.log('inventoryMaster End');
-        await accountMaster(db, adminUserId);
-        console.log('Account master End');
-        await inventoryOpening(db);
-        console.log('inventoryOpening End');
-        await mergePendingAdjustment(db);
-        console.log('merge pening End');
-        await costCategoryMaster(db, adminUserId);
-        console.log('costCategoryMaster End');
-        await costCentreMaster(db, adminUserId);
-        console.log('costCentreMaster End');
-        if (db.includes('velavanmedical')) {
-          await pharmaSaltMaster(db, adminUserId);
-          console.log('pharmaSaltMaster End');
-          await doctorMaster(db, adminUserId);
-          console.log('doctorMaster End');
-          await patientMaster(db, adminUserId);
-          console.log('patientMaster End');
-        }
-        await rackMaster(db, adminUserId);
-        console.log('rackMaster End');
-        await roleMaster(db);
-        console.log('roleMaster End');
-        await manufacturerMaster(db, adminUserId);
-        console.log('manufacturerMaster End');
-        await sectionMaster(db, adminUserId);
-        console.log('sectionMaster End');
-        await unitMaster(db, adminUserId);
-        console.log('unitMaster End');
-        if (await connection.db(db).collection('deskstopclients').countDocuments() > 0) {
-          await desktopClientMaster(db);
-        }
-        console.log('desktopClientMaster End');
-        await financialYear(db);
-        console.log('financialYear End');
-        if (await connection.db(db).collection('customers').countDocuments() > 0) {
-          await customerMaster(db);
-        }
-        console.log('customerMaster End');
-        if (await connection.db(db).collection('vendors').countDocuments() > 0) {
-          await vendorMaster(db);
-        }
-        console.log('vendorMaster End');
-        if (await connection.db(db).collection('branches').countDocuments() > 0) {
-          await branchMaster(db, adminUserId);
-        }
-        console.log('branchMaster End');
-        if (await connection.db(db).collection('warehouses').countDocuments() > 0) {
-          await warehouseMaster(db);
-        }
-        console.log('warehouses Master End');
-        if (await connection.db(db).collection('cashregisters').countDocuments() > 0) {
-          await cashRegisterMaster(db);
-        }
-        console.log('cashRegisterMaster End');
-        await saleIncharge(db);
-        console.log('saleIncharge End');
-        await accountOpeningMerge(db, adminUserId);
-        console.log('accountOpeningMerge End');
-        await voucherNumberings(db);
-        console.log('voucherNumberings End');
-        await preferencesChange(db);
-        console.log('preferencesChange End');
-
         const accounts: any = await connection.db(db).collection('accounts')
           .find({}, { projection: { party: 1, displayName: 1, accountType: 1 } })
           .map((elm: any) => {
@@ -2715,27 +2639,7 @@ export class TestService {
           })
           .toArray();
         const pendings: any = await connection.db(db).collection('accountpendingadjustments')
-          .find({}, { projection: { _id: 0, __v: 0 } }).toArray(); // for vouchers only DONE
-        const collectionNames = [
-          'customerpayments', 'customerreceipts',
-          'vendorpayments', 'vendorreceipts',
-          'accountreceipts', 'accountpayments',
-          'expenses', 'incomes',
-          'cashdeposits', 'cashwithdrawals',
-          'journals'
-        ];
-        for (const coll of collectionNames) {
-          if (['customerpayments', 'customerreceipts', 'vendorpayments', 'vendorreceipts'].includes(coll)) {
-            await accVoucher(db, coll, accounts, pendings);
-          }
-          if (['accountreceipts', 'accountpayments', 'expenses', 'incomes', 'cashdeposits', 'cashwithdrawals'].includes(coll)) {
-            await accVoucher(db, coll, accounts);
-          }
-          if (coll === 'journals') {
-            await journalVoucher(db, coll, accounts);
-          }
-        }
-
+          .find({}, { projection: { _id: 0, __v: 0 } }).toArray();
         const st = new Date().getTime();
         const batches: any = await connection.db(db).collection('batches_rearrange')
           .find({}, { projection: { batch: 1, batchNo: 1, transactionId: 1, sRate: 1 } })
@@ -2748,23 +2652,11 @@ export class TestService {
             }
           }).toArray();
         console.log(`GET batch duration ${(new Date().getTime() - st) / 1000}-sec`);
-        await connection.db(db).createCollection('purchases_new');
-        await purchaseVoucher(db, 'purchases', accounts, pendings, batches); // duration p & p_r 10min
-        console.log('purchase end');
-        await purchaseVoucher(db, 'purchase_returns', accounts, pendings, batches);
-        console.log('purchase return end');
         await connection.db(db).createCollection('sales_new');
         await saleVoucher(db, 'sales', accounts, pendings, batches);
         console.log('sales end');
         await saleVoucher(db, 'sale_returns', accounts, pendings, batches);
         console.log('sales return end');
-        await connection.db(db).createCollection('stock_adjustments_new');
-        await stockAdjustments(db, 'stock_adjustments', accounts, batches);
-        console.log('stockAdjustments end');
-        await stockTransfer(db, 'stock_transfers', accounts, batches);
-        console.log('stockTransfer converted stockAdjs end');
-        await branchPayableValue(db);
-        console.log('branchPayableValue end');
         await renameCollections(db);
         console.log('renameCollections end');
         await deleteCollections(db);
