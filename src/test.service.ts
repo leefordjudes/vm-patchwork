@@ -2421,8 +2421,6 @@ export class TestService {
         for (const coll of allCollections) {
           if (collections.includes(coll) || coll.includes('temp_')) {
             await connection.db(db).collection(coll).drop();
-          } else {
-            await connection.db(db).collection(coll).dropIndexes();
           }
           if (!db.includes('velavanmedical') && medicalColls.includes(coll)) {
             await connection.db(db).collection(coll).drop();
@@ -2616,14 +2614,22 @@ export class TestService {
           ]).toArray();
       }
 
+      async function dropIndexes(db: string) {
+        const allCollections = (await connection.db(db).listCollections().toArray()).map((n) => n.name);
+        for (const coll of allCollections) {
+          await connection.db(db).collection(coll).dropIndexes();
+        }
+      }
 
       const startTime = new Date();
       console.log('.........START...........');
       console.log({ startTime });
 
-      // const dbs = ['velavanstationery', 'velavanhm', 'ttgold', 'ttgoldpalace', 'auditplustech', 'ramasamy', 'velavanmedical'];
-      const dbs = ['velavanstationery1', 'velavanhm1', 'ttgold1', 'ttgoldpalace1', 'auditplustech1', 'ramasamy1', 'velavanmedical1'];
+      const dbs = ['velavanstationery', 'velavanhm', 'ttgold', 'ttgoldpalace', 'auditplustech', 'ramasamy', 'velavanmedical'];
+      // const dbs = ['velavanstationery1', 'velavanhm1', 'ttgold1', 'ttgoldpalace1', 'auditplustech1', 'ramasamy1', 'velavanmedical1'];
       for (const db of dbs) {
+        await dropIndexes(db);
+        console.log('Drop All collections Index End');
         const adminUserId: Types.ObjectId = (await connection.db(db).collection('users').findOne({ isAdmin: true }))._id;
         await connection.db(db).collection('inventory_openings')
           .updateMany({ trns: { $elemMatch: { expMonth: 0 } } }, { $set: { 'trns.$.expMonth': 1 } });

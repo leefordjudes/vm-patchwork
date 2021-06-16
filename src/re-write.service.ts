@@ -263,8 +263,8 @@ export class ReWriteService {
         }
       }
       const start = new Date().getTime();
-      // const dbs = ['velavanstationery', 'velavanhm', 'ttgold', 'ttgoldpalace', 'auditplustech', 'ramasamy', 'velavanmedical'];
-      const dbs = ['velavanstationery1', 'velavanhm1', 'ttgold1', 'ttgoldpalace1', 'auditplustech1', 'ramasamy1', 'velavanmedical1'];
+      const dbs = ['velavanstationery', 'velavanhm', 'ttgold', 'ttgoldpalace', 'auditplustech', 'ramasamy', 'velavanmedical'];
+      // const dbs = ['velavanstationery1', 'velavanhm1', 'ttgold1', 'ttgoldpalace1', 'auditplustech1', 'ramasamy1', 'velavanmedical1'];
       for (const db of dbs) {
         const dbStart = new Date().getTime();
         console.log(`------${db} started----`);
