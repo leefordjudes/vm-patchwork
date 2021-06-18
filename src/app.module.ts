@@ -23,8 +23,6 @@ import { Patch8Service } from './patch8.service';
 import { Patch8Controller } from './patch8.controller';
 import { Patch10Controller } from './patch10.controller';
 import { Patch10Service } from './patch10.service';
-import { Patch11Service } from './patch11.service';
-import { Patch11Controller } from './patch11.controller';
 import { TestService } from './test.service';
 import { TestController } from './test.controller';
 import { ReWriteService } from './re-write.service';
@@ -53,7 +51,6 @@ import { ReWriteController } from './re-write.controller';
     // Patch7Controller,
     // Patch8Controller,
     // Patch10Controller,
-    Patch11Controller,
     TestController,
     ReWriteController,
   ],
@@ -68,7 +65,6 @@ import { ReWriteController } from './re-write.controller';
     // Patch7Service,
     // Patch8Service,
     // Patch10Service,
-    Patch11Service,
     TestService,
     ReWriteService,
   ],
