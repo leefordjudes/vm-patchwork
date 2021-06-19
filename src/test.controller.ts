@@ -1,14 +1,18 @@
-import { Controller, Put } from '@nestjs/common';
+import { Controller, Post } from '@nestjs/common';
 import { TestService } from './test.service';
 
-@Controller('auditplus2.O')
+@Controller('auditplus')
 export class TestController {
   constructor(private readonly testService: TestService) { }
 
-  @Put('account')
-  async auditplusTWOPO() {
+  @Post('migration')
+  async migration() {
     console.log('auditplus2 controller account');
-    return await this.testService.test();
+    return await this.testService.migration();
   }
 
+  @Post('check')
+  async checkValidation() {
+    return await this.testService.check();
+  }
 }

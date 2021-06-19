@@ -10,7 +10,7 @@ import { round } from './utils/utils';
 
 @Injectable()
 export class TestService {
-  async test() {
+  async migration() {
     try {
       const connection = await new MongoClient(URI, {
         useUnifiedTopology: true,
@@ -2782,6 +2782,122 @@ export class TestService {
     } catch (err) {
       console.log(err.message);
       return err.message;
+    }
+  }
+
+  async check() {
+    const connection = await new MongoClient(URI, {
+      useUnifiedTopology: true,
+      useNewUrlParser: true,
+    }).connect();
+    if (!connection.isConnected) {
+      return 'Connection failed';
+    }
+    console.log('checking start...');
+    const start = new Date().getTime();
+    const result = await checkValidation();
+    console.log('****checking end****', `
+    Duration ${new Date().getTime()-start}-ms
+    `);
+    if (result.length > 0) {
+      console.log(result);
+      return result;
+    } else {
+      console.log(`Everything Correct`);
+      // const http = new HttpService();
+      // const result = await http.post(`http://localhost:3000/auditplus/migration`).toPromise();
+      return true;
+    }
+    async function checkValidation() {
+      const igst = GST_TAXES.map((x) => x.ratio.igst);
+      const dbs = ['velavanstationery', 'velavanhm', 'ttgold', 'ttgoldpalace', 'auditplustech', 'ramasamy', 'velavanmedical'];
+      const errArray = [];
+      for (const db of dbs) {
+        const inventories = await connection.db(db).collection('inventories')
+          .aggregate([
+            {
+              $lookup: {
+                from: 'taxes',
+                localField: 'tax',
+                foreignField: '_id',
+                as: 'taxx',
+              },
+            },
+            {
+              $unwind: '$taxx'
+            },
+            {
+              $project: { igst: { $sum: ['$taxx.gstRatio.cgst', '$taxx.gstRatio.sgst'] }, displayName: 1, name: 1 }
+            },
+            { $match: { igst: { $nin: igst } } }
+          ]).toArray();
+        if (inventories.length > 0) {
+          for (const inv of inventories) {
+            errArray.push({
+              organization: db,
+              inventoryName: inv.name,
+              inventoryDisplayName: inv.displayName,
+              errMsg: `Tax Ratio ${inv.igst} invalid`,
+            });
+          }
+        }
+        const cashTrnsvouchers: any = await connection.db(db).collection('cashtransfers')
+          .find(
+            { $or: [{ isApproved: null }, { isApproved: false }] },
+            {
+              projection: { destination: 1, amount: 1, date: 1 },
+              sort: { 'destination.name': 1, date: 1 }
+            }
+          )
+          .toArray();
+        const stockTrnsvouchers: any = await connection.db(db).collection('stock_transfers')
+          .find(
+            { $or: [{ approved: null }, { approved: false }] },
+            {
+              projection: { targetBranch: 1, amount: 1, date: 1, voucherNo: 1 },
+              sort: { 'targetBranch.name': 1, date: 1, voucherNo: 1 }
+            }
+          )
+          .toArray();
+        for (const cashVoucher of cashTrnsvouchers) {
+          errArray.push({
+            organization: db,
+            destinationRegsister: cashVoucher.destination.displayName,
+            voucherName: 'Cash Transfer',
+            amount: cashVoucher.amount,
+            errMsg: 'Cash Transfer not approved',
+          });
+        }
+        for (const stockVoucher of stockTrnsvouchers) {
+          errArray.push({
+            organization: db,
+            destinationBranch: stockVoucher.targetBranch.displayName,
+            voucherNo: stockVoucher.voucherNo,
+            voucherName: 'Stock Transfer',
+            date: stockVoucher.date,
+            amount: stockVoucher.amount,
+            errMsg: 'Stock Transfer not approved',
+          });
+        }
+        const invCollections = ['purchases', 'purchase_returns', 'sales', 'sale_returns', 'stock_transfers'];
+        for (const coll of invCollections) {
+          const vouchers = await connection.db(db).collection(coll)
+            .find(
+              { invTrns: { $elemMatch: { 'tax.gstRatio.igst': { $nin: igst } } } },
+              { projection: { voucherNo: 1, voucherName: 1 } }
+            )
+            .toArray();
+          for (const voucher of vouchers) {
+            errArray.push({
+              organization: db,
+              voucherNo: voucher.voucherNo,
+              voucherName: voucher.voucherName,
+              errMsg: 'Invalid Tax Ratio',
+            });
+          }
+        }
+      }
+      return errArray;
     }
   }
 
