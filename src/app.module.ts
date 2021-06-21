@@ -27,6 +27,8 @@ import { TestService } from './test.service';
 import { TestController } from './test.controller';
 import { ReWriteService } from './re-write.service';
 import { ReWriteController } from './re-write.controller';
+import { MigrationController } from './migration.controller';
+import { MigrationService } from './migration.service';
 
 // const URI = 'mongodb+srv://username:password@host/database?retryWrites=true&w=majority';
 // const URI =  `mongodb://admin:12345678@192.168.1.20:27017/velavanmedical1?authSource=admin`;
@@ -51,8 +53,9 @@ import { ReWriteController } from './re-write.controller';
     // Patch7Controller,
     // Patch8Controller,
     // Patch10Controller,
-    TestController,
-    ReWriteController,
+    // TestController,
+    // ReWriteController,
+    MigrationController,
   ],
   providers: [
     // AppService,
@@ -65,8 +68,9 @@ import { ReWriteController } from './re-write.controller';
     // Patch7Service,
     // Patch8Service,
     // Patch10Service,
-    TestService,
-    ReWriteService,
+    // TestService,
+    // ReWriteService,
+    MigrationService,
   ],
 })
 export class AppModule {}
