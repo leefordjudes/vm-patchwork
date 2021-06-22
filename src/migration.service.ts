@@ -555,7 +555,7 @@ export class MigrationService {
 
       async function patientMaster(db: string, user: Types.ObjectId) {
         await connection.db(db).collection('patients')
-          .updateMany({}, { $set: { createdBy: user, updatedBy: user }, $unset: { __v: 1 } });
+          .updateMany({}, { $set: { createdBy: user, updatedBy: user, createdAt: new Date(), updatedAt: new Date() }, $unset: { __v: 1 } });
         await connection.db(db).collection('patients')
           .updateMany({ $or: [{ aliasName: '' }, { aliasName: null }] }, { $unset: { aliasName: 1, validateAliasName: 1 } });
       }
