@@ -580,6 +580,26 @@ export class MigrationService {
       }
 
       async function unitMaster(db: string, user: Types.ObjectId) {
+        const units = await connection.db(db).collection('units').find({}).toArray();
+        const arr = [];
+        if (units.length > 0) {
+          for (const unit of units) {
+            if (!unit.uqc) {
+              const updateObj = {
+                updateOne: {
+                  filter: { _id: unit._id },
+                  update: {
+                    $set: { uqc: 'OTH' }
+                  },
+                }
+              };
+              arr.push(updateObj);
+            }
+          }
+        }
+        if (arr.length > 0) {
+          await connection.db(db).collection('units').bulkWrite(arr);
+        }
         await connection.db(db).collection('units')
           .updateMany({ $or: [{ aliasName: '' }, { aliasName: null }] }, { $unset: { aliasName: 1, validateAliasName: 1 } });
         await connection.db(db).collection('units')
