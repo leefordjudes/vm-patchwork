@@ -2313,9 +2313,9 @@ export class MigrationService {
           if (oldName === 'printtemplates') {
             await connection.db(db).collection(oldName).rename('print_templates');
           }
-          if (oldName === 'cashtransfers') {
-            await connection.db(db).collection(oldName).rename('cash_transfers');
-          }
+          // if (oldName === 'cashtransfers') {
+          //   await connection.db(db).collection(oldName).rename('cash_transfers');
+          // }
           if (oldName === 'cashregisters') {
             await connection.db(db).collection(oldName).rename('cash_registers');
           }
@@ -2331,7 +2331,7 @@ export class MigrationService {
           'act_account_map', 'act_account_openings', 'act_accountbooks', 'act_accounts', 'act_financial_years',
           'act_gst_registrations', 'act_gstregistrations', 'act_import_field_map', 'act_import_sessions', 'act_inventories',
           'act_inventory_details', 'act_inventory_openings', 'act_inventorybooks', 'act_vouchers', 'activitylogs', // ask activitylogs
-          'batches', 'branchbooks',
+          'batches', 'branchbooks', 'cashtransfers',
           // 'batches_rearrange', 
           'cashdeposits', 'cashregisterbooks', 'cashwithdrawals', 'configurations',
           'customerbooks', 'customeropenings', 'customerpayments',
