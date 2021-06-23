@@ -2026,7 +2026,7 @@ export class MigrationService {
                   branch: branch.branch.toString(),
                   prefix: vNo.prefix,
                   suffix: vNo.suffix,
-                  startSeq: vNo.sequence + 1,
+                  startSeq: vNo.sequence,
                 };
                 newNumberings.push(obj);
                 const updateObj = {
