@@ -624,9 +624,60 @@ export class MigrationService {
         await connection.db(db).collection('roles').deleteOne({ validateName: 'admin' });
         await connection.db(db).collection('roles')
           .updateMany({}, { $unset: { isDefault: 1, __v: 1 } });
-        await connection.db(db).collection('users').updateOne({ isAdmin: true }, { $unset: { role: 1 } });
-        await connection.db(db).collection('users')
-          .updateMany({}, { $unset: { __v: 1 } });
+      }
+
+      async function userMaster(db: string) {
+        const arr: any = [
+          {
+            updateMany: {
+              filter: { defaultPassword: { $exists: false } },
+              update: {
+                $set: { defaultPassword: false },
+              },
+            },
+          },
+          {
+            updateMany: {
+              filter: { actCode: { $exists: false } },
+              update: {
+                $set: { hide: false },
+              },
+            },
+          },
+          {
+            updateMany: {
+              filter: { isAccountant: { $exists: false } },
+              update: {
+                $set: { isAccountant: false },
+              },
+            },
+          },
+          {
+            updateMany: {
+              filter: { email: null },
+              update: {
+                $unset: { email: 1 },
+              },
+            },
+          },
+          {
+            updateMany: {
+              filter: {},
+              update: {
+                $unset: { __v: 1, isDefault: 1 },
+              },
+            },
+          },
+          {
+            updateOne: {
+              filter: { isAdmin: true },
+              update: {
+                $unset: { role: 1 },
+              },
+            },
+          },
+        ];
+        await connection.db(db).collection('users').bulkWrite(arr);
       }
 
       async function inventoryMaster(db: string, user: Types.ObjectId) {
@@ -2587,6 +2638,8 @@ export class MigrationService {
         console.log('rackMaster End');
         await roleMaster(db);
         console.log('roleMaster End');
+        await userMaster(db);
+        console.log('userMaster End');
         await manufacturerMaster(db, adminUserId);
         console.log('manufacturerMaster End');
         await sectionMaster(db, adminUserId);
