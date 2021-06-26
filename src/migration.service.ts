@@ -654,9 +654,17 @@ export class MigrationService {
           },
           {
             updateMany: {
-              filter: { email: null },
+              filter: { $or : [ { email: '' }, { email : null } ] },
               update: {
                 $unset: { email: 1 },
+              },
+            },
+          },
+          {
+            updateMany: {
+              filter:{ $or : [ { address: '' }, { address : null } ] },
+              update: {
+                $unset: { address: 1 },
               },
             },
           },
@@ -1122,7 +1130,7 @@ export class MigrationService {
               const doc: any = {
                 _id: voucher._id,
                 branch: Types.ObjectId(voucher.branch.id),
-                date: voucher.date,
+                date: new Date(voucher.date).setUTCHours(0, 0, 0, 0),
                 act: false,
                 actHide: false,
                 amount: round(voucher.amount),
@@ -1217,7 +1225,7 @@ export class MigrationService {
             const doc = {
               _id: voucher._id,
               branch,
-              date: voucher.date,
+              date: new Date(voucher.date).setUTCHours(0, 0, 0, 0),
               act: false,
               actHide: false,
               amount: round(voucher.amount),
@@ -1485,7 +1493,7 @@ export class MigrationService {
               const partyLoc = STATE.find((loc) => voucher.gstInfo.source.location.defaultName === loc.defaultName).code;
               const initialDoc: any = {
                 _id: voucher._id,
-                date: voucher.date,
+                date: new Date(voucher.date).setUTCHours(0, 0, 0, 0),
                 billDate: collectionName === 'purchases' ? voucher?.billDate ?? voucher.date : undefined,
                 vendor: Types.ObjectId(voucher.vendor.id),
                 branch: Types.ObjectId(voucher.branch.id),
@@ -1687,7 +1695,7 @@ export class MigrationService {
             for (const voucher of vouchers) {
               const initialDoc = {
                 _id: voucher._id,
-                date: voucher.date,
+                date: new Date(voucher.date).setUTCHours(0, 0, 0, 0),
                 branch: Types.ObjectId(voucher.branch.id),
                 customer: voucher.customer ? Types.ObjectId(voucher.customer.id) : null,
                 customerGroup: voucher.customer?.customerGroup ? Types.ObjectId(voucher.customer.customerGroup) : null,
@@ -1961,7 +1969,7 @@ export class MigrationService {
               const amount = round(voucher.amount);
               const initialDoc: any = {
                 _id: voucher._id,
-                date: voucher.date,
+                date: new Date(voucher.date).setUTCHours(0, 0, 0, 0),
                 branch: Types.ObjectId(voucher.branch.id),
                 warehouse: voucher.warehouse?.id ? Types.ObjectId(voucher.warehouse.id) : null,
                 voucherType: voucher.voucherType,
@@ -2100,7 +2108,7 @@ export class MigrationService {
               const amount = round(voucher.amount);
               const sourceBranchDoc: any = {
                 _id: voucher._id,
-                date: voucher.date,
+                date: new Date(voucher.date).setUTCHours(0, 0, 0, 0),
                 branch: Types.ObjectId(voucher.branch.id),
                 voucherType: 'STOCK_JOURNAL',
                 refNo: voucher.refNo,
@@ -2646,7 +2654,7 @@ export class MigrationService {
         console.log('sectionMaster End');
         await unitMaster(db, adminUserId);
         console.log('unitMaster End');
-        if (await connection.db(db).collection('deskstopclients').countDocuments() > 0) {
+        if (await connection.db(db).collection('desktopclients').countDocuments() > 0) {
           await desktopClientMaster(db);
         }
         console.log('desktopClientMaster End');
