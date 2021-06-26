@@ -1130,7 +1130,7 @@ export class MigrationService {
               const doc: any = {
                 _id: voucher._id,
                 branch: Types.ObjectId(voucher.branch.id),
-                date: new Date(voucher.date).setUTCHours(0, 0, 0, 0),
+                date:  new Date(new Date(voucher.date).setUTCHours(0, 0, 0, 0)),
                 act: false,
                 actHide: false,
                 amount: round(voucher.amount),
@@ -1225,7 +1225,7 @@ export class MigrationService {
             const doc = {
               _id: voucher._id,
               branch,
-              date: new Date(voucher.date).setUTCHours(0, 0, 0, 0),
+              date: new Date(new Date(voucher.date).setUTCHours(0, 0, 0, 0)),
               act: false,
               actHide: false,
               amount: round(voucher.amount),
@@ -1493,7 +1493,7 @@ export class MigrationService {
               const partyLoc = STATE.find((loc) => voucher.gstInfo.source.location.defaultName === loc.defaultName).code;
               const initialDoc: any = {
                 _id: voucher._id,
-                date: new Date(voucher.date).setUTCHours(0, 0, 0, 0),
+                date: new Date(new Date(voucher.date).setUTCHours(0, 0, 0, 0)),
                 billDate: collectionName === 'purchases' ? voucher?.billDate ?? voucher.date : undefined,
                 vendor: Types.ObjectId(voucher.vendor.id),
                 branch: Types.ObjectId(voucher.branch.id),
@@ -1695,7 +1695,7 @@ export class MigrationService {
             for (const voucher of vouchers) {
               const initialDoc = {
                 _id: voucher._id,
-                date: new Date(voucher.date).setUTCHours(0, 0, 0, 0),
+                date: new Date(new Date(voucher.date).setUTCHours(0, 0, 0, 0)),
                 branch: Types.ObjectId(voucher.branch.id),
                 customer: voucher.customer ? Types.ObjectId(voucher.customer.id) : null,
                 customerGroup: voucher.customer?.customerGroup ? Types.ObjectId(voucher.customer.customerGroup) : null,
@@ -1947,7 +1947,7 @@ export class MigrationService {
         console.log(`Total ${collectionName} count was ${count}`);
         if (count > 0) {
           const inventories: any = await connection.db(db).collection('inventories')
-            .find({}, { projection: { tax: 1 } }).map((inv: any) => { return { inventory: { id: inv._id.toString(), tax: inv.tax } } }).toArray();
+            .find({}, { projection: { tax: 1 } }).map((inv: any) => { return { inventory: { id: inv._id.toString() }, tax: inv.tax } }).toArray();
           const limit = 500;
           const begin = new Date().getTime();
           for (let skip = 0; skip <= count; skip = skip + limit) {
@@ -1969,7 +1969,7 @@ export class MigrationService {
               const amount = round(voucher.amount);
               const initialDoc: any = {
                 _id: voucher._id,
-                date: new Date(voucher.date).setUTCHours(0, 0, 0, 0),
+                date: new Date(new Date(voucher.date).setUTCHours(0, 0, 0, 0)),
                 branch: Types.ObjectId(voucher.branch.id),
                 warehouse: voucher.warehouse?.id ? Types.ObjectId(voucher.warehouse.id) : null,
                 voucherType: voucher.voucherType,
@@ -2108,7 +2108,7 @@ export class MigrationService {
               const amount = round(voucher.amount);
               const sourceBranchDoc: any = {
                 _id: voucher._id,
-                date: new Date(voucher.date).setUTCHours(0, 0, 0, 0),
+                date: new Date(new Date(voucher.date).setUTCHours(0, 0, 0, 0)),
                 branch: Types.ObjectId(voucher.branch.id),
                 voucherType: 'STOCK_JOURNAL',
                 refNo: voucher.refNo,
@@ -2962,6 +2962,19 @@ export class MigrationService {
                 accTxn = applyAccTransactions(bookObj);
               }
               if (colls.includes(collection)) {
+                let altAccount: any;
+                if (['SALE', 'DEBIT_NOTE'].includes(voucher.voucherType)) {
+                  altAccount = _.maxBy(
+                    voucher.acTrns?.filter(x => x.accountType !== 'STOCK'),
+                    'debit',
+                  );
+                }
+                if (['PURCHASE', 'CREDIT_NOTE'].includes(voucher.voucherType)) {
+                  altAccount = _.maxBy(
+                    voucher.acTrns?.filter(x => x.accountType !== 'STOCK'),
+                    'credit',
+                  );
+                }
                 bookObj = {
                   date: voucher.date,
                   isOpening: false,
@@ -2978,7 +2991,7 @@ export class MigrationService {
                   refNo: voucher.refNo,
                 };
                 accTxn = applyAccTransactions(_.assign(bookObj, { trns: voucher.acTrns || [] }));
-                invTxn = applyInvTransactions(_.assign(bookObj, { trns: voucher.invTrns }));
+                invTxn = applyInvTransactions(_.assign(bookObj, { trns: voucher.invTrns, altAccount: altAccount.account }));
               }
 
               if (accTxn.length > 0) {
@@ -3017,7 +3030,7 @@ export class MigrationService {
           await reWriteVouchers(db, collection);
         }
         const dbEnd = new Date().getTime();
-        console.log(`******${db} duration ${(dbEnd - dbStart) / (1000 * 600)}-min end*****`);
+        console.log(`******${db} duration ${(dbEnd - dbStart) / (1000 * 60)}-min end*****`);
         const end = new Date().getTime();
         const totalDuration = (end - start) / (1000 * 60);
         return `re-write completed ${totalDuration}-min`;
