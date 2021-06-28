@@ -547,10 +547,34 @@ export class MigrationService {
       }
 
       async function doctorMaster(db: string, user: Types.ObjectId) {
-        await connection.db(db).collection('doctors')
-          .updateMany({}, { $set: { createdBy: user, updatedBy: user }, $unset: { __v: 1 } });
-        await connection.db(db).collection('doctors')
-          .updateMany({ $or: [{ aliasName: '' }, { aliasName: null }] }, { $unset: { aliasName: 1, validateAliasName: 1 } });
+        await connection.db(db).collection('doctors').updateMany({}, { $rename: { licenseNumber: 'licenseNo' } });
+        const arr: any = [
+          {
+            updateMany: {
+              filter: {},
+              update: {
+                $set: { createdBy: user, updatedBy: user }, $unset: { __v: 1 },
+              },
+            },
+          },
+          {
+            updateMany: {
+              filter: { $or: [{ aliasName: '' }, { aliasName: null }] },
+              update: {
+                $unset: { aliasName: 1, validateAliasName: 1 },
+              },
+            },
+          },
+          {
+            updateMany: {
+              filter: { $or: [{ licenseNo: '' }, { licenseNo: null }] },
+              update: {
+                $unset: { licenseNo: 1 },
+              },
+            },
+          },
+        ];
+        await connection.db(db).collection('doctors').bulkWrite(arr);
       }
 
       async function patientMaster(db: string, user: Types.ObjectId) {
@@ -561,7 +585,7 @@ export class MigrationService {
       }
 
       async function financialYear(db: string) {
-        await connection.db(db).collection('financialyears').updateMany({}, { $unset: { fSync: 1, fNo: 1, __v: 1 } });
+        await connection.db(db).collection('financialyears').updateMany({}, { $unset: { fSync: 1, fNo: 1, __v: 1, updatedAt: 1, fSort: 1 } });
       }
 
       async function manufacturerMaster(db: string, user: Types.ObjectId) {
@@ -1633,7 +1657,7 @@ export class MigrationService {
                   const inward = (item.qty + freeQty) * item.unit.conversion;
                   const nlc = round(item.taxableAmount / (item.qty + freeQty) / item.unit.conversion);
                   _.assign(invItemObj, { batchNo: batch.batchNo.replace(/[^a-z0-9]/gi, '').toUpperCase(), freeQty, sRate: round(item.sRate) });
-                  _.assign(invTrnObj, { _id: batch.transactionId, barcode: new Types.ObjectId(), nlc, batchNo: batch.batchNo.replace(/[^a-z0-9]/gi, '').toUpperCase(), inward, sRate: round(item.sRate), pRateTaxInc: false, sRateTaxInc: true });
+                  _.assign(invTrnObj, { _id: batch.transactionId, barcode: new Types.ObjectId(), nlc, pRate:round(item.rate), batchNo: batch.batchNo.replace(/[^a-z0-9]/gi, '').toUpperCase(), inward, sRate: round(item.sRate), pRateTaxInc: false, sRateTaxInc: true });
                 } else {
                   const inward = item.qty * item.unit.conversion * -1;
                   _.assign(invItemObj, { batch: batch.transactionId });
@@ -2195,6 +2219,7 @@ export class MigrationService {
                     unitConv: item.unit.conversion,
                     mrp: round(item.mrp),
                     rate: round(item.cost),
+                    pRate: round(item.cost),
                     sRate: round(batch.sRate),
                     outward: 0,
                     nlc: round(item.cost / item.unit.conversion),
@@ -2457,6 +2482,7 @@ export class MigrationService {
                     qty: '$qty',
                     mrp: '$mrp',
                     rate: '$rate',
+                    pRate: '$rate',
                     sRate: '$sRate',
                     nlc: { $round: [{ $divide: ['$rate', '$unitConv'] }, 2] },
                     expiry: { $cond: [{ $ne: ['$expiry', null] }, '$expiry', '$REMOVE'] },
@@ -2735,7 +2761,7 @@ export class MigrationService {
           }).toArray();
         console.log(`GET batch duration ${(new Date().getTime() - st) / 1000}-sec`);
         await connection.db(db).createCollection('purchases_new');
-        await purchaseVoucher(db, 'purchases', accounts, pendings, batches); // duration p & p_r 10min
+        await purchaseVoucher(db, 'purchases', accounts, pendings, batches);
         console.log('purchase end');
         await purchaseVoucher(db, 'purchase_returns', accounts, pendings, batches);
         console.log('purchase return end');
