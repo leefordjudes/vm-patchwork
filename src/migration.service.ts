@@ -1678,7 +1678,7 @@ export class MigrationService {
               if (roundOff) {
                 _.assign(acAdjs, { roundedOff: roundOff.credit > 0 ? round(roundOff.credit * -1) : round(roundOff.debit) });
               }
-              _.assign(doc, { acAdjs, acItems, acTrns, invTrns, invItems });
+              _.assign(doc, { acAdjs, acTrns, invTrns, invItems });
               bulkOperation.insert(doc);
             }
             const start1 = new Date().getTime();
@@ -1948,7 +1948,7 @@ export class MigrationService {
               if (incSummary.length > 0) {
                 _.assign(doc, { incSummary });
               }
-              _.assign(doc, { acAdjs, acItems, acTrns, invTrns, invItems, taxSummary });
+              _.assign(doc, { acAdjs, acTrns, invTrns, invItems, taxSummary });
               bulkOperation.insert(doc);
             }
 
