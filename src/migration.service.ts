@@ -1368,6 +1368,8 @@ export class MigrationService {
               batch: '$invTrns.batch',
               batchNo: { $ifNull: [{ $toUpper: '$invTrns.batchNo' }, 'NA'] },
               voucherName: 'PURCHASE',
+              branch: { $toObjectId: '$batchArr.branch' },
+              inventory: { $toObjectId: '$batchArr.inventory' },
             }
           },
           { $merge: { into: 'batches_rearrange' } }
@@ -1417,7 +1419,9 @@ export class MigrationService {
               batch: '$invTrns.batch',
               sRate: '$batchArr.sRate',
               batchNo: { $ifNull: [{ $toUpper: '$batchArr.batchNo' }, 'NA'] },
-              voucherName: 1
+              voucherName: 1,
+              branch: { $toObjectId: '$batchArr.branch' },
+              inventory: { $toObjectId: '$batchArr.inventory' },
             }
           },
           { $merge: { into: 'batches_rearrange' } }
