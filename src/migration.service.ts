@@ -3096,19 +3096,19 @@ export class MigrationService {
       const dbs = ['velavanstationery', 'velavanhm', 'ttgold', 'ttgoldpalace', 'auditplustech', 'ramasamy', 'velavanmedical'];
       const errArray = [];
       for (const db of dbs) {
-        const cashRegisterBooks: any = await connection.db(db).collection('cashregisterbooks')
-          .find({ isApproved: false }, {
-            projection: { voucherNo: 1, accountName: 1, voucherName: 1, date: 1 },
-            sort: { accountName: 1, date: 1 }
-          }).toArray();
-        for (const book of cashRegisterBooks) {
-          errArray.push({
-            registerName: book.accountName,
-            voucherNo: book.voucherNo,
-            voucherName: book.voucherName,
-            date: book.date,
-          });
-        }
+        // const cashRegisterBooks: any = await connection.db(db).collection('cashregisterbooks')
+        //   .find({ isApproved: false }, {
+        //     projection: { voucherNo: 1, accountName: 1, voucherName: 1, date: 1 },
+        //     sort: { accountName: 1, date: 1 }
+        //   }).toArray();
+        // for (const book of cashRegisterBooks) {
+        //   errArray.push({
+        //     registerName: book.accountName,
+        //     voucherNo: book.voucherNo,
+        //     voucherName: book.voucherName,
+        //     date: book.date,
+        //   });
+        // }
         const inventories = await connection.db(db).collection('inventories')
           .aggregate([
             {
@@ -3137,15 +3137,15 @@ export class MigrationService {
             });
           }
         }
-        const cashTrnsvouchers: any = await connection.db(db).collection('cashtransfers')
-          .find(
-            { $or: [{ isApproved: null }, { isApproved: false }] },
-            {
-              projection: { destination: 1, amount: 1, date: 1 },
-              sort: { 'destination.name': 1, date: 1 }
-            }
-          )
-          .toArray();
+        // const cashTrnsvouchers: any = await connection.db(db).collection('cashtransfers')
+        //   .find(
+        //     { $or: [{ isApproved: null }, { isApproved: false }] },
+        //     {
+        //       projection: { destination: 1, amount: 1, date: 1 },
+        //       sort: { 'destination.name': 1, date: 1 }
+        //     }
+        //   )
+        //   .toArray();
         const stockTrnsvouchers: any = await connection.db(db).collection('stock_transfers')
           .find(
             { $or: [{ approved: null }, { approved: false }] },
@@ -3155,15 +3155,15 @@ export class MigrationService {
             }
           )
           .toArray();
-        for (const cashVoucher of cashTrnsvouchers) {
-          errArray.push({
-            organization: db,
-            destinationRegsister: cashVoucher.destination.displayName,
-            voucherName: 'Cash Transfer',
-            amount: cashVoucher.amount,
-            errMsg: 'Cash Transfer not approved',
-          });
-        }
+        // for (const cashVoucher of cashTrnsvouchers) {
+        //   errArray.push({
+        //     organization: db,
+        //     destinationRegsister: cashVoucher.destination.displayName,
+        //     voucherName: 'Cash Transfer',
+        //     amount: cashVoucher.amount,
+        //     errMsg: 'Cash Transfer not approved',
+        //   });
+        // }
         for (const stockVoucher of stockTrnsvouchers) {
           errArray.push({
             organization: db,
