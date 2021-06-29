@@ -2098,7 +2098,7 @@ export class MigrationService {
             const voucherNumbers: any = await connection.db(db).collection('vouchernumberings')
               .find({
                 branch: { $in: targetBranchCount.map((b) => b.branch) }, voucherType: 'STOCK_JOURNAL'
-              }, { sort: { _id: -1 }, limit: targetBranchCount.length }).toArray();
+              }, { sort: { fYear: -1 }, limit: targetBranchCount.length }).toArray();
             const updateArr = [];
             const newNumberings = [];
             for (const vNo of voucherNumbers) {
@@ -3017,7 +3017,7 @@ export class MigrationService {
                   refNo: voucher.refNo,
                 };
                 accTxn = applyAccTransactions(_.assign(bookObj, { trns: voucher.acTrns || [] }));
-                invTxn = applyInvTransactions(_.assign(bookObj, { trns: voucher.invTrns, altAccount: altAccount.account }));
+                invTxn = applyInvTransactions(_.assign(bookObj, { trns: voucher.invTrns, altAccount: altAccount?.account }));
               }
 
               if (accTxn.length > 0) {
@@ -3059,7 +3059,7 @@ export class MigrationService {
         console.log(`******${db} duration ${(dbEnd - dbStart) / (1000 * 60)}-min end*****`);
         const end = new Date().getTime();
         const totalDuration = (end - start) / (1000 * 60);
-        return `re-write completed ${totalDuration}-min`;
+        console.log(`re-write completed ${totalDuration}-min`);
       }
       await connection.close();
       return 'OK';
