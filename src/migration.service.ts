@@ -1672,7 +1672,7 @@ export class MigrationService {
               }
               const roundOff = voucher.acTrns.find((acc: any) => (acc.account.defaultName?.includes('ROUNDED')));
               const acAdjs = {};
-              if (voucher.discount > 0) {
+              if (voucher?.discount !== 0) {
                 _.assign(acAdjs, { discount: round(voucher.discount) });
               }
               if (roundOff) {
