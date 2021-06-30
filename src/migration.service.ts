@@ -23,10 +23,7 @@ export class MigrationService {
       const count = await connection.db(db).collection(collectionName).countDocuments();
       if (count > 0) {
         console.log({ organization: db, collectionName });
-        const start = new Date().getTime();
         const bulkOperation: any = connection.db(db).collection(collectionName).initializeOrderedBulkOp();
-        const sttt = new Date().getTime();
-        console.log(`bulkOperation initialzed Duration ${start - sttt}`);
         const vouchers: any = await connection.db(db).collection(collectionName)
           .find({}, {
             projection: { invTrns: 1 },
@@ -58,7 +55,8 @@ export class MigrationService {
           projection: { batch: 1 },
         }).toArray();
       const bulkOperation: any = connection.db(db).collection('inventory_transactions').initializeOrderedBulkOp();
-      if (records.length) {
+      if (records.length > 0) {
+        console.log(`${db} inventory_transactions START`);
         for (const doc of records) {
           if (doc.batch) {
             const invTrnsobj = {
@@ -75,16 +73,20 @@ export class MigrationService {
           }
         }
         await bulkOperation.execute();
+        console.log(`${db} inventory_transactions END`);
       }
     }
     const dbs = ['velavanstationery', 'velavanhm', 'ttgold', 'ttgoldpalace', 'auditplustech', 'ramasamy'];
     for (const db of dbs) {
+      console.log(`${db} start`);
       const collections = ['inventory_openings', 'purchases', 'stock_adjustments'];
       for (const coll of collections) {
         await barcode(db, coll);
       }
       await invBook(db);
+      console.log(`${db} end`);
     }
+    return 'bar code updated sucessfully';
   }
   async migration() {
     try {
