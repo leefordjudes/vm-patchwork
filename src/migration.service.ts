@@ -10,6 +10,82 @@ import { round } from './utils/utils';
 
 @Injectable()
 export class MigrationService {
+
+  async barcode() {
+    const connection = await new MongoClient(URI, {
+      useUnifiedTopology: true,
+      useNewUrlParser: true,
+    }).connect();
+    if (!connection.isConnected) {
+      return 'Connection failed';
+    }
+    async function barcode(db: string, collectionName: string) {
+      const count = await connection.db(db).collection(collectionName).countDocuments();
+      if (count > 0) {
+        console.log({ organization: db, collectionName });
+        const start = new Date().getTime();
+        const bulkOperation: any = connection.db(db).collection(collectionName).initializeOrderedBulkOp();
+        const sttt = new Date().getTime();
+        console.log(`bulkOperation initialzed Duration ${start - sttt}`);
+        const vouchers: any = await connection.db(db).collection(collectionName)
+          .find({}, {
+            projection: { invTrns: 1 },
+          }).toArray();
+        for (const voucher of vouchers) {
+          for (const invTrn of voucher.invTrns) {
+            if (invTrn._id) {
+              const invTrnsobj = {
+                updateOne: {
+                  filter: { _id: voucher._id, invTrns: { $elemMatch: { _id: invTrn._id } } },
+                  update: {
+                    $set: {
+                      'invTrns.$[elm].barcode': invTrn._id,
+                    },
+                  },
+                  arrayFilters: [{ 'elm._id': invTrn._id }],
+                },
+              };
+              bulkOperation.raw(invTrnsobj);
+            }
+          }
+        }
+        await bulkOperation.execute();
+      }
+    }
+    async function invBook(db: string) {
+      const records: any = await connection.db(db).collection('inventory_transactions')
+        .find({ batch: { $exists: true } }, {
+          projection: { batch: 1 },
+        }).toArray();
+      const bulkOperation: any = connection.db(db).collection('inventory_transactions').initializeOrderedBulkOp();
+      if (records.length) {
+        for (const doc of records) {
+          if (doc.batch) {
+            const invTrnsobj = {
+              updateOne: {
+                filter: { _id: doc._id },
+                update: {
+                  $set: {
+                    barcode: doc.batch,
+                  },
+                },
+              },
+            };
+            bulkOperation.raw(invTrnsobj);
+          }
+        }
+        await bulkOperation.execute();
+      }
+    }
+    const dbs = ['velavanstationery', 'velavanhm', 'ttgold', 'ttgoldpalace', 'auditplustech', 'ramasamy'];
+    for (const db of dbs) {
+      const collections = ['inventory_openings', 'purchases', 'stock_adjustments'];
+      for (const coll of collections) {
+        await barcode(db, coll);
+      }
+      await invBook(db);
+    }
+  }
   async migration() {
     try {
       const connection = await new MongoClient(URI, {

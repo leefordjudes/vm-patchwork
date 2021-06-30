@@ -24,4 +24,10 @@ export class MigrationController {
     return await this.migrationService.migration();
   }
 
+  @Post('barcode')
+  async barcode() {
+    console.log('auditplus2.0 barcode controller init');
+    return await this.migrationService.barcode();
+  }
+
 }
