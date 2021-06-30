@@ -19,7 +19,7 @@ export class MigrationService {
     if (!connection.isConnected) {
       return 'Connection failed';
     }
-    async function barcode(db: string, collectionName: string) {
+    async function barcode(db: string, collectionName: string, batches: any) {
       const count = await connection.db(db).collection(collectionName).countDocuments();
       if (count > 0) {
         console.log({ organization: db, collectionName });
@@ -29,14 +29,17 @@ export class MigrationService {
             projection: { invTrns: 1 },
           }).toArray();
         for (const voucher of vouchers) {
+          const arrr = voucher.invTrns.map((x) => { return { _id: x._id?.toString() } });
+          const invBatches: any = _.intersectionBy(batches, arrr, '_id');
           for (const invTrn of voucher.invTrns) {
             if (invTrn._id) {
+              const barcode = invBatches.find((bat) => bat._id.toString() === invTrn._id.toString()).batch;
               const invTrnsobj = {
                 updateOne: {
                   filter: { _id: voucher._id, invTrns: { $elemMatch: { _id: invTrn._id } } },
                   update: {
                     $set: {
-                      'invTrns.$[elm].barcode': invTrn._id,
+                      'invTrns.$[elm].barcode': Types.ObjectId(barcode),
                     },
                   },
                   arrayFilters: [{ 'elm._id': invTrn._id }],
@@ -49,7 +52,8 @@ export class MigrationService {
         await bulkOperation.execute();
       }
     }
-    async function invBook(db: string) {
+
+    async function invBook(db: string, batches: any) {
       const records: any = await connection.db(db).collection('inventory_transactions')
         .find({ batch: { $exists: true } }, {
           projection: { batch: 1 },
@@ -59,12 +63,13 @@ export class MigrationService {
         console.log(`${db} inventory_transactions START`);
         for (const doc of records) {
           if (doc.batch) {
+            const barcode = batches.find((bat) => bat._id === doc.batch.toString()).batch;
             const invTrnsobj = {
               updateOne: {
                 filter: { _id: doc._id },
                 update: {
                   $set: {
-                    barcode: doc.batch,
+                    barcode: Types.ObjectId(barcode),
                   },
                 },
               },
@@ -79,11 +84,19 @@ export class MigrationService {
     const dbs = ['velavanstationery', 'velavanhm', 'ttgold', 'ttgoldpalace', 'auditplustech', 'ramasamy'];
     for (const db of dbs) {
       console.log(`${db} start`);
+      const batches = await connection.db(db).collection('batches_rearrange')
+        .find({}, { projection: { batch: 1, transactionId: 1 } })
+        .map((elm: any) => {
+          return {
+            batch: elm.batch,
+            _id: elm.transactionId.toString(),
+          }
+        }).toArray();
       const collections = ['inventory_openings', 'purchases', 'stock_adjustments'];
       for (const coll of collections) {
-        await barcode(db, coll);
+        await barcode(db, coll, batches);
       }
-      await invBook(db);
+      await invBook(db, batches);
       console.log(`${db} end`);
     }
     return 'bar code updated sucessfully';
