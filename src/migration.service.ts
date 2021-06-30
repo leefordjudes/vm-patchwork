@@ -81,6 +81,25 @@ export class MigrationService {
         console.log(`${db} inventory_transactions END`);
       }
     }
+
+    async function invBarcode(db: string) {
+      const invBarcodes = await connection.db(db).collection('inv_barcode').find({}).toArray();
+      const inventories = await connection.db(db).collection('inventories').find({_id: {$in:invBarcodes.map((code) => code._id)}}, { projection: { _id: 1 } }).toArray();
+      const arrr = [];
+      for (const inv of inventories) {
+        const barcode = invBarcodes.find((i) => i._id.toString() === inv._id.toString()).barcode;
+        const obj =  {
+          updateOne: {
+            filter: { _id: inv._id },
+            update: {
+              $set: { barcode },
+            },
+          },
+        };
+        arrr.push(obj);
+      }
+      await connection.db(db).collection('inventories').bulkWrite(arrr);
+    }
     const dbs = ['velavanstationery', 'velavanhm', 'ttgold', 'ttgoldpalace', 'auditplustech', 'ramasamy'];
     for (const db of dbs) {
       console.log(`${db} start`);
@@ -92,12 +111,19 @@ export class MigrationService {
             _id: elm.transactionId.toString(),
           }
         }).toArray();
+
       const collections = ['inventory_openings', 'purchases', 'stock_adjustments'];
       for (const coll of collections) {
         await barcode(db, coll, batches);
       }
       await invBook(db, batches);
       console.log(`${db} end`);
+      if (['velavanstationery', 'velavanhm'].includes(db)) {
+        console.log(`${db} inv_barcode update start`);
+        await invBarcode(db);
+        await connection.db(db).collection('inv_barcode').drop();
+        console.log(`${db} inv_barcode update end and inv_barcode drop`);
+      }
     }
     return 'bar code updated sucessfully';
   }
