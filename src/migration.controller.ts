@@ -24,4 +24,10 @@ export class MigrationController {
     return await this.migrationService.migration();
   }
 
+  @Post('refNo')
+  async refNo() {
+    console.log('auditplus2.0 unset acTrns.refNo controller init');
+    return await this.migrationService.refNo();
+  }
+
 }

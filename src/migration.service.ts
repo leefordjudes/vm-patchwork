@@ -10,6 +10,24 @@ import { round } from './utils/utils';
 
 @Injectable()
 export class MigrationService {
+
+  async refNo() {
+    const connection = await new MongoClient(URI, {
+      useUnifiedTopology: true,
+      useNewUrlParser: true,
+    }).connect();
+    if (!connection.isConnected) {
+      return 'Connection failed';
+    }
+    const dbs = ['velavanstationery', 'velavanhm', 'ttgold', 'ttgoldpalace', 'auditplustech', 'ramasamy', 'velavanmedical'];
+    for (const db of dbs) {
+      await connection.db(db).collection('vouchers').updateMany({ 'acTrns.refNo': { $exists: true } }, { $unset: { 'acTrns.$.refNo': 1 } });
+      await connection.db(db).collection('sales').updateMany({ 'acTrns.refNo': { $exists: true } }, { $unset: { 'acTrns.$.refNo': 1 } });
+      await connection.db(db).collection('purchases').updateMany({ 'acTrns.refNo': { $exists: true } }, { $unset: { 'acTrns.$.refNo': 1 } });
+    }
+    return 'refNo $unset completed';
+  }
+
   async migration() {
     try {
       const connection = await new MongoClient(URI, {
