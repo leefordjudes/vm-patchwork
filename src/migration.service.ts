@@ -24,6 +24,7 @@ export class MigrationService {
       await connection.db(db).collection('vouchers').updateMany({ 'acTrns.refNo': { $exists: true } }, { $unset: { 'acTrns.$.refNo': 1 } });
       await connection.db(db).collection('sales').updateMany({ 'acTrns.refNo': { $exists: true } }, { $unset: { 'acTrns.$.refNo': 1 } });
       await connection.db(db).collection('purchases').updateMany({ 'acTrns.refNo': { $exists: true } }, { $unset: { 'acTrns.$.refNo': 1 } });
+      await connection.db(db).collection('stock_adjustments').updateMany({ amount: { $exists: false } }, { $set: { amount: 0 } });
     }
     return 'refNo $unset completed';
   }
