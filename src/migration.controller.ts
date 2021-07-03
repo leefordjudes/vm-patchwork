@@ -6,22 +6,28 @@ import { MigrationService } from './migration.service';
 export class MigrationController {
   constructor(private readonly migrationService: MigrationService) { }
 
-  @Post('check')
-  async checkValidation() {
-    console.log('auditplus2.0 checkValidation controller init');
-    return await this.migrationService.check();
-  }
+  // @Post('check')
+  // async checkValidation() {
+  //   console.log('auditplus2.0 checkValidation controller init');
+  //   return await this.migrationService.check();
+  // }
 
-  @Post('closing')
-  async check() {
-    console.log('auditplus2.0 closing controller init');
-    return await this.migrationService.closing();
-  }
+  // @Post('closing')
+  // async check() {
+  //   console.log('auditplus2.0 closing controller init');
+  //   return await this.migrationService.closing();
+  // }
 
-  @Post('migration')
-  async migration() {
-    console.log('auditplus2.0 migration controller init');
-    return await this.migrationService.migration();
+  // @Post('migration')
+  // async migration() {
+  //   console.log('auditplus2.0 migration controller init');
+  //   return await this.migrationService.migration();
+  // }
+
+  @Post('salt')
+  async salt() {
+    console.log('auditplus2.0 salt controller init');
+    return await this.migrationService.salt();
   }
 
 }

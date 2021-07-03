@@ -10,6 +10,20 @@ import { round } from './utils/utils';
 
 @Injectable()
 export class MigrationService {
+
+  async salt() {
+    const connection = await new MongoClient(URI, {
+      useUnifiedTopology: true,
+      useNewUrlParser: true,
+    }).connect();
+    if (!connection.isConnected) {
+      return 'Connection Failed';
+    }
+    const result = await connection.db('velavanmedical').collection('inventories').updateMany({ salts : { $elemMatch : { $eq : null } } }, { $pull: { salts: null } });
+    console.log(`Inventory Salts null value removed, match count ${result.matchedCount} || modify count ${result.modifiedCount}`);
+    return `Inventory Salts null value removed, match count ${result.matchedCount} || modify count ${result.modifiedCount}`;
+  }
+
   async migration() {
     try {
       const connection = await new MongoClient(URI, {
