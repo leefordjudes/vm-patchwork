@@ -10,6 +10,41 @@ import { round } from './utils/utils';
 
 @Injectable()
 export class MigrationService {
+
+  async delete() {
+    const connection = await new MongoClient(URI, {
+      useUnifiedTopology: true,
+      useNewUrlParser: true,
+    }).connect();
+    if (!connection.isConnected) {
+      return 'Connection Failed';
+    }
+    console.log('Delete Collection Started....');
+    const dbs = ['velavanstationery', 'velavanhm', 'ttgold', 'ttgoldpalace', 'auditplustech', 'ramasamy', 'velavanmedical'];
+    for (const db of dbs) {
+      await connection.db(db).collection('branch_transactions').drop();
+      await connection.db(db).collection('batches_rearrange').drop();
+      await connection.db(db).collection('resultspending').drop();
+    }
+    const aplusDB = 'auditplusdb';
+    await connection.db(aplusDB).collection('accounts').drop();
+    await connection.db(aplusDB).collection('accounttypes').drop();
+    await connection.db(aplusDB).collection('configurations').drop();
+    await connection.db(aplusDB).collection('costcategories').drop();
+    await connection.db(aplusDB).collection('countries').drop();
+    await connection.db(aplusDB).collection('daterestrictions').drop();
+    await connection.db(aplusDB).collection('gstregistrations').drop();
+    await connection.db(aplusDB).collection('organizationtypes').drop();
+    await connection.db(aplusDB).collection('privileges').drop();
+    await connection.db(aplusDB).collection('states').drop();
+    await connection.db(aplusDB).collection('taxes').drop();
+    await connection.db(aplusDB).collection('taxtypes').drop();
+    await connection.db(aplusDB).collection('templatelayouts').drop();
+    await connection.db(aplusDB).collection('vouchertypes').drop();
+    console.log('Delete Collection End....');
+    return 'Collections deleted sucessfully';
+  }
+
   async migration() {
     try {
       const connection = await new MongoClient(URI, {
