@@ -20,19 +20,34 @@ export class MigrationService {
       return 'Connection Failed';
     }
     const dbs = ['velavanstationery', 'velavanhm', 'ttgold', 'ttgoldpalace', 'auditplustech', 'ramasamy', 'velavanmedical'];
+    const results = [];
+    const saleCollection = 'sales';
+    const purchaseCollection = 'purchases';
     for (const db of dbs) {
-      await connection.db(db).collection('sales').updateMany({
-        date: { $gte: new Date('2020-04-01T00:00:00.000+0000'), $lte: new Date('2021-06-29T00:00:00.000+0000') },
-        voucherType: 'SALE',
-        'acAdjs.roundedOff': { $exists: true },
-      }, { $mul: { 'acAdjs.roundedOff': -1 } });
-      
-      await connection.db(db).collection('purchases').updateMany({
-        date: { $gte: new Date('2020-04-01T00:00:00.000+0000'), $lte: new Date('2021-06-29T00:00:00.000+0000') },
-        voucherType: 'DEBIT_NOTE',
-        'acAdjs.roundedOff': { $exists: true },
-      }, { $mul: { 'acAdjs.roundedOff': -1 } });
+      const sales = await connection.db(db).collection(saleCollection).updateMany(
+        {
+          date: { $gte: new Date('2020-04-01T00:00:00.000+0000'), $lte: new Date('2021-06-29T00:00:00.000+0000') },
+          voucherType: 'SALE',
+          'acAdjs.roundedOff': { $exists: true },
+        },
+        { $mul: { 'acAdjs.roundedOff': -1 } },
+      );
+
+      results.push({ orgName: db, collectionName: saleCollection, matchedCount: sales.matchedCount, modifiedCount: sales.modifiedCount });
+
+      const purchases = await connection.db(db).collection(purchaseCollection).updateMany(
+        {
+          date: { $gte: new Date('2020-04-01T00:00:00.000+0000'), $lte: new Date('2021-06-29T00:00:00.000+0000') },
+          voucherType: 'DEBIT_NOTE',
+          'acAdjs.roundedOff': { $exists: true },
+        },
+        { $mul: { 'acAdjs.roundedOff': -1 } },
+      );
+
+      results.push({ orgName: db, collectionName: purchaseCollection, matchedCount: purchases.matchedCount, modifiedCount: purchases.modifiedCount });
     }
+    console.log(results);
+    return results;
   }
 
   async migration() {
