@@ -10,6 +10,31 @@ import { round } from './utils/utils';
 
 @Injectable()
 export class MigrationService {
+
+  async roundOff() {
+    const connection = await new MongoClient(URI, {
+      useUnifiedTopology: true,
+      useNewUrlParser: true,
+    }).connect();
+    if (!connection.isConnected) {
+      return 'Connection Failed';
+    }
+    const dbs = ['velavanstationery', 'velavanhm', 'ttgold', 'ttgoldpalace', 'auditplustech', 'ramasamy', 'velavanmedical'];
+    for (const db of dbs) {
+      await connection.db(db).collection('sales').updateMany({
+        date: { $gte: new Date('2020-04-01T00:00:00.000+0000'), $lte: new Date('2021-06-29T00:00:00.000+0000') },
+        voucherType: 'SALE',
+        'acAdjs.roundedOff': { $exists: true },
+      }, { $mul: { 'acAdjs.roundedOff': -1 } });
+      
+      await connection.db(db).collection('purchases').updateMany({
+        date: { $gte: new Date('2020-04-01T00:00:00.000+0000'), $lte: new Date('2021-06-29T00:00:00.000+0000') },
+        voucherType: 'DEBIT_NOTE',
+        'acAdjs.roundedOff': { $exists: true },
+      }, { $mul: { 'acAdjs.roundedOff': -1 } });
+    }
+  }
+
   async migration() {
     try {
       const connection = await new MongoClient(URI, {
@@ -678,7 +703,7 @@ export class MigrationService {
           },
           {
             updateMany: {
-              filter: { $or : [ { email: '' }, { email : null } ] },
+              filter: { $or: [{ email: '' }, { email: null }] },
               update: {
                 $unset: { email: 1 },
               },
@@ -686,7 +711,7 @@ export class MigrationService {
           },
           {
             updateMany: {
-              filter:{ $or : [ { address: '' }, { address : null } ] },
+              filter: { $or: [{ address: '' }, { address: null }] },
               update: {
                 $unset: { address: 1 },
               },
@@ -1154,7 +1179,7 @@ export class MigrationService {
               const doc: any = {
                 _id: voucher._id,
                 branch: Types.ObjectId(voucher.branch.id),
-                date:  new Date(new Date(voucher.date).setUTCHours(0, 0, 0, 0)),
+                date: new Date(new Date(voucher.date).setUTCHours(0, 0, 0, 0)),
                 act: false,
                 actHide: false,
                 amount: round(voucher.amount),
@@ -1661,7 +1686,7 @@ export class MigrationService {
                   const inward = (item.qty + freeQty) * item.unit.conversion;
                   const nlc = round(item.taxableAmount / (item.qty + freeQty) / item.unit.conversion);
                   _.assign(invItemObj, { batchNo: batch.batchNo.replace(/[^a-z0-9]/gi, '').toUpperCase(), freeQty, sRate: round(item.sRate) });
-                  _.assign(invTrnObj, { _id: batch.transactionId, barcode: new Types.ObjectId(), nlc, pRate:round(item.rate), batchNo: batch.batchNo.replace(/[^a-z0-9]/gi, '').toUpperCase(), inward, sRate: round(item.sRate), pRateTaxInc: false, sRateTaxInc: true });
+                  _.assign(invTrnObj, { _id: batch.transactionId, barcode: new Types.ObjectId(), nlc, pRate: round(item.rate), batchNo: batch.batchNo.replace(/[^a-z0-9]/gi, '').toUpperCase(), inward, sRate: round(item.sRate), pRateTaxInc: false, sRateTaxInc: true });
                 } else {
                   const inward = item.qty * item.unit.conversion * -1;
                   _.assign(invItemObj, { batch: batch.transactionId });
