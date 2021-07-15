@@ -182,7 +182,7 @@ export class MigrationService {
     for (const db of dbs) {
       const sales = await connection.db(db).collection(saleCollection).updateMany(
         {
-          date: { $gte: new Date('2020-04-01T00:00:00.000+0000'), $lte: new Date('2021-06-29T00:00:00.000+0000') },
+          date: { $lte: new Date('2021-06-29T00:00:00.000+0000') },
           __v: { $exists: false },
           voucherType: 'SALE',
           'acAdjs.roundedOff': { $exists: true },
@@ -194,7 +194,7 @@ export class MigrationService {
 
       const purchases = await connection.db(db).collection(purchaseCollection).updateMany(
         {
-          date: { $gte: new Date('2020-04-01T00:00:00.000+0000'), $lte: new Date('2021-06-29T00:00:00.000+0000') },
+          date: { $lte: new Date('2021-06-29T00:00:00.000+0000') },
           voucherType: 'DEBIT_NOTE',
           __v: { $exists: false },
           'acAdjs.roundedOff': { $exists: true },
@@ -205,6 +205,48 @@ export class MigrationService {
       results.push({ orgName: db, collectionName: purchaseCollection, matchedCount: purchases.matchedCount, modifiedCount: purchases.modifiedCount });
     }
     console.log('Round off end...');
+    console.log(results);
+    console.log('Shipping charge and tax push into taxSummary started... ');
+    const shippingDbs = ['velavanhm', 'velavanstationery'];
+    for (const sDb of shippingDbs) {
+      const vouchers: any = await connection.db(sDb).collection('sales')
+        .find({ 'acAdjs.shippingCharge': { $gt: 0 }, voucherType: 'SALE', __v: { $exists: false }, date: { $lte: new Date('2021-06-29T00:00:00.000+0000') } },
+          { projection: { taxSummary: 1, acAdjs: 1, partyGst: 1 } }).toArray();
+      const bulk = connection.db(sDb).collection('sales').initializeOrderedBulkOp();
+      for (const voucher of vouchers) {
+        const taxSummary = voucher.taxSummary;
+        const ratio = GST_TAXES.find((g) => g.code === voucher.acAdjs.shippingTax).ratio;
+        const taxItem = taxSummary.find((t) => t.tax === voucher.acAdjs.shippingTax);
+        let cgstAmount = 0;
+        let sgstAmount = 0;
+        let igstAmount = 0;
+        if (voucher.partyGst && voucher.partyGst.location !== '33') {
+          igstAmount = round((voucher.acAdjs.shippingCharge * ratio.igst) / 100);
+        } else {
+          cgstAmount = round((voucher.acAdjs.shippingCharge * ratio.cgst) / 100);
+          sgstAmount = round((voucher.acAdjs.shippingCharge * ratio.sgst) / 100);
+        }
+        if (taxItem) {
+          taxItem.taxableAmount += voucher.acAdjs.shippingCharge;
+          taxItem.cgstAmount += cgstAmount;
+          taxItem.sgstAmount += sgstAmount;
+          taxItem.igstAmount += igstAmount;
+        } else {
+          taxSummary.push({
+            tax: voucher.acAdjs.shippingTax,
+            taxableAmount: voucher.acAdjs.shippingCharge,
+            cgstAmount,
+            sgstAmount,
+            igstAmount,
+          });
+        }
+        bulk.find({ _id: voucher._id }).updateOne({ $set: { taxSummary } });
+      }
+      const result = await bulk.execute();
+      results.push({ dbName: sDb, nMatched: result.nMatched, nModified: result.nModified });
+    }
+    console.log('Shipping charge and tax push into taxSummary end... ');
+    console.log('final results below');
     console.log(results);
     return results;
   }
