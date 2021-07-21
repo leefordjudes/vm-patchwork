@@ -20,7 +20,7 @@ export class DataModifyService {
     if (!connection.isConnected) {
       return 'Connection failed';
     }
-    const dbs = ['velavanstationery', 'velavanhm', 'ttgold', 'ttgoldpalace', 'auditplustech', 'ramasamy', 'velavanmedical', 'velavanmed'];
+    const dbs = ['velavanstationery', 'velavanhm', 'ttgold', 'ttgoldpalace', 'auditplustech', 'ramasamy', 'velavanmedical', 'velavanmed', 'rkmedicals', 'testorg', 'omshakthi', 'praba'];
     for (const db of dbs) {
       const vendorAccounts: any = await connection.db(db).collection('accounts')
         .find({ party: { $exists: true }, accountType: 'TRADE_PAYABLE' }, { projection: { party: 1 } }).toArray();
