@@ -15,7 +15,7 @@ export class DataModifyService {
     if (!connection.isConnected) {
       return 'Connection failed';
     }
-    const dbs = ['velavanstationery', 'velavanhm', 'ttgold', 'ttgoldpalace', 'auditplustech', 'ramasamy', '10velavanmedical', 'velavanmed', 'rkmedicals', 'testorg', 'omshakthi', 'praba'];
+    const dbs = ['velavanstationery', 'velavanhm', 'ttgold', 'ttgoldpalace', 'auditplustech', 'ramasamy', 'velavanmedical', 'velavanmed', 'rkmedicals', 'testorg', 'omshakthi', 'praba'];
     for (const db of dbs) {
       console.log(`${db} update started...`);
       const gstRegArray = [];
