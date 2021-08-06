@@ -33,7 +33,9 @@ export class DataModifyService {
         );
       }
       if (gstRegArray.length > 0) {
+        console.log(`${db} gst_registrations insert started...`);
         await connection.db(db).collection('gst_registrations').insertMany(gstRegArray);
+        console.log(`${db} gst_registrations insert started...`);
       }
       const branchUpdateArray = [];
       const voucherNumberingArray = [];
@@ -60,10 +62,24 @@ export class DataModifyService {
         );
       }
       if (branchUpdateArray.length > 0) {
+        console.log(`${db} branch update started...`);
         await connection.db(db).collection('branches').bulkWrite(branchUpdateArray);
+        console.log(`${db} branch update end...`);
       }
       if (voucherNumberingArray.length > 0) {
+        voucherNumberingArray.push(
+          {
+            updateMany: {
+              filter: {},
+              update: {
+                $unset: { prefix: 1, suffix: 1 },
+              },
+            },
+          },
+        );
+        console.log(`${db} voucher_numberings update started...`);
         await connection.db(db).collection('voucher_numberings').bulkWrite(voucherNumberingArray);
+        console.log(`${db} voucher_numberings update end...`);
       }
       const masterArray = [
         {
@@ -213,11 +229,32 @@ export class DataModifyService {
           },
         },
       ];
+      console.log(`${db} customers update started...`);
       await connection.db(db).collection('customers').bulkWrite(masterArray);
+      console.log(`${db} customers update end...`);
+
+      console.log(`${db} vendor update started...`);
       await connection.db(db).collection('vendors').bulkWrite(masterArray);
+      console.log(`${db} vendor update end...`);
+
+      console.log(`${db} sales update started...`);
       await connection.db(db).collection('sales').bulkWrite(voucherArray);
+
+      await connection.db(db).collection('sales').updateMany({}, { $unset: { 'invTrns.$[].profitPercent': 1, 'invTrns.$[].tax': 1 } });
+      console.log(`${db} sales update end...`);
+
+      console.log(`${db} purchases update started...`);
       await connection.db(db).collection('purchases').bulkWrite(voucherArray);
-      console.log(`${db} update end...`);
+      await connection.db(db).collection('purchases').updateMany({}, { $unset: { 'invTrns.$[].tax': 1 } });
+      console.log(`${db} purchases update end...`);
+
+      console.log(`${db} stock_adjustments update started...`);
+      await connection.db(db).collection('stock_adjustments').updateMany({}, { $unset: { 'invTrns.$[].tax': 1 } });
+      console.log(`${db} stock_adjustments update end...`);
+
+      console.log(`${db} inventory_transactions update started...`);
+      await connection.db(db).collection('inventory_transactions').updateMany({ voucherType: { $in: ['SALE', 'CREDIT_NOTE'] } }, { $unset: { profitPercent: 1 } });
+      console.log(`${db} inventory_transactions end...`);
     }
     console.log('All organizations update sucessfully...');
     return 'All organizations update sucessfully...';
