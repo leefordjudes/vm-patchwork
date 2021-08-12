@@ -6,9 +6,9 @@ import { DataModifyService } from './data-modify.service';
 export class DataModifyController {
   constructor(private readonly dataModifyService: DataModifyService) { }
 
-  @Post('gst-reg')
+  @Post('price')
   async checkValidation() {
-    console.log('auditplus/gst-reg controller init');
-    return await this.dataModifyService.gstReg();
+    console.log('auditplus/price controller init');
+    return await this.dataModifyService.price();
   }
 }
