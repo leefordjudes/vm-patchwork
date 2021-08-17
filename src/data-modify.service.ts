@@ -21,7 +21,7 @@ export class DataModifyService {
       PURCHASE = 'purchases',
       INV_BRANCH_DETAIL = 'inv_branch_details',
     }
-    const dbs = ['velavanstationery', 'velavanhm', 'ttgold', 'ttgoldpalace', 'auditplustech', 'ramasamy', 'velavanmedical', 'velavanmed', 'rkmedicals', 'testorg', 'omshakthi', 'praba'];
+    const dbs = ['velavanstationery', 'velavanhm', 'ttgold', 'ttgoldpalace', 'auditplustech', 'ramasamy', 'velavanmedical', 'velavanmed', 'rkmedicals', 'testorg', 'omshakthi'];
     const mode = 'P';
     for (const db of dbs) {
       console.log(`${db} started...`);
