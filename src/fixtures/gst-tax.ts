@@ -60,14 +60,14 @@ export const GST_TAXES = [
     code: 'gstna',
     ratio: { cgst: 0, sgst: 0, igst: 0 },
   },
-  {
-    name: 'Nil Rated',
-    code: 'gstnr',
-    ratio: { cgst: 0, sgst: 0, igst: 0 },
-  },
+  // {
+  //   name: 'Nil Rated',
+  //   code: 'gstnr',
+  //   ratio: { cgst: 0, sgst: 0, igst: 0 },
+  // },
   {
     name: 'GST Exempt',
-    code: 'gstex',
+    code: 'gstexempt',
     ratio: { cgst: 0, sgst: 0, igst: 0 },
   },
   {
