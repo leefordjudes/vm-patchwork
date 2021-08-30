@@ -41,7 +41,9 @@ function getGstRatio(partyGst: any, tax: string) {
   const cgst = tax ? gstTax.ratio.cgst : 0;
   const sgst = tax ? gstTax.ratio.sgst : 0;
   const igst = tax ? gstTax.ratio.igst : 0;
-  if (partyGst.location === '33') {
+  if (partyGst && partyGst.location === '33') {
+    _.assign(gstRatio, { igst: 0, cgst, sgst, natureOfTrn: 'Regular' });
+  } else if (!partyGst) {
     _.assign(gstRatio, { igst: 0, cgst, sgst, natureOfTrn: 'Regular' });
   } else {
     _.assign(gstRatio, { igst, cgst: 0, sgst: 0, natureOfTrn: 'Regular' });
@@ -108,7 +110,6 @@ export class DataModifyService {
       } else {
         console.log(`${db} PURCHASE VOUCHER NOT FOUND...`);
       }
-      console.log(purchaseVouchers);
       console.log(`${db} purchases End**`);
       console.log(`${db} GST Voucher Started...`);
       const gstVulkOp = connection.db(db).collection(COLLECTIONS.GST_VOUCHER).initializeOrderedBulkOp();
