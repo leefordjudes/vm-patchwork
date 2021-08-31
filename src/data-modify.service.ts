@@ -88,6 +88,7 @@ export class DataModifyService {
     const dbs = ['velavanstationery', 'velavanhm', 'ttgold', 'ttgoldpalace', 'auditplustech', 'ramasamy', 'velavanmedical', 'velavanmed', 'rkmedicals', 'testorg', 'omshakthi'];
     // const dbs = ['velavanmedical'];
     for (const db of dbs) {
+      console.log(`${db} STARTED...`);
       console.log(`${db} purchases Started...`);
       const purchaseBulkOp = connection.db(db).collection(COLLECTIONS.PURCHASE).initializeOrderedBulkOp();
       const purchaseVouchers = await connection.db(db).collection(COLLECTIONS.PURCHASE).find({}, { projection: { invItems: 1, partyGst: 1, _id: 1 } }).toArray();
@@ -112,8 +113,8 @@ export class DataModifyService {
       }
       console.log(`${db} purchases End**`);
       console.log(`${db} GST Voucher Started...`);
-      const gstVulkOp = connection.db(db).collection(COLLECTIONS.GST_VOUCHER).initializeOrderedBulkOp();
-      const gstVouchers = await connection.db(db).collection(COLLECTIONS.GST_VOUCHER).find({}, { projection: { trns: 1, partyGst: 1, _id: 1 } }).toArray();
+      const gstVoucherBulkOp = connection.db(db).collection(COLLECTIONS.GST_VOUCHER).initializeOrderedBulkOp();
+      const gstVouchers: any = await connection.db(db).collection(COLLECTIONS.GST_VOUCHER).find({}, { projection: { trns: 1, partyGst: 1, _id: 1, acItems: 1 } }).toArray();
       for (const voucher of gstVouchers) {
         const result = buildTaxSummary(voucher.trns, voucher.partyGst);
         const taxSummary = result.map((elm) => {
@@ -125,16 +126,24 @@ export class DataModifyService {
             igstAmount: round(elm.igstAmount),
           }
         });
-        gstVulkOp.find({ _id: voucher._id }).updateOne({ $set: { taxSummary } });
+        const obj = {
+          taxSummary,
+        }
+        if (voucher.acItems && voucher.acItems.length > 0) {
+          _.assign(obj, { acAdjs: { items: voucher.acItems } });
+        }
+        gstVoucherBulkOp.find({ _id: voucher._id }).updateOne({ $set: obj, $unset: { acItems: 1 } });
       }
       if (gstVouchers.length > 0) {
-        await gstVulkOp.execute();
+        await gstVoucherBulkOp.execute();
+        gstVouchers.length = 0;
         console.log(`${db} GST Voucher End***`);
       } else {
         console.log(`${db} GST VOUCHER NOT FOUND...`);
       }
+      console.log(`${db} FINISHED***`);
     }
-    console.log('All organizations priceConfig update sucessfully...');
-    return 'All organizations priceConfig update sucessfully...';
+    console.log('All organizations tax-sum update sucessfully...');
+    return 'All organizations tax-sum update sucessfully...';
   }
 }
