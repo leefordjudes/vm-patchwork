@@ -22,23 +22,34 @@ export class DataModifyService {
     for (const db of dbs) {
       console.log(`${db} STARTED...`);
       console.log(`${db} inventories barcode update started...`);
-      const pipeLine = [
-        {
-          $addFields: {
-            barcodes: { $cond: ['$barcode', ['$barcode'], '$$REMOVE'] },
-          },
-        },
-        {
-          $unset: 'barcode',
-        },
-        {
-          $out: collectionName,
+      const inventories = await connection.db(db).collection(collectionName).find({ barcode: { $exists: true } }, { projection: { barcode: 1, _id: 1 } }).toArray();
+      const arr = [];
+      for (const inv of inventories) {
+        if (inv.barcode) {
+          const obj = {
+            updateOne: {
+              filter: { _id: inv._id },
+              update: {
+                $set: { barcodes: [inv.barcode] },
+              },
+            },
+          };
+          arr.push(obj);
         }
-      ];
-      await connection.db(db).collection(collectionName).aggregate(pipeLine).toArray();
+      }
+      if (arr.length > 0) {
+        await connection.db(db).collection(collectionName).bulkWrite(arr);
+      }
+      await connection.db(db).collection(collectionName).updateMany({ barcode: { $exists: true } }, { $unset: { barcode: 1 } });
+      try {
+        await connection.db(db).collection(collectionName).dropIndex('barcode_1');
+        console.log('barcode index dropped from inventories');
+      } catch (err) {
+        console.log('barcode index not found from inventories');
+      }
       console.log(`${db} inventories barcode update end...`);
     }
-    console.log('All organizations tax-sum update sucessfully...');
-    return 'All organizations tax-sum update sucessfully...';
+    console.log('All organizations inventories barcode update sucessfully...');
+    return 'All organizations inventories barcode update sucessfully...';
   }
 }
