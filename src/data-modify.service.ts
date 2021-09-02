@@ -22,7 +22,7 @@ export class DataModifyService {
     for (const db of dbs) {
       console.log(`${db} STARTED...`);
       console.log(`${db} inventories barcode update started...`);
-      const inventories = await connection.db(db).collection(collectionName).find({ barcode: { $exists: true } }, { projection: { barcode: 1, _id: 1 } }).toArray();
+      const inventories: any = await connection.db(db).collection(collectionName).find({ barcode: { $exists: true } }, { projection: { barcode: 1, _id: 1 } }).toArray();
       const arr = [];
       for (const inv of inventories) {
         if (inv.barcode) {
@@ -30,7 +30,7 @@ export class DataModifyService {
             updateOne: {
               filter: { _id: inv._id },
               update: {
-                $set: { barcodes: [inv.barcode] },
+                $set: { barcodes: [inv.barcode.toLowerCase()] },
               },
             },
           };
