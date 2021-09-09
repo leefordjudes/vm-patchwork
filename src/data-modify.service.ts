@@ -5,10 +5,10 @@ import * as _ from 'lodash';
 
 import { URI } from './config';
 
-const collectionName = 'inventories';
+const collectionName = 'inventory_transactions';
 @Injectable()
 export class DataModifyService {
-  async barcode() {
+  async contact() {
     const connection = await new MongoClient(URI, {
       useUnifiedTopology: true,
       useNewUrlParser: true,
@@ -17,39 +17,37 @@ export class DataModifyService {
       return 'Connection failed';
     }
 
-    const dbs = ['velavanstationery', 'velavanhm', 'ttgold', 'ttgoldpalace', 'auditplustech', 'ramasamy', 'velavanmedical', 'velavanmed', 'rkmedicals', 'testorg', 'omshakthi'];
-    // const dbs = ['velavanstationery'];
-    for (const db of dbs) {
-      console.log(`${db} STARTED...`);
-      console.log(`${db} inventories barcode update started...`);
-      const inventories: any = await connection.db(db).collection(collectionName).find({ barcode: { $exists: true } }, { projection: { barcode: 1, _id: 1 } }).toArray();
-      const arr = [];
-      for (const inv of inventories) {
-        if (inv.barcode) {
-          const obj = {
-            updateOne: {
-              filter: { _id: inv._id },
-              update: {
-                $set: { barcodes: [inv.barcode.toLowerCase()] },
-              },
-            },
-          };
-          arr.push(obj);
+    async function writeBook(db: string, collection: string, party: string) {
+      const partyId = `${party}Id`;
+      console.log({ db, collection }, `update started...`);
+      const vouchers = await connection.db(db).collection(collection).find({ [party]: { $exists: true } }, { projection: { [party]: 1, _id: 1 } }).toArray();
+      const bulk = connection.db(db).collection(collectionName).initializeOrderedBulkOp();
+      for (const voucher of vouchers) {
+        if (voucher[party]) {
+          bulk.find({ voucherId: voucher._id }).update({ $set: { [partyId]: voucher[party] } });
         }
       }
-      if (arr.length > 0) {
-        await connection.db(db).collection(collectionName).bulkWrite(arr);
+      if (vouchers.length > 0) {
+        await bulk.execute();
+        vouchers.length = 0;
       }
-      await connection.db(db).collection(collectionName).updateMany({ barcode: { $exists: true } }, { $unset: { barcode: 1 } });
-      try {
-        await connection.db(db).collection(collectionName).dropIndex('barcode_1');
-        console.log('barcode index dropped from inventories');
-      } catch (err) {
-        console.log('barcode index not found from inventories');
-      }
-      console.log(`${db} inventories barcode update end...`);
+      console.log({ db, collection }, `update end ***`);
     }
-    console.log('All organizations inventories barcode update sucessfully...');
-    return 'All organizations inventories barcode update sucessfully...';
+
+    const dbs = ['velavanstationery', 'velavanhm', 'ttgold', 'ttgoldpalace', 'auditplustech', 'ramasamy', 'velavanmedical', 'velavanmed', 'rkmedicals', 'testorg', 'omshakthi'];
+    // const dbs = ['velavanmedical'];
+    for (const db of dbs) {
+      console.log(`${db} STARTED...`);
+      const collectionArr = [
+        { collectionName: 'sales', party: 'customer' },
+        { collectionName: 'purchases', party: 'vendor' },
+      ];
+      for (const coll of collectionArr) {
+        await writeBook(db, coll.collectionName, coll.party);
+      }
+      console.log(`${db} END****`);
+    }
+    console.log('All organizations inventory_transactions partyId update sucessfully...');
+    return 'All organizations inventory_transactions partyId update sucessfully...';
   }
 }
