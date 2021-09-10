@@ -19,7 +19,7 @@ export class DataModifyService {
 
     async function writeBook(db: string, collection: string, party: string) {
       const partyId = `${party}Id`;
-      console.log({ db, collection }, `update started...`);
+      console.log({ db, collection }, `prepare started...`);
       const vouchers = await connection.db(db).collection(collection).find({ [party]: { $exists: true } }, { projection: { [party]: 1, _id: 1 } }).toArray();
       const bulk = connection.db(db).collection(collectionName).initializeOrderedBulkOp();
       for (const voucher of vouchers) {
@@ -27,6 +27,7 @@ export class DataModifyService {
           bulk.find({ voucherId: voucher._id }).update({ $set: { [partyId]: voucher[party] } });
         }
       }
+      console.log('Execution started...');
       if (vouchers.length > 0) {
         await bulk.execute();
         vouchers.length = 0;
