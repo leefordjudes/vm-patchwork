@@ -6,9 +6,9 @@ import { DataModifyService } from './data-modify.service';
 export class DataModifyController {
   constructor(private readonly dataModifyService: DataModifyService) { }
 
-  @Post('contact-id')
+  @Post('invTrns')
   async checkValidation() {
-    console.log('auditplus/contact-id controller init');
+    console.log('auditplus/invTrns controller init');
     return await this.dataModifyService.contact();
   }
 }
