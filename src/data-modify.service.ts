@@ -144,11 +144,18 @@ export class DataModifyService {
       await connection.db(db).collection('inventory_transactions').updateMany({ voucherType: 'DEBIT_NOTE' }, { $unset: { nlc: 1 } });
       await connection.db(db).collection('inventory_transactions').updateMany({ voucherName: 'Stock Adjustment', batch: { $exists: false } }, { $unset: { nlc: 1 } });
       console.log(`NLC field UNSET in DEBIT_NOTE, stock_adjustments, and inventory_transactions ended...`);
-      const vouchers =  await connection.db(db).collection('material_conversions').find({}).toArray();
-      for (const voucher of vouchers) {
-        const a = voucher.invItems;
-        const b = voucher.invTrns;
-      }
+
+
+
+      // const vouchers = await connection.db(db).collection('material_conversions').find({}, { projection: { invItems: 1, invTrns: 1, _id: 1 } }).toArray();
+      // const bulkOp = connection.db(db).collection('material_conversions').initializeOrderedBulkOp();
+      // for (const voucher of vouchers) {
+      //   bulkOp.find({ _id: voucher._id }).updateOne({ $set: voucher.invTrns });
+      // }
+      // if (vouchers.length > 0) {
+      //  await bulkOp.execute();
+      //  vouchers.length = 0;
+      // }
       console.log(`${db} END****`);
     }
     console.log('All organizations update sucessfully...');
