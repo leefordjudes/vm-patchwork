@@ -45,21 +45,27 @@ export class DataModifyService {
               const invTrns = voucher.invTrns.map((elm) => {
                 let item;
                 if (collection === 'inventory_openings') {
-                  item = voucher[items].find((item) => {
-                    if (elm.batchNo && (item.batchNo === elm.batchNo)) {
-                      return item;
-                    } else if (elm.batch && item.batch && (item.batch.toString() === elm.batch.toString())) {
-                      return item;
+                  item = voucher[items].find((x) => {
+                    if (elm.batchNo && (x.batchNo === elm.batchNo)) {
+                      return x;
+                    } else if (elm.batch && x.batch && (x.batch.toString() === elm.batch.toString())) {
+                      return x;
                     }
                   });
                 } else {
-                  item = voucher[items].find((item) => {
-                    if ((elm.inventory.toString() === item.inventory.toString()) && elm.batchNo && (item.batchNo === elm.batchNo)) {
-                      return item;
-                    } else if ((elm.inventory.toString() === item.inventory.toString()) && elm.batch && item.batch && (item.batch.toString() === elm.batch.toString())) {
-                      return item;
+                  item = voucher[items].find((y) => {
+                    if ((elm.inventory.toString() === y.inventory.toString()) && elm.batchNo && (y.batchNo === elm.batchNo)) {
+                      return y;
+                    } else if ((elm.inventory.toString() === y.inventory.toString()) && elm.batch && y.batch && (y.batch.toString() === elm.batch.toString())) {
+                      return y;
                     }
                   });
+                }
+                if (!item) {
+                  item = {
+                    qty: elm.inward / elm.unitConv,
+                    unitPrecision: 0
+                  }
                 }
                 const obj = {
                   _id: new Types.ObjectId(),
@@ -120,6 +126,13 @@ export class DataModifyService {
         } else {
           console.log(`${collection} not found`);
         }
+        console.log(`dropIndexes started`);
+        try {
+          await connection.db(db).collection(collection).dropIndexes();
+        } catch(err) {
+          console.log(`collection not found ${err}`);
+        }
+        console.log(`dropIndexes end`);
         console.log(`${collection} END****`);
       }
       console.log(`gst-voucher started...`);
@@ -128,7 +141,7 @@ export class DataModifyService {
       const bulkGstOperation = connection.db(db).collection('gst_vouchers').initializeOrderedBulkOp();
       for (const gstVoucher of gstVouchers) {
         const acTrns = gstVoucher.acTrns.map((elm) => {
-          const trnItem = gstVoucher.trns.find((trn) => trn.account.toString() === elm.account.toString());
+          const trnItem = gstVoucher.trns.find((trn) => trn.tax && trn.account.toString() === elm.account.toString());
           const acTrnObj = {
             _id: new Types.ObjectId(),
             pending: elm._id,
@@ -183,7 +196,7 @@ export class DataModifyService {
       console.log(`${db} organization END...`);
       await connection.db(db).collection('inventory_transactions').updateMany({ voucherName: 'Stock Adjustment', __v: { $exists: true } }, { $unset: { pRate: 1 } });
     }
-    console.log('All organizations inventory vouchers update sucessfully...');
-    return 'All organizations inventory vouchers update sucessfully...';
+    console.log('All organizations inventory, account vouchers update sucessfully...');
+    return 'All organizations inventory, account vouchers update sucessfully...';
   }
 }
