@@ -129,7 +129,7 @@ export class DataModifyService {
         console.log(`dropIndexes started`);
         try {
           await connection.db(db).collection(collection).dropIndexes();
-        } catch(err) {
+        } catch (err) {
           console.log(`collection not found ${err}`);
         }
         console.log(`dropIndexes end`);
@@ -141,21 +141,26 @@ export class DataModifyService {
       const bulkGstOperation = connection.db(db).collection('gst_vouchers').initializeOrderedBulkOp();
       for (const gstVoucher of gstVouchers) {
         const acTrns = gstVoucher.acTrns.map((elm) => {
-          const trnItem = gstVoucher.trns.find((trn) => trn.tax && trn.account.toString() === elm.account.toString());
           const acTrnObj = {
             _id: new Types.ObjectId(),
             pending: elm._id,
             account: elm.account,
             accountType: elm.accountType,
             adjs: elm.adjs?.length > 0 ? elm.adjs : null,
-            rate: trnItem.rate,
-            tax: trnItem.tax,
             credit: elm.credit,
             debit: elm.debit,
           };
           return (_.pickBy(acTrnObj, v => v !== null && v !== undefined && v !== ''));
         });
-        bulkGstOperation.find({ _id: gstVoucher._id }).updateOne({ $set: { acTrns }, $unset: { trns: 1 } });
+        const trns = gstVoucher.trns.map((trn) => {
+          return {
+            _id: new Types.ObjectId(),
+            account: trn.account,
+            rate: trn.rate,
+            tax: trn.tax,
+          }
+        });
+        bulkGstOperation.find({ _id: gstVoucher._id }).updateOne({ $set: { acTrns, trns } });
       }
       if (gstVouchers.length > 0) {
         await bulkGstOperation.execute();
@@ -166,17 +171,18 @@ export class DataModifyService {
       for (const accCollection of accCollections) {
         console.log(`${accCollection} started...`);
         const accVouchers: any = await connection.db(db).collection(accCollection)
-          .find({}, { projection: { acTrns: 1 } }).toArray();
+          .find({}, { projection: { acTrns: 1, trns: 1 } }).toArray();
         const bulkAccOperation = connection.db(db).collection(accCollection).initializeOrderedBulkOp();
         for (const accVoucher of accVouchers) {
           const acTrns = accVoucher.acTrns.map((elm) => {
+            const trn = accVoucher.trns.find((t) => t.chequeDetail && t.account.toString() === elm.account.toString());
             const acTrnObj = {
               _id: new Types.ObjectId(),
               pending: elm._id,
               account: elm.account,
               accountType: elm.accountType,
               adjs: elm.adjs?.length > 0 ? elm.adjs : null,
-              chequeDetail: elm.chequeDetail ? elm.chequeDetail : null,
+              chequeDetail: trn?.chequeDetail ? trn.chequeDetail : null,
               effDate: elm.effDate,
               refNo: elm.refNo,
               credit: elm.credit,
@@ -192,9 +198,10 @@ export class DataModifyService {
         console.log(`${accCollection} end...`);
         accVouchers.length = 0;
       }
-
+      console.log('In inventory_transactions pRate,nlc unset on Stock Adjustment started');
+      await connection.db(db).collection('inventory_transactions').updateMany({ voucherName: 'Stock Adjustment', batch: { $exists: false } }, { $unset: { pRate: 1, nlc: 1 } });
+      console.log('In inventory_transactions pRate,nlc unset on Stock Adjustment end..');
       console.log(`${db} organization END...`);
-      await connection.db(db).collection('inventory_transactions').updateMany({ voucherName: 'Stock Adjustment', __v: { $exists: true } }, { $unset: { pRate: 1 } });
     }
     console.log('All organizations inventory, account vouchers update sucessfully...');
     return 'All organizations inventory, account vouchers update sucessfully...';
