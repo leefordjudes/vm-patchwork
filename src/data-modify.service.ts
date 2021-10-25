@@ -175,14 +175,17 @@ export class DataModifyService {
         const bulkAccOperation = connection.db(db).collection(accCollection).initializeOrderedBulkOp();
         for (const accVoucher of accVouchers) {
           const acTrns = accVoucher.acTrns.map((elm) => {
-            const trn = accVoucher.trns.find((t) => t.chequeDetail && t.account.toString() === elm.account.toString());
+            let trn;
+            if (accVoucher?.trns?.length > 0) {
+              trn = accVoucher.trns.find((t) => t.chequeDetail && t.account.toString() === elm.account.toString());
+            }
             const acTrnObj = {
               _id: new Types.ObjectId(),
               pending: elm._id,
               account: elm.account,
               accountType: elm.accountType,
               adjs: elm.adjs?.length > 0 ? elm.adjs : null,
-              chequeDetail: trn?.chequeDetail ? trn.chequeDetail : null,
+              chequeDetail: trn && trn.chequeDetail ? trn.chequeDetail : null,
               effDate: elm.effDate,
               refNo: elm.refNo,
               credit: elm.credit,
