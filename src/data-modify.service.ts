@@ -92,7 +92,7 @@ export class DataModifyService {
                   sRateTaxInc: elm.sRateTaxInc,
 
                   tax: item.tax,
-                  qty: elm.outward > 0 && collection === 'stock_adjustments' ? item.qty * -1 : item.qty,
+                  qty: elm.outward > 0 && collection === 'stock_adjustments' ? Math.abs(item.qty) * -1 : item.qty,
                   unitPrecision: item.unitPrecision,
                   freeQty: item.freeQty,
                   disc: item.disc,
