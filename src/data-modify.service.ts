@@ -3,7 +3,7 @@ import { MongoClient } from 'mongodb';
 
 import * as _ from 'lodash';
 
-import { URI } from './config';
+import { DBS, URI } from './config';
 import { Types } from 'mongoose';
 
 @Injectable()
@@ -17,9 +17,8 @@ export class DataModifyService {
       return 'Connection failed';
     }
 
-    const dbs = ['velavanstationery', 'velavanhm', 'ttgold', 'ttgoldpalace', 'auditplustech', 'ramasamy', 'velavanmedical', 'velavanmed', 'rkmedicals', 'testorg', 'omshakthi'];
     const collections = ['purchases', 'sales', 'stock_adjustments', 'stock_transfers', 'inventory_openings'];
-    for (const db of dbs) {
+    for (const db of DBS) {
       console.log(`${db} organization STARTED...`);
       for (const collection of collections) {
         let items = 'invItems';
