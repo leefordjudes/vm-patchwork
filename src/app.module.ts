@@ -3,7 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 
 import { URI } from './config';
 import { DataModifyController } from './data-modify.controller';
-import { DataModifyService } from './data-modify.service';
+import { StockTransferIssueFixService } from './stktrns-issue-fix.service';
 
 @Module({
   imports: [
@@ -18,7 +18,7 @@ import { DataModifyService } from './data-modify.service';
     DataModifyController,
   ],
   providers: [
-    DataModifyService,
+    StockTransferIssueFixService,
   ],
 })
 export class AppModule {}

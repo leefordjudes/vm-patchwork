@@ -1,14 +1,14 @@
 import { Controller, Post } from '@nestjs/common';
 
-import { DataModifyService } from './data-modify.service';
+import { StockTransferIssueFixService } from './stktrns-issue-fix.service';
 
 @Controller('auditplus')
 export class DataModifyController {
-  constructor(private readonly dataModifyService: DataModifyService) { }
+  constructor(private readonly service: StockTransferIssueFixService) { }
 
-  @Post('voucher-trns')
+  @Post('patch')
   async checkValidation() {
-    console.log('auditplus/voucher-trns controller init');
-    return await this.dataModifyService.trns();
+    console.log('auditplus/stk-transfer-correction controller init');
+    return await this.service.trns();
   }
 }
