@@ -14,4 +14,4 @@ export const DBS = [
   'testorg',
 ];
 
-// curl --location --request POST 'http://localhost:3000/auditplus/patch'
+// curl --location --request POST 'http://localhost:3000/auditplus/stock-value'
