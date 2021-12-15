@@ -44,59 +44,72 @@ export class StockValueIssueFixService {
 
     for (const db of DBS) {
       console.log(`${db} started...`);
+      console.log(`DEBIT_NOTE nlc unset started`);
+      await connection.db(db).collection('inventory_transactions').updateMany({ voucherType: 'DEBIT_NOTE', nlc: { $exists: true } }, { $unset: { nlc: 1 } });
+      await connection.db(db).collection('purchases').updateMany({ voucherType: 'DEBIT_NOTE', 'invTrns.nlc': { $exists: true } }, { $unset: { 'invTrns.$[].nlc': 1 } });
+      console.log(`DEBIT_NOTE nlc unset end`);
       const bulkOperationPurchase: any = connection.db(db).collection('purchases').initializeOrderedBulkOp();
       const bulkOperationInventoryTrns = connection.db(db).collection('inventory_transactions').initializeOrderedBulkOp();
       const bulkOperationAccountTrns = connection.db(db).collection('account_transactions').initializeOrderedBulkOp();
       const vouchers: any = await connection.db(db).collection('purchases')
-        .find({ voucherType: 'DEBIT_NOTE' }, { projection: { invTrns: 1, branch: 1, date: 1, acTrns: 1 } })
+        .find({ voucherType: 'DEBIT_NOTE' }, { projection: { invTrns: 1, branch: 1, date: 1 } })
         .toArray();
       let i = 0;
-      let voclen = vouchers.length;
-      for (const voucher of vouchers) {
-        console.log(`voucher ${++i} of ${voclen}`);
-        const batchInfo = await getBatchInfo(db, voucher.branch, voucher.invTrns.map((trn) => trn.inventory), voucher.invTrns.map((trn) => trn.batch), voucher.date);
+      const voclen = vouchers.length;
+      if (voclen > 0) {
+        console.log('DEBIT_NOTE Operation initialize started...');
+        for (const voucher of vouchers) {
+          console.log(`voucher ${++i} of ${voclen}`);
+          const batchInfo = await getBatchInfo(db, voucher.branch, voucher.invTrns.map((trn) => trn.inventory), voucher.invTrns.map((trn) => trn.batch), voucher.date);
 
-        let assetValue = 0;
-        for (const invTrn of voucher.invTrns) {
-          const nlc = batchInfo.find((x) => x.inventory.toString() === invTrn.inventory.toString() && x.batch.toString() === invTrn.batch.toString());
-          const rowAmt = round(Math.abs(invTrn.inward) * nlc.nlc ?? 0);
-          assetValue += rowAmt;
-          const invTrnsObj = {
+          let assetValue = 0;
+          for (const invTrn of voucher.invTrns) {
+            const nlc = batchInfo.find((x) => x.inventory.toString() === invTrn.inventory.toString() && x.batch.toString() === invTrn.batch.toString());
+            const rowAmt = round(Math.abs(invTrn.inward) * nlc.nlc ?? 0);
+            assetValue += rowAmt;
+            const invTrnsObj = {
+              updateOne: {
+                filter: { _id: voucher._id, invTrns: { $elemMatch: { inventory: invTrn.inventory, batch: invTrn.batch, inward: invTrn.inward } } },
+                update: {
+                  $set: {
+                    'invTrns.$[elm].assetAmount': rowAmt,
+                  },
+                },
+                arrayFilters: [{ 'elm.inventory': invTrn.inventory, 'elm.batch': invTrn.batch, 'elm.inward': invTrn.inward }],
+              },
+            };
+            bulkOperationPurchase.raw(invTrnsObj);
+            bulkOperationInventoryTrns.find({ voucherId: voucher._id, inventory: invTrn.inventory, adjBatch: invTrn.batch, inward: invTrn.inward })
+              .update({ $set: { assetValue: rowAmt } });
+          }
+          const acTrnsObj = {
             updateOne: {
-              filter: { _id: voucher._id, invTrns: { $elemMatch: { inventory: invTrn.inventory, batch: invTrn.batch, inward: invTrn.inward } } },
+              filter: { _id: voucher._id, acTrns: { $elemMatch: { accountType: 'STOCK' } } },
               update: {
                 $set: {
-                  'invTrns.$[elm].assetAmount': rowAmt,
+                  'acTrns.$[elm].credit': round(assetValue),
                 },
               },
-              arrayFilters: [{ 'elm.inventory': invTrn.inventory, 'elm.batch': invTrn.batch, 'elm.inward': invTrn.inward }],
+              arrayFilters: [{ 'elm.accountType': 'STOCK' }],
             },
           };
-          bulkOperationPurchase.raw(invTrnsObj);
-          bulkOperationInventoryTrns.find({ voucherId: voucher._id, inventory: invTrn.inventory, adjBatch: invTrn.batch, inward: invTrn.inward })
-            .update({ $set: { assetValue: rowAmt } });
+          bulkOperationPurchase.raw(acTrnsObj);
+          bulkOperationAccountTrns.find({ voucherId: voucher._id, accountType: 'STOCK' })
+            .updateOne({ $set: { credit: round(assetValue) } });
         }
-        const acTrnsObj = {
-          updateOne: {
-            filter: { _id: voucher._id, acTrns: { $elemMatch: { accountType: 'STOCK' } } },
-            update: {
-              $set: {
-                'acTrns.$[elm].credit': round(assetValue),
-              },
-            },
-            arrayFilters: [{ 'elm.accountType': 'STOCK' }],
-          },
-        };
-        bulkOperationPurchase.raw(acTrnsObj);
-        bulkOperationAccountTrns.find({ voucherId: voucher._id, accountType: 'STOCK' })
-          .updateOne({ $set: { credit: round(assetValue) } });
+        console.log('Operation initialized end...');
+        console.log('purchase execute started');
+        await bulkOperationPurchase.execute();
+        console.log('purchase execute end');
+        console.log('Inventory Trns execute started');
+        await bulkOperationInventoryTrns.execute();
+        console.log('Inventory Trns execute end');
+        console.log('Account Trns execute started');
+        await bulkOperationAccountTrns.execute();
+        console.log('Inventory Trns execute end');
+      } else {
+        console.log('No purchase return found');
       }
-      console.log('purchase exec');
-      await bulkOperationPurchase.execute();
-      console.log('Inventory Trns exec');
-      await bulkOperationInventoryTrns.execute();
-      console.log('Account Trns exec');
-      await bulkOperationAccountTrns.execute();
       console.log(`${db} end...`);
     }
     console.log('All organizations update sucessfully...');
