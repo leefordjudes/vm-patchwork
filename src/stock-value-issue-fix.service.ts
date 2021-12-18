@@ -17,6 +17,15 @@ export class StockValueIssueFixService {
     if (!connection.isConnected) {
       return 'Connection failed';
     }
+
+    for (const db of DBS) {
+      console.log(`${db} started...`);
+      await invOpening(db);
+      await purchase(db);
+      await purchaseReturn(db);
+      console.log(`${db} end...`);
+    }
+
     async function getBatchInfo(db: string, branchId: Types.ObjectId, invIds: Types.ObjectId[], batchIds: Types.ObjectId[], date: Date) {
       const matchObj = { date: { $lte: date }, inventory: { $in: invIds }, branch: branchId, adjBatch: { $in: batchIds } };
       const pipeline = [
@@ -42,8 +51,119 @@ export class StockValueIssueFixService {
       return await connection.db(db).collection('inventory_transactions').aggregate(pipeline).toArray();
     }
 
-    for (const db of DBS) {
-      console.log(`${db} started...`);
+    async function invOpening(db: string) {
+      const bulkOperationInvOpening: any = connection.db(db).collection('inventory_openings').initializeOrderedBulkOp();
+      const bulkOperationInventoryTrns = connection.db(db).collection('inventory_transactions').initializeOrderedBulkOp();
+      const vouchers: any = await connection.db(db).collection('inventory_openings')
+        .find({}, { projection: { invTrns: 1, branch: 1 } })
+        .toArray();
+      let i = 0;
+      const len = vouchers.length;
+      if (len > 0) {
+        console.log('PURCHASE Operation initialize started...');
+        for (const voucher of vouchers) {
+          console.log(`${db}-inventory_openings ${++i} of ${len}`);
+          let assetValue = 0;
+          for (const invTrn of voucher.invTrns) {
+            const nlc = round(invTrn.nlc ?? invTrn.rate / invTrn.unitConv);
+            const rowAmount = round(invTrn.inward * nlc);
+            assetValue += rowAmount;
+            const invTrnsObj = {
+              updateOne: {
+                filter: { _id: voucher._id, invTrns: { $elemMatch: { _id: invTrn._id } } },
+                update: {
+                  $set: {
+                    'invTrns.$[elm].nlc': nlc,
+                    'invTrns.$[elm].assetAmount': rowAmount,
+                  },
+                },
+                arrayFilters: [{ 'elm._id': invTrn._id }],
+              },
+            };
+            bulkOperationInvOpening.raw(invTrnsObj);
+            bulkOperationInventoryTrns
+              .find({ voucherType: null, inventory: invTrn.inventory, adjBatch: invTrn.batch, inward: invTrn.inward, branch: voucher.branch, rate: invTrn.rate })
+              .update({ $set: { assetValue: rowAmount, nlc } });
+          }
+          bulkOperationInvOpening.find({ _id: voucher._id }).updateOne({ $set: { assetAmount: assetValue } });
+        }
+        vouchers.length = 0;
+        console.log('Operation initialized end...');
+        console.log('Opening execute started');
+        await bulkOperationInvOpening.execute();
+        console.log('Opening execute end');
+        console.log('Opening Inventory Trns execute started');
+        await bulkOperationInventoryTrns.execute();
+        console.log('Opening Inventory Trns execute end');
+      } else {
+        console.log('Inventory Opening Not found');
+      }
+    }
+
+    async function purchase(db: string) {
+      const bulkOperationPurchase: any = connection.db(db).collection('purchases').initializeOrderedBulkOp();
+      const bulkOperationInventoryTrns = connection.db(db).collection('inventory_transactions').initializeOrderedBulkOp();
+      const bulkOperationAccountTrns = connection.db(db).collection('account_transactions').initializeOrderedBulkOp();
+      const vouchers: any = await connection.db(db).collection('purchases')
+        .find({ voucherType: 'PURCHASE' }, { projection: { invTrns: 1 } })
+        .toArray();
+      const voucherLength = vouchers.length;
+      let i = 0;
+      if (voucherLength > 0) {
+        console.log('PURCHASE Operation initialize started...');
+        for (const voucher of vouchers) {
+          console.log(`${db}-PURCHASE voucher ${++i} of ${voucherLength}`);
+          let assetValue = 0;
+          for (const invTrn of voucher.invTrns) {
+            const rowAmount = round(invTrn.inward * (invTrn.nlc ?? 0));
+            assetValue += rowAmount;
+            const invTrnsObj = {
+              updateOne: {
+                filter: { _id: voucher._id, invTrns: { $elemMatch: { _id: invTrn._id } } },
+                update: {
+                  $set: {
+                    'invTrns.$[elm].assetAmount': rowAmount,
+                  },
+                },
+                arrayFilters: [{ 'elm._id': invTrn._id }],
+              },
+            };
+            bulkOperationPurchase.raw(invTrnsObj);
+            bulkOperationInventoryTrns
+              .find({ voucherId: voucher._id, inventory: invTrn.inventory, adjBatch: invTrn.batch, inward: invTrn.inward, rate: invTrn.rate })
+              .update({ $set: { assetValue: rowAmount } });
+          }
+          const acTrnsObj = {
+            updateOne: {
+              filter: { _id: voucher._id, acTrns: { $elemMatch: { accountType: 'STOCK' } } },
+              update: {
+                $set: {
+                  'acTrns.$[elm].debit': round(assetValue),
+                },
+              },
+              arrayFilters: [{ 'elm.accountType': 'STOCK' }],
+            },
+          };
+          bulkOperationPurchase.raw(acTrnsObj);
+          bulkOperationAccountTrns.find({ voucherId: voucher._id, accountType: 'STOCK' }).updateOne({ $set: { debit: round(assetValue) } });
+        }
+        vouchers.length = 0;
+        console.log('Operation initialized end...');
+        console.log('purchase execute started');
+        await bulkOperationPurchase.execute();
+        console.log('purchase execute end');
+        console.log('purchase Inventory Trns execute started');
+        await bulkOperationInventoryTrns.execute();
+        console.log('purchase Inventory Trns execute end');
+        console.log('purchase Account Trns execute started');
+        await bulkOperationAccountTrns.execute();
+        console.log('purchase Account Trns execute end');
+      } else {
+        console.log('No purchase fount');
+      }
+    }
+
+    async function purchaseReturn(db: string) {
       console.log(`DEBIT_NOTE nlc unset started`);
       await connection.db(db).collection('inventory_transactions').updateMany({ voucherType: 'DEBIT_NOTE', nlc: { $exists: true } }, { $unset: { nlc: 1 } });
       await connection.db(db).collection('purchases').updateMany({ voucherType: 'DEBIT_NOTE', 'invTrns.nlc': { $exists: true } }, { $unset: { 'invTrns.$[].nlc': 1 } });
@@ -59,7 +179,7 @@ export class StockValueIssueFixService {
       if (voclen > 0) {
         console.log('DEBIT_NOTE Operation initialize started...');
         for (const voucher of vouchers) {
-          console.log(`voucher ${++i} of ${voclen}`);
+          console.log(`${db}-DEBIT_NOTE voucher ${++i} of ${voclen}`);
           const batchInfo = await getBatchInfo(db, voucher.branch, voucher.invTrns.map((trn) => trn.inventory), voucher.invTrns.map((trn) => trn.batch), voucher.date);
 
           let assetValue = 0;
@@ -97,20 +217,20 @@ export class StockValueIssueFixService {
           bulkOperationAccountTrns.find({ voucherId: voucher._id, accountType: 'STOCK' })
             .updateOne({ $set: { credit: round(assetValue) } });
         }
+        vouchers.length = 0;
         console.log('Operation initialized end...');
-        console.log('purchase execute started');
+        console.log('purchase Return execute started');
         await bulkOperationPurchase.execute();
-        console.log('purchase execute end');
-        console.log('Inventory Trns execute started');
+        console.log('purchase Return execute end');
+        console.log('purchase Return Inventory Trns execute started');
         await bulkOperationInventoryTrns.execute();
-        console.log('Inventory Trns execute end');
-        console.log('Account Trns execute started');
+        console.log('purchase Return Inventory Trns execute end');
+        console.log('purchase Return Account Trns execute started');
         await bulkOperationAccountTrns.execute();
-        console.log('Inventory Trns execute end');
+        console.log('purchase Return Account Trns execute end');
       } else {
         console.log('No purchase return found');
       }
-      console.log(`${db} end...`);
     }
     console.log('All organizations update sucessfully...');
     return 'All organizations update sucessfully...';
