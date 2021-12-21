@@ -6,6 +6,7 @@ import * as _ from 'lodash';
 import { DBS, URI } from './config';
 import { Types } from 'mongoose';
 import { round } from './utils/utils';
+import { GST_TAXES } from './fixtures/gst-tax';
 
 @Injectable()
 export class StockValueIssueFixService {
@@ -23,6 +24,7 @@ export class StockValueIssueFixService {
       await invOpening(db);
       await purchase(db);
       await purchaseReturn(db);
+      // await gstVoucher(db);
       console.log(`${db} end...`);
     }
 
@@ -230,6 +232,55 @@ export class StockValueIssueFixService {
         console.log('purchase Return Account Trns execute end');
       } else {
         console.log('No purchase return found');
+      }
+    }
+
+    async function gstVoucher(db: string) {
+      console.log(`${db}-gst vouchers end`);
+      const bulkOperationGstVoucher: any = connection.db(db).collection('gst_vouchers').initializeOrderedBulkOp();
+      const vouchers: any = await connection.db(db).collection('gst_vouchers')
+        .find({}, { projection: { partyGst: 1, trns: 1 } })
+        .toArray();
+      let i = 0;
+      const voclen = vouchers.length;
+      if (voclen > 0) {
+        console.log('gst_vouchers Operation initialize started...');
+        for (const voucher of vouchers) {
+          console.log(`${db}-gst_vouchers ${++i} of ${voclen}`);
+          let localTax = true;
+          if (voucher.partyGst && voucher.partyGst.location && voucher.partyGst.location !== '33') {
+            localTax = false;
+          }
+          for (const trn of voucher.trns) {
+            let gstAmount = 0;
+            let igstAmount = 0;
+            const gst = GST_TAXES.find((x) => x.code === trn.tax).ratio;
+            if (localTax) {
+              gstAmount = round(trn.rate * (gst.cgst / 100));
+            } else {
+              igstAmount = round(trn.rate * (gst.igst / 100));
+            }
+            const trnObj = {
+              updateOne: {
+                filter: { _id: voucher._id, trns: { $elemMatch: { _id: trn._id } } },
+                update: {
+                  $set: {
+                    'trns.$[elm].taxableAmount': trn.rate,
+                    'trns.$[elm].cgstAmount': gstAmount,
+                    'trns.$[elm].sgstAmount': gstAmount,
+                    'trns.$[elm].igstAmount': igstAmount,
+                  },
+                },
+                arrayFilters: [{ 'elm._id': trn._id }],
+              },
+            };
+            bulkOperationGstVoucher.raw(trnObj);
+          }
+        }
+        await bulkOperationGstVoucher.execute();
+        console.log(`${db}-gst vouchers end`);
+      } else {
+        console.log(`No gst vouchers found`);
       }
     }
     console.log('All organizations update sucessfully...');
