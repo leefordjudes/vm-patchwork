@@ -24,7 +24,7 @@ export class StockValueIssueFixService {
       await invOpening(db);
       await purchase(db);
       await purchaseReturn(db);
-      // await gstVoucher(db);
+      await gstVoucher(db);
       console.log(`${db} end...`);
     }
 
@@ -277,6 +277,8 @@ export class StockValueIssueFixService {
             bulkOperationGstVoucher.raw(trnObj);
           }
         }
+        bulkOperationGstVoucher.find({ voucherName: 'GST Expense' }).update({ $set: { partyType: 'VENDOR' } });
+        bulkOperationGstVoucher.find({ voucherName: 'GST Income' }).update({ $set: { partyType: 'CUSTOMER' } });
         await bulkOperationGstVoucher.execute();
         console.log(`${db}-gst vouchers end`);
       } else {
