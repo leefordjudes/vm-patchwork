@@ -1,22 +1,13 @@
-import { Body, Controller, Post, Put } from '@nestjs/common';
-import { AppService } from './app.service';
+import { Controller, Post } from '@nestjs/common';
+import { BankReconciliationStatementService } from './brs.service';
 
-@Controller()
+@Controller('auditplus')
 export class AppController {
-  constructor(private readonly appService: AppService) {}
+  constructor(private readonly service: BankReconciliationStatementService) {}
 
-  // velavan medical patch work 2
-
-  // @Put('update-db-records')
-  // async updateDbRecords(@Body('orgType') orgType: string) {
-  //   return await this.appService.updateDatabaseRecords(orgType);
-  // }
-  // @Put('update-tax-acc')
-  // async updateCreatedByUpdatedBy(@Body('orgType') orgType: string) {
-  //   return await this.appService.updateCreatedByUpdatedBy(orgType);
-  // }
-  // @Put('update-m2-cust-createdby-updatedby')
-  // async updateM2CreatedByUpdatedByCustomer() {
-  //   return await this.appService.updateM2CreatedByUpdatedByCustomer();
-  // }
+  @Post('brs')
+  async stockValue() {
+    console.log('auditplus/bank reconciliation statement controller init');
+    return await this.service.patch();
+  }
 }
