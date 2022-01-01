@@ -39,7 +39,7 @@ export class BankReconciliationStatementService {
               branch: voucher.branch,
               bankDate: voucher.date,
               account: acTrn.account,
-              partyAccount: collection === 'account_openings' ? undefined : acTrn.chequeDetail?.partyAccount ?? acTrn.credit > 0 ? crAlt.account : drAlt.account,
+              altAccount: collection === 'account_openings' ? undefined : acTrn.credit > 0 ? crAlt.account : drAlt.account,
               instNo: acTrn.chequeDetail?.instNo,
               instDate: acTrn.chequeDetail?.instDate,
               inFavourOf: acTrn.chequeDetail?.inFavourOf,
@@ -66,10 +66,13 @@ export class BankReconciliationStatementService {
     }
     for (const db of DBS) {
       console.log(`${db} - started`);
-      const collections = ['account_openings', 'vouchers', 'sales', 'purchases'];
+      const collections = ['account_openings', 'vouchers', 'sales', 'purchases', 'gst_vouchers'];
       for (const collection of collections) {
         await bank_transactions(db, collection);
       }
+      await connection.db(db).collection('branch_transactions').drop();
+      await connection.db(db).collection('batches_rearrange').drop();
+      await connection.db(db).collection('resultspending').drop();
       console.log(`${db} - end`);
     }
     console.log('All organizations bank_transactions created successfully');
