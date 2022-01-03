@@ -70,9 +70,10 @@ export class BankReconciliationStatementService {
       for (const collection of collections) {
         await bank_transactions(db, collection);
       }
-      await connection.db(db).collection('branch_transactions').drop();
-      await connection.db(db).collection('batches_rearrange').drop();
-      await connection.db(db).collection('resultspending').drop();
+      console.log(`Drop 3 collections, branch_transactions, batches_rearrange, resultspending`);
+      await connection.db(db).collection('branch_transactions').drop().then(s => console.log(s)).catch((e) => console.log(e.message));
+      await connection.db(db).collection('batches_rearrange').drop().then(s => console.log(s)).catch((e) => console.log(e.message));
+      await connection.db(db).collection('resultspending').drop().then(s => console.log(s)).catch((e) => console.log(e.message));
       console.log(`${db} - end`);
     }
     console.log('All organizations bank_transactions created successfully');
