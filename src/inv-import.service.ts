@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { MongoClient } from 'mongodb';
 
+import * as moment from 'moment';
+
 import { URI } from './config';
 import { GST_TAXES } from './fixtures/gst-tax';
 import { Types } from 'mongoose';
@@ -16,12 +18,13 @@ export class InventoryImportService {
     if (!connection.isConnected) {
       return 'Connection failed';
     }
-    const db = 'saravanastore';
+    const db = 'swarnastores';
     const date = new Date();
     const head = (await connection.db(db).collection('inventory_heads').findOne({ defaultName: 'DEFAULT' }))._id;
     const user = (await connection.db(db).collection('users').findOne({ isAdmin: true }))._id;
     const branch = (await connection.db(db).collection('branches').findOne({}))._id;
-    const orgBookBegin = (await connection.db('auditplusdb').collection('organizations').findOne({ name: db })).bookBegin;
+    const org = await connection.db('auditplusdb').collection('organizations').findOne({ name: db });
+    const orgBookBegin = moment(org.bookBegin).subtract(1, 'day').toDate();
     const sectionArr = [
       {
         name: 'GENERAL',
