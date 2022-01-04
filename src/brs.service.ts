@@ -37,7 +37,6 @@ export class BankReconciliationStatementService {
               _id: acTrn._id,
               date: voucher.date,
               branch: voucher.branch,
-              bankDate: voucher.date,
               account: acTrn.account,
               altAccount: collection === 'account_openings' ? undefined : acTrn.credit > 0 ? crAlt.account : drAlt.account,
               instNo: acTrn.chequeDetail?.instNo,

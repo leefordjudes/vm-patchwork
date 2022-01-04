@@ -13,4 +13,5 @@ export const DBS = [
   'rkmedicals',
   'omshakthi',
   'testorg',
+  'swarnastores',
 ];
