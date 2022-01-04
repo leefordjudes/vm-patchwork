@@ -64,6 +64,7 @@ export class BankReconciliationStatementService {
       }
     }
     for (const db of DBS) {
+      await connection.db(db).collection('bank_transactions').drop().then(s => console.log(s)).catch((e) => console.log(e.message));
       console.log(`${db} - started`);
       const collections = ['account_openings', 'vouchers', 'sales', 'purchases', 'gst_vouchers'];
       for (const collection of collections) {
