@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { MongoClient } from 'mongodb';
 
-import * as moment from 'moment';
+import * as csvParse from 'csv-parse/lib/sync';
 
 import { URI } from './config';
 import { GST_TAXES } from './fixtures/gst-tax';
@@ -10,7 +10,7 @@ import { round } from './utils/utils';
 
 @Injectable()
 export class InventoryImportService {
-  async patch() {
+  async invImport(files: any) {
     const connection = await new MongoClient(URI, {
       useUnifiedTopology: true,
       useNewUrlParser: true,
@@ -23,8 +23,7 @@ export class InventoryImportService {
     const head = (await connection.db(db).collection('inventory_heads').findOne({ defaultName: 'DEFAULT' }))._id;
     const user = (await connection.db(db).collection('users').findOne({ isAdmin: true }))._id;
     const branch = (await connection.db(db).collection('branches').findOne({}))._id;
-    const org = await connection.db('auditplusdb').collection('organizations').findOne({ name: db });
-    const orgBookBegin = moment(org.bookBegin).subtract(1, 'day').toDate();
+    const orgBookBegin = new Date('2021-03-31T00:00:00.000+0000');
     const sectionArr = [
       {
         name: 'GENERAL',
@@ -33,7 +32,7 @@ export class InventoryImportService {
         createdBy: user,
         updatedBy: user,
         createdAt: date,
-        updatedAt: date,
+        updatedAt: new Date(),
       },
       {
         name: 'MILK',
@@ -42,7 +41,7 @@ export class InventoryImportService {
         createdBy: user,
         updatedBy: user,
         createdAt: date,
-        updatedAt: date,
+        updatedAt: new Date(),
       },
       {
         name: 'ONELINE SALE',
@@ -51,7 +50,7 @@ export class InventoryImportService {
         createdBy: user,
         updatedBy: user,
         createdAt: date,
-        updatedAt: date,
+        updatedAt: new Date(),
       },
       {
         name: 'SNACKS',
@@ -60,7 +59,7 @@ export class InventoryImportService {
         createdBy: user,
         updatedBy: user,
         createdAt: date,
-        updatedAt: date,
+        updatedAt: new Date(),
       },
       {
         name: 'VEGETABLES',
@@ -69,7 +68,7 @@ export class InventoryImportService {
         createdBy: user,
         updatedBy: user,
         createdAt: date,
-        updatedAt: date,
+        updatedAt: new Date(),
       },
       {
         name: 'XEROX',
@@ -78,10 +77,11 @@ export class InventoryImportService {
         createdBy: user,
         updatedBy: user,
         createdAt: date,
-        updatedAt: date,
+        updatedAt: new Date(),
       },
     ];
     await connection.db(db).collection('sections').insertMany(sectionArr);
+    sectionArr.length = 0;
     const unitArr = [
       {
         name: 'GMS',
@@ -92,7 +92,7 @@ export class InventoryImportService {
         createdBy: user,
         updatedBy: user,
         createdAt: date,
-        updatedAt: date,
+        updatedAt: new Date(),
       },
       {
         name: 'KGS',
@@ -103,7 +103,7 @@ export class InventoryImportService {
         createdBy: user,
         updatedBy: user,
         createdAt: date,
-        updatedAt: date,
+        updatedAt: new Date(),
       },
       {
         name: 'LTR',
@@ -114,7 +114,7 @@ export class InventoryImportService {
         createdBy: user,
         updatedBy: user,
         createdAt: date,
-        updatedAt: date,
+        updatedAt: new Date(),
       },
       {
         name: 'ML',
@@ -125,7 +125,7 @@ export class InventoryImportService {
         createdBy: user,
         updatedBy: user,
         createdAt: date,
-        updatedAt: date,
+        updatedAt: new Date(),
       },
       {
         name: 'NOS',
@@ -136,7 +136,7 @@ export class InventoryImportService {
         createdBy: user,
         updatedBy: user,
         createdAt: date,
-        updatedAt: date,
+        updatedAt: new Date(),
       },
       {
         name: 'OTHERS',
@@ -147,22 +147,33 @@ export class InventoryImportService {
         createdBy: user,
         updatedBy: user,
         createdAt: date,
-        updatedAt: date,
+        updatedAt: new Date(),
       },
     ];
     await connection.db(db).collection('units').insertMany(unitArr);
+    unitArr.length = 0;
     const units = await connection.db(db).collection('units').find({}, { projection: { _id: 1, displayName: 1 } }).toArray();
     const sections = await connection.db(db).collection('sections').find({}, { projection: { _id: 1, displayName: 1 } }).toArray();
     const invBulkOperation = connection.db(db).collection('inventories').initializeOrderedBulkOp();
     const invOpeningBulkOperation = connection.db(db).collection('inventory_openings').initializeOrderedBulkOp();
     const invTrnsBulkOperation = connection.db(db).collection('inventory_transactions').initializeOrderedBulkOp();
-    const vouchers = await connection.db(db).collection('inv-import').find({}).toArray();
-    for (const voucher of vouchers) {
+    let inventoryRecords: any;
+    try {
+      inventoryRecords = csvParse(files.find(f => f.originalname === 'inv-import.csv').buffer.toString(),
+        {
+          delimiter: ',', columns: true, trim: true, relax_column_count: false, relax_column_count_more: true,
+          skip_empty_lines: true, skip_lines_with_empty_values: true, skip_lines_with_error: false
+        });
+    } catch (err) {
+      throw new Error(err);
+    }
+    for (const voucher of inventoryRecords) {
       const tax = Number(voucher.PM_GSTPER) === 0 ? 'gst0' : GST_TAXES.find((t) => t.ratio.igst === Number(voucher.PM_GSTPER)).code;
       const unit = units.find((u) => u.displayName === voucher.PMUNIT);
       const section = sections.find((s) => s.displayName === voucher.PMGROUP);
+      const inventory = new Types.ObjectId();
       const invDoc = {
-        _id: voucher._id,
+        _id: inventory,
         name: voucher.PMNAME,
         displayName: voucher.PMNAME,
         validateName: voucher.PMNAME.replace(/[^a-z0-9]/gi, '').toLowerCase(),
@@ -174,7 +185,7 @@ export class InventoryImportService {
         createdBy: user,
         updatedBy: user,
         createdAt: date,
-        updatedAt: date,
+        updatedAt: new Date(),
         units: [{
           preferredForSale: true,
           preferredForPurchase: true,
@@ -194,15 +205,15 @@ export class InventoryImportService {
         assetAmount: rate,
         sRateTaxInc: true,
         date: orgBookBegin,
-        inventory: voucher._id,
-        branch: branch,
+        inventory,
+        branch,
         invTrns: [
           {
             _id: new Types.ObjectId(),
             outward: 0,
             inward: 1,
             unitPrecision: 0,
-            inventory: voucher._id,
+            inventory,
             assetAmount: rate,
             batch,
             batchNo: '1',
@@ -219,7 +230,7 @@ export class InventoryImportService {
           }
         ],
         updatedBy: user,
-        updatedAt: date,
+        updatedAt: new Date(),
       };
       const invTrnDoc = {
         outward: 0,
@@ -232,8 +243,8 @@ export class InventoryImportService {
         createdBy: user,
         updatedBy: user,
         createdAt: date,
-        updatedAt: date,
-        inventory: voucher._id,
+        updatedAt: new Date(),
+        inventory,
         assetValue: rate,
         batchNo: '1',
         barcode,
@@ -280,10 +291,9 @@ export class InventoryImportService {
       createdBy: user,
       updatedBy: user,
       createdAt: date,
-      updatedAt: date,
+      updatedAt: new Date(),
     };
     await connection.db(db).collection('account_transactions').insertOne(acTrnObj);
-    await connection.db(db).collection('inv-import').drop();
     console.log(`${db} - inv-import succesfully...`);
     return `${db} - inv-import succesfully...`;
   }
