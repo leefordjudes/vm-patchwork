@@ -8,9 +8,8 @@ export class AppController {
   constructor(private readonly service: InventoryImportService) {}
 
   @Post('inv-import')
-  @UseInterceptors(FilesInterceptor('files'))
-  async invImport(@UploadedFiles() files: any) {
+    async invImport() {
     console.log('auditplus/InventoryImportService controller init');
-    return await this.service.invImport(files);
+    return await this.service.invImport();
   }
 }

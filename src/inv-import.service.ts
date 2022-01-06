@@ -2,15 +2,18 @@ import { Injectable } from '@nestjs/common';
 import { MongoClient } from 'mongodb';
 
 import * as csvParse from 'csv-parse/lib/sync';
+import * as util from 'util';
+import * as fs from 'fs';
 
 import { URI } from './config';
 import { GST_TAXES } from './fixtures/gst-tax';
 import { Types } from 'mongoose';
 import { round } from './utils/utils';
 
+const readFileAsync = util.promisify(fs.readFile);
 @Injectable()
 export class InventoryImportService {
-  async invImport(files: any) {
+  async invImport() {
     const connection = await new MongoClient(URI, {
       useUnifiedTopology: true,
       useNewUrlParser: true,
@@ -18,6 +21,7 @@ export class InventoryImportService {
     if (!connection.isConnected) {
       return 'Connection failed';
     }
+    const csvData = (await readFileAsync('../../inv-import.csv')).toString();
     const db = 'swarnastores';
     const date = new Date();
     const head = (await connection.db(db).collection('inventory_heads').findOne({ defaultName: 'DEFAULT' }))._id;
@@ -159,7 +163,7 @@ export class InventoryImportService {
     const invTrnsBulkOperation = connection.db(db).collection('inventory_transactions').initializeOrderedBulkOp();
     let inventoryRecords: any;
     try {
-      inventoryRecords = csvParse(files.find(f => f.originalname === 'inv-import.csv').buffer.toString(),
+      inventoryRecords = csvParse(csvData,
         {
           delimiter: ',', columns: true, trim: true, relax_column_count: false, relax_column_count_more: true,
           skip_empty_lines: true, skip_lines_with_empty_values: true, skip_lines_with_error: false
