@@ -15,68 +15,93 @@ export class BankReconciliationStatementService {
     if (!connection.isConnected) {
       return 'Connection failed';
     }
-    const accTypes = ['BANK_ACCOUNT', 'BANK_OD_ACCOUNT'];
-    async function bank_transactions(db: string, collection: string) {
-      const bulkOperation = connection.db(db).collection('bank_transactions').initializeOrderedBulkOp();
-      const vouchers = await connection.db(db).collection(collection)
-        .find(
-          { acTrns: { $elemMatch: { accountType: { $in: accTypes } } } },
-          { projection: { _id: 1, branch: 1, acTrns: 1, date: 1, voucherName: 1, voucherType: 1, voucherNo: 1 } })
-        .toArray();
-      const voucherLength = vouchers.length;
-      // let i = 0;
-      if (voucherLength > 0) {
-        console.log(`${db} - ${collection} Operation initialize started...`);
-        for (const voucher of vouchers) {
-          // console.log(`${db} - ${collection} voucher ${++i} of ${voucherLength}`);
-          const acTrns = voucher.acTrns as any[];
-          const crAlt = _.maxBy(acTrns, 'debit');
-          const drAlt = _.maxBy(acTrns, 'credit');
-          for (const acTrn of acTrns.filter(x => accTypes.includes(x.accountType))) {
-            const initialDoc = {
-              _id: acTrn._id,
-              date: voucher.date,
-              branch: voucher.branch,
-              account: acTrn.account,
-              altAccount: collection === 'account_openings' ? undefined : acTrn.credit > 0 ? crAlt.account : drAlt.account,
-              instNo: acTrn.chequeDetail?.instNo,
-              instDate: acTrn.chequeDetail?.instDate,
-              inFavourOf: acTrn.chequeDetail?.inFavourOf,
-              accountType: acTrn.accountType,
-              debit: acTrn.debit,
-              credit: acTrn.credit,
-              voucherId: collection === 'account_openings' ? undefined : voucher._id,
-              voucherNo: voucher.voucherNo,
-              voucherName: voucher.voucherName,
-              voucherType: voucher.voucherType,
-            };
-            const doc = _.pickBy(initialDoc, (key) => key !== null && key !== undefined && key !== '');
-            bulkOperation.insert(doc);
-          }
-        }
-        vouchers.length = 0;
-        console.log(`${db} - ${collection} Operation initialize End...`);
-        console.log(`${db} - ${collection} execute started...`);
-        await bulkOperation.execute();
-        console.log(`${db} - ${collection} execute end...`);
-      } else {
-        console.log(`${db} - ${collection} not found...`);
-      }
-    }
     for (const db of DBS) {
-      await connection.db(db).collection('bank_transactions').drop().then(s => console.log(s)).catch((e) => console.log(e.message));
-      console.log(`${db} - started`);
-      const collections = ['account_openings', 'vouchers', 'sales', 'purchases', 'gst_vouchers'];
-      for (const collection of collections) {
-        await bank_transactions(db, collection);
-      }
-      console.log(`Drop 3 collections, branch_transactions, batches_rearrange, resultspending`);
-      await connection.db(db).collection('branch_transactions').drop().then(s => console.log(s)).catch((e) => console.log(e.message));
-      await connection.db(db).collection('batches_rearrange').drop().then(s => console.log(s)).catch((e) => console.log(e.message));
-      await connection.db(db).collection('resultspending').drop().then(s => console.log(s)).catch((e) => console.log(e.message));
-      console.log(`${db} - end`);
+      console.log(`${db} started..`);
+      await connection.db(db).collection('inv_branch_details').dropIndex('inventory_1').catch((x) => console.log(x.message));
+
+      await connection.db(db).collection('account_openings').dropIndex('account_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('account_openings').dropIndex('branch_1').catch((x) => console.log(x.message));
+
+      await connection.db(db).collection('inventory_openings').dropIndex('inventory_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('inventory_openings').dropIndex('branch_1').catch((x) => console.log(x.message));
+
+      await connection.db(db).collection('bank_transactions').dropIndex('date_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('bank_transactions').dropIndex('bankDate_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('bank_transactions').dropIndex('date_1_account_1_branch_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('bank_transactions').dropIndex('bankDate_1_account_1_branch_1').catch((x) => console.log(x.message));
+
+      await connection.db(db).collection('account_transactions').dropIndex('date_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('account_transactions').dropIndex('effDate_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('account_transactions').dropIndex('pending_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('account_transactions').dropIndex('adjPending_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('account_transactions').dropIndex('account_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('account_transactions').dropIndex('accountType_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('account_transactions').dropIndex('branch_1').catch((x) => console.log(x.message));
+
+      await connection.db(db).collection('account_transactions').dropIndex('date_1_branch_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('account_transactions').dropIndex('date_1_branch_1_account_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('account_transactions').dropIndex('date_1_branch_1_voucherType_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('account_transactions').dropIndex('date_1_branch_1_accountType_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('account_transactions').dropIndex('account_1_branch_1').catch((x) => console.log(x.message));
+
+      await connection.db(db).collection('inventory_transactions').dropIndex('date_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('inventory_transactions').dropIndex('adjBatch_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('inventory_transactions').dropIndex('branch_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('inventory_transactions').dropIndex('inventory_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('inventory_transactions').dropIndex('expiry_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('inventory_transactions').dropIndex('voucherType_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('inventory_transactions').dropIndex('createdBy_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('inventory_transactions').dropIndex('updatedBy_1').catch((x) => console.log(x.message));
+
+      await connection.db(db).collection('inventory_transactions').dropIndex('date_1_branch_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('inventory_transactions').dropIndex('date_1_branch_1_inventory_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('inventory_transactions').dropIndex('date_1_branch_1_voucherType_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('inventory_transactions').dropIndex('inventory_1_branch_1').catch((x) => console.log(x.message));
+
+      await connection.db(db).collection('sales').dropIndex('date_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('sales').dropIndex('branch_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('sales').dropIndex('voucherNo_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('sales').dropIndex('updatedAt_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('sales').dropIndex('date_1_branch_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('sales').dropIndex('date_1_branch_1_voucherType_1').catch((x) => console.log(x.message));
+
+      await connection.db(db).collection('purchases').dropIndex('date_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('purchases').dropIndex('branch_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('purchases').dropIndex('voucherNo_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('purchases').dropIndex('updatedAt_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('purchases').dropIndex('date_1_branch_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('purchases').dropIndex('date_1_branch_1_voucherType_1').catch((x) => console.log(x.message));
+
+      await connection.db(db).collection('vouchers').dropIndex('date_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('vouchers').dropIndex('branch_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('vouchers').dropIndex('voucherNo_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('vouchers').dropIndex('updatedAt_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('vouchers').dropIndex('date_1_branch_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('vouchers').dropIndex('date_1_branch_1_voucherType_1').catch((x) => console.log(x.message));
+
+      await connection.db(db).collection('gst_vouchers').dropIndex('date_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('gst_vouchers').dropIndex('voucherNo_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('gst_vouchers').dropIndex('updatedAt_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('gst_vouchers').dropIndex('date_1_branch_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('gst_vouchers').dropIndex('date_1_branch_1_partyType_1').catch((x) => console.log(x.message));
+
+      await connection.db(db).collection('stock_adjustments').dropIndex('date_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('stock_adjustments').dropIndex('branch_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('stock_adjustments').dropIndex('voucherNo_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('stock_adjustments').dropIndex('updatedAt_1').catch((x) => console.log(x.message));
+
+      await connection.db(db).collection('stock_transfers').dropIndex('date_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('stock_transfers').dropIndex('branch_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('stock_transfers').dropIndex('voucherNo_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('stock_transfers').dropIndex('updatedAt_1').catch((x) => console.log(x.message));
+
+      await connection.db(db).collection('material_conversions').dropIndex('date_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('material_conversions').dropIndex('branch_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('material_conversions').dropIndex('voucherNo_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('material_conversions').dropIndex('updatedAt_1').catch((x) => console.log(x.message));
+      console.log(`${db} end..`);
     }
-    console.log('All organizations bank_transactions created successfully');
-    return 'All organizations bank_transactions created successfully';
+    console.log('All organizations unnecessary index remove successfully');
+    return 'All organizations unnecessary index remove successfully';
   }
 }

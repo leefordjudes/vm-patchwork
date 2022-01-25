@@ -5,9 +5,9 @@ import { BankReconciliationStatementService } from './brs.service';
 export class AppController {
   constructor(private readonly service: BankReconciliationStatementService) {}
 
-  @Post('brs')
+  @Post('index')
   async stockValue() {
-    console.log('auditplus/bank reconciliation statement controller init');
+    console.log('auditplus/index index-remove controller init');
     return await this.service.patch();
   }
 }
