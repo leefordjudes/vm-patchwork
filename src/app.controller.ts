@@ -1,13 +1,13 @@
 import { Controller, Post } from '@nestjs/common';
-import { BankReconciliationStatementService } from './brs.service';
+import { PriceConfigService } from './price-config.service';
 
 @Controller('auditplus')
 export class AppController {
-  constructor(private readonly service: BankReconciliationStatementService) {}
+  constructor(private readonly service: PriceConfigService) { }
 
-  @Post('brs')
+  @Post('price-config')
   async stockValue() {
-    console.log('auditplus/bank reconciliation statement controller init');
+    console.log('auditplus/price-config controller init');
     return await this.service.patch();
   }
 }

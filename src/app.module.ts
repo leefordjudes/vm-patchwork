@@ -30,6 +30,7 @@ import { ReWriteController } from './re-write.controller';
 import { MigrationController } from './migration.controller';
 import { MigrationService } from './migration.service';
 import { BankReconciliationStatementService } from './brs.service';
+import { PriceConfigService } from './price-config.service';
 
 // const URI = 'mongodb+srv://username:password@host/database?retryWrites=true&w=majority';
 // const URI =  `mongodb://admin:12345678@192.168.1.20:27017/velavanmedical1?authSource=admin`;
@@ -59,7 +60,7 @@ import { BankReconciliationStatementService } from './brs.service';
     // MigrationController,
   ],
   providers: [
-    BankReconciliationStatementService,
+    PriceConfigService,
     // AppService,
     // Patch3Service,
     // MergeService,

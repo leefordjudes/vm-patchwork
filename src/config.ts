@@ -1,5 +1,5 @@
 export const URI = `mongodb://localhost`;
-// curl --location --request POST 'http://localhost:3000/auditplus/brs'
+// curl --location --request POST 'http://localhost:3000/auditplus/price-config'
 
 export const DBS = [
   'velavanstationery',
