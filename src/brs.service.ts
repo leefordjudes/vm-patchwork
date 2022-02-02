@@ -99,6 +99,13 @@ export class BankReconciliationStatementService {
       await connection.db(db).collection('material_conversions').dropIndex('branch_1').catch((x) => console.log(x.message));
       await connection.db(db).collection('material_conversions').dropIndex('voucherNo_1').catch((x) => console.log(x.message));
       await connection.db(db).collection('material_conversions').dropIndex('updatedAt_1').catch((x) => console.log(x.message));
+
+      await connection.db(db).collection('sale_quotations').dropIndex('date_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('sale_quotations').dropIndex('branch_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('sale_quotations').dropIndex('customer_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('sale_quotations').dropIndex('amount_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('sale_quotations').dropIndex('serialNo_1').catch((x) => console.log(x.message));
+      await connection.db(db).collection('sale_quotations').dropIndex('updatedAt_1').catch((x) => console.log(x.message));
       console.log(`${db} end..`);
     }
     console.log('All organizations unnecessary index remove successfully');
